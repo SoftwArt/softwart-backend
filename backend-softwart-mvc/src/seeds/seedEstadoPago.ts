@@ -8,7 +8,6 @@ export async function seedEstadoPago(): Promise<void> {
   await repo.save(repo.create([
     { nombre: "Pendiente" },
     { nombre: "Validado"  },
-    { nombre: "Rechazado" },
   ]));
-  console.log("✅  EstadoPago sembrado (3)");
+  console.log("✅  EstadoPago sembrado (2)");
 }

@@ -16,6 +16,12 @@ export class Usuario {
 
   @Column({ type: "boolean" })
   estado!: boolean;
+  
+  @Column({ type: "varchar", nullable: true })
+  token_recuperacion!: string | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  token_expira!: Date | null;
 
   @ManyToOne(() => Rol, (x) => x.usuarios)
   @JoinColumn({ name: "id_rol" })
