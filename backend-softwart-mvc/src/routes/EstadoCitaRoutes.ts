@@ -1,26 +1,20 @@
-// Generado automáticamente por generate-routes.js
 import { Router } from "express";
-import { getAllEstadoCita, getEstadoCitaById, createEstadoCita, updateEstadoCita, deleteEstadoCita, cambiarEstadoCita } from "../controllers/EstadoCitaController";
+import { getAllEstadoCita, getEstadoCitaById, createEstadoCita,
+         updateEstadoCita, deleteEstadoCita, cambiarEstadoCita } from "../controllers/EstadoCitaController";
+import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// ── Rutas de EstadoCita ──────────────────────────────────────
-// GET    /           → listar todos
-router.get("/", getAllEstadoCita);
-
-// GET    /:id      → obtener uno por ID
+// ── Públicos (frontend landing y formularios los consumen) ───
+router.get("/",    getAllEstadoCita);
 router.get("/:id", getEstadoCitaById);
 
-// POST   /           → crear nuevo
-router.post("/", createEstadoCita);
+// ── Admin + Empleado ─────────────────────────────────────────
+router.post("/",   verifyToken, requireRol("Admin", "Empleado"), createEstadoCita);
+router.put("/:id", verifyToken, requireRol("Admin", "Empleado"), updateEstadoCita);
+router.delete("/:id", verifyToken, requireRol("Admin", "Empleado"), deleteEstadoCita);
 
-// PUT    /:id      → actualizar
-router.put("/:id", updateEstadoCita);
-
-// DELETE /:id      → eliminar (valida dependencias)
-router.delete("/:id", deleteEstadoCita);
-
-// PATCH  /cita/:id_cita/estado            → Cambia el estado de una Cita
-router.patch("/cita/:id_cita/estado", cambiarEstadoCita);
+// PATCH /cita/:id_cita/estado → cambiar estado de una Cita
+router.patch("/cita/:id_cita/estado", verifyToken, requireRol("Admin", "Empleado"), cambiarEstadoCita);
 
 export { router as estadoCitaRouter };

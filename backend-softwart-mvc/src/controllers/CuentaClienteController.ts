@@ -1,23 +1,23 @@
 // src/controllers/CuentaClienteController.ts
 import { Request, Response } from "express";
-import { AppDataSource } from "../data-source";
-import { Cliente } from "../models/Cliente";
-import { Usuario } from "../models/Usuario";
-import { Cita } from "../models/Cita";
-import { Venta } from "../models/Venta";
-import bcrypt from "bcrypt";
+import { AppDataSource }     from "../data-source";
+import { Cliente }           from "../models/Cliente";
+import { Usuario }           from "../models/Usuario";
+import { Cita }              from "../models/Cita";
+import { EstadoCita }        from "../models/EstadoCita";
+import { Venta }             from "../models/Venta";
+import bcrypt                from "bcrypt";
+import {
+  sendCitaConfirmacionEmail,
+  CitaConfirmacionData,
+} from "../services/email.service";
 
 // ── GET /api/cuenta/perfil ────────────────────────────────────────────────────
 export const verPerfil = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clienteRepo = AppDataSource.getRepository(Cliente);
-    const cliente = await clienteRepo.findOneBy({ id_cliente: req.user!.id_cliente! });
-
-    if (!cliente) {
-      res.status(404).json({ success: false, message: "Perfil no encontrado" });
-      return;
-    }
-
+    const cliente = await AppDataSource.getRepository(Cliente)
+      .findOneBy({ id_cliente: req.user!.id_cliente! });
+    if (!cliente) { res.status(404).json({ success: false, message: "Perfil no encontrado" }); return; }
     res.json({ success: true, data: cliente });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener perfil", error });
@@ -25,69 +25,122 @@ export const verPerfil = async (req: Request, res: Response): Promise<void> => {
 };
 
 // ── PUT /api/cuenta/perfil ────────────────────────────────────────────────────
+// Caso 1 — datos personales: { nombre?, telefono?, correo? }
+// Caso 2 — cambio de clave:  { clave_actual, clave }
 export const editarPerfil = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Cliente);
     const usuarioRepo = AppDataSource.getRepository(Usuario);
-
     const cliente = await clienteRepo.findOneBy({ id_cliente: req.user!.id_cliente! });
     const usuario = await usuarioRepo.findOne({ where: { correo: req.user!.correo } });
+    if (!cliente || !usuario) { res.status(404).json({ success: false, message: "Cuenta no encontrada" }); return; }
 
-    if (!cliente || !usuario) {
-      res.status(404).json({ success: false, message: "Cuenta no encontrada" });
+    const { nombre, telefono, correo, clave_actual, clave } = req.body;
+
+    // ── Rama cambio de contraseña ─────────────────────────────────────────────
+    if (clave_actual !== undefined) {
+      if (!clave_actual || !clave) {
+        res.status(400).json({ success: false, message: "clave_actual y clave son requeridos" }); return;
+      }
+      const claveValida = await bcrypt.compare(clave_actual, usuario.clave);
+      if (!claveValida) { res.status(401).json({ success: false, message: "La contraseña actual es incorrecta" }); return; }
+      if (clave.length < 6) { res.status(400).json({ success: false, message: "La nueva contraseña debe tener al menos 6 caracteres" }); return; }
+      usuario.clave = await bcrypt.hash(clave, 10);
+      await usuarioRepo.save(usuario);
+      res.json({ success: true, message: "Contraseña actualizada correctamente" });
       return;
     }
 
-    const { nombre, telefono, correo, clave } = req.body;
-
-    if (nombre) cliente.nombre = nombre;
-    if (telefono !== undefined) {
-      if (!telefono) {
-        res.status(400).json({ success: false, message: "El teléfono es requerido" });
-        return;
-      }
-      cliente.telefono = telefono;
-    }
-
+    // ── Rama datos personales ─────────────────────────────────────────────────
+    if (nombre   !== undefined) cliente.nombre   = nombre;
+    if (telefono !== undefined) cliente.telefono = telefono ?? null;
     if (correo && correo !== cliente.correo) {
-      const [correoEnCliente, correoEnUsuario] = await Promise.all([
+      const [enCliente, enUsuario] = await Promise.all([
         clienteRepo.findOne({ where: { correo } }),
         usuarioRepo.findOne({ where: { correo } }),
       ]);
-      if (correoEnCliente || correoEnUsuario) {
-        res.status(409).json({ success: false, message: "Ese correo ya está en uso" });
-        return;
-      }
+      if (enCliente || enUsuario) { res.status(409).json({ success: false, message: "Ese correo ya está en uso" }); return; }
       cliente.correo = correo;
       usuario.correo = correo;
+      await usuarioRepo.save(usuario);
     }
-
-    if (clave) {
-      usuario.clave = await bcrypt.hash(clave, 10);
-    }
-
     await clienteRepo.save(cliente);
-    await usuarioRepo.save(usuario);
-
     res.json({ success: true, message: "Perfil actualizado", data: cliente });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al actualizar perfil", error });
   }
 };
 
-// ── GET /api/cuenta/citas ────────────────────────────────────────────────────
+// ── GET /api/cuenta/citas ─────────────────────────────────────────────────────
 export const misCitas = async (req: Request, res: Response): Promise<void> => {
   try {
-    const citaRepo = AppDataSource.getRepository(Cita);
-    const citas = await citaRepo.find({
-      where: { cliente: { id_cliente: req.user!.id_cliente! } },
+    const citas = await AppDataSource.getRepository(Cita).find({
+      where:     { cliente: { id_cliente: req.user!.id_cliente! } },
       relations: ["estadoCita"],
-      order: { fecha: "DESC" },
+      order:     { fecha: "DESC" },
     });
-
     res.json({ success: true, data: citas });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener citas", error });
+  }
+};
+
+// ── POST /api/cuenta/citas ────────────────────────────────────────────────────
+// El cliente agenda su propia cita — id_cliente se toma del JWT, no del body
+export const crearMiCita = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fecha, hora, observacion, id_estado_cita = 1 } = req.body;
+
+    if (!fecha || !hora) {
+      res.status(400).json({ success: false, message: "fecha y hora son requeridos" }); return;
+    }
+
+    // Validar que no sea fecha pasada
+    const hoy = new Date().toISOString().slice(0, 10);
+    if (fecha < hoy) {
+      res.status(400).json({ success: false, message: "No puedes agendar en fechas pasadas" }); return;
+    }
+
+    // Validar rango de hora 13:00 – 18:00
+    const [h] = hora.split(":").map(Number);
+    if (h < 13 || h >= 18) {
+      res.status(400).json({ success: false, message: "La hora debe estar entre 13:00 y 18:00" }); return;
+    }
+
+    const clienteRepo   = AppDataSource.getRepository(Cliente);
+    const estadoCitaRepo = AppDataSource.getRepository(EstadoCita);
+    const citaRepo      = AppDataSource.getRepository(Cita);
+
+    const cliente    = await clienteRepo.findOneBy({ id_cliente: req.user!.id_cliente! });
+    const estadoCita = await estadoCitaRepo.findOneBy({ id_estado_cita: Number(id_estado_cita) });
+
+    if (!cliente)    { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
+    if (!estadoCita) { res.status(404).json({ success: false, message: "Estado de cita no encontrado" }); return; }
+
+    const cita        = citaRepo.create();
+    cita.fecha        = fecha;
+    cita.hora         = hora;
+    cita.cliente      = cliente;
+    cita.estadoCita   = estadoCita;
+    if (observacion)  (cita as any).observacion = observacion;
+
+    await citaRepo.save(cita);
+
+    // Enviar correo de confirmación — fire & forget (no bloquea la respuesta)
+    const emailData: CitaConfirmacionData = {
+      correo:        cliente.correo,
+      nombreCliente: cliente.nombre,
+      fecha:         fecha as string,
+      hora:          hora as string,
+      id_cita:       cita.id_cita,
+    };
+    sendCitaConfirmacionEmail(emailData).catch(err =>
+      console.error("⚠️  Error enviando confirmación de cita:", err)
+    );
+
+    res.status(201).json({ success: true, message: "Cita agendada exitosamente", data: cita });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al agendar cita", error });
   }
 };
 
@@ -96,48 +149,101 @@ export const eliminarCuenta = async (req: Request, res: Response): Promise<void>
   try {
     const clienteRepo = AppDataSource.getRepository(Cliente);
     const usuarioRepo = AppDataSource.getRepository(Usuario);
-    const citaRepo = AppDataSource.getRepository(Cita);
-    const ventaRepo = AppDataSource.getRepository(Venta);
-
-    const id_cliente = req.user!.id_cliente!;
-    const correo = req.user!.correo;
+    const id_cliente  = req.user!.id_cliente!;
+    const correo      = req.user!.correo;
 
     const [cliente, usuario] = await Promise.all([
       clienteRepo.findOneBy({ id_cliente }),
       usuarioRepo.findOne({ where: { correo } }),
     ]);
-
-    if (!cliente || !usuario) {
-      res.status(404).json({ success: false, message: "Cuenta no encontrada" });
-      return;
-    }
+    if (!cliente || !usuario) { res.status(404).json({ success: false, message: "Cuenta no encontrada" }); return; }
 
     const [totalCitas, totalVentas] = await Promise.all([
-      citaRepo.count({ where: { cliente: { id_cliente } } }),
-      ventaRepo.count({ where: { cliente: { id_cliente } } }),
+      AppDataSource.getRepository(Cita).count({ where: { cliente: { id_cliente } } }),
+      AppDataSource.getRepository(Venta).count({ where: { cliente: { id_cliente } } }),
     ]);
 
     if (totalCitas > 0 || totalVentas > 0) {
-      cliente.estado = false;
-      usuario.estado = false;
+      cliente.estado = false; usuario.estado = false;
       await Promise.all([clienteRepo.save(cliente), usuarioRepo.save(usuario)]);
-
-      res.json({
-        success: true,
-        tipo: "desactivada",
-        message: "Cuenta desactivada. Tu historial queda conservado.",
-      });
+      res.json({ success: true, tipo: "desactivada", message: "Cuenta desactivada. Tu historial queda conservado." });
     } else {
       await usuarioRepo.remove(usuario);
       await clienteRepo.remove(cliente);
-
-      res.json({
-        success: true,
-        tipo: "eliminada",
-        message: "Cuenta eliminada permanentemente.",
-      });
+      res.json({ success: true, tipo: "eliminada", message: "Cuenta eliminada permanentemente." });
     }
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al eliminar cuenta", error });
+  }
+};
+
+// ── PATCH /api/cuenta/citas/:id/cancelar ─────────────────────────────────────
+// Solo puede cancelar sus propias citas y solo si están Pendientes
+export const cancelarMiCita = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id_cita    = Number(req.params.id)
+    const id_cliente = req.user!.id_cliente!
+
+    const citaRepo       = AppDataSource.getRepository(Cita)
+    const estadoCitaRepo = AppDataSource.getRepository(EstadoCita)
+
+    const cita = await citaRepo.findOne({
+      where:     { id_cita },
+      relations: ['cliente', 'estadoCita'],
+    })
+
+    if (!cita) {
+      res.status(404).json({ success: false, message: 'Cita no encontrada' }); return
+    }
+
+    // Verificar que la cita pertenece al cliente autenticado
+    if (cita.cliente?.id_cliente !== id_cliente) {
+      res.status(403).json({ success: false, message: 'No tienes permiso para cancelar esta cita' }); return
+    }
+
+    // Solo se pueden cancelar citas Pendientes (id 1)
+    if (cita.estadoCita?.id_estado_cita !== 1) {
+      res.status(400).json({
+        success: false,
+        message: `No se puede cancelar una cita en estado "${cita.estadoCita?.nombre ?? 'desconocido'}"`,
+      }); return
+    }
+
+    const estadoCancelada = await estadoCitaRepo.findOneBy({ id_estado_cita: 4 })
+    if (!estadoCancelada) {
+      res.status(500).json({ success: false, message: 'Estado "Cancelada" no encontrado' }); return
+    }
+
+    cita.estadoCita = estadoCancelada
+    await citaRepo.save(cita)
+
+    res.json({ success: true, message: 'Cita cancelada correctamente' })
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error al cancelar la cita', error })
+  }
+}
+
+// ── GET /api/cuenta/disponibilidad?fecha=YYYY-MM-DD ───────────────────────────
+// Devuelve los slots ocupados de una fecha para que el cliente vea la disponibilidad
+// SIN exponer datos privados de otros clientes (solo hora + id_cita)
+export const disponibilidadCitas = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fecha } = req.query
+    if (!fecha || typeof fecha !== 'string') {
+      res.status(400).json({ success: false, message: "El parámetro 'fecha' es requerido" }); return;
+    }
+
+    const citas = await AppDataSource.getRepository(Cita)
+      .createQueryBuilder('c')
+      .select(['c.id_cita', 'c.hora'])
+      .where('CAST(c.fecha AS DATE) = :fecha', { fecha })
+      .getMany()
+
+    res.json({
+      success: true,
+      data: citas.map(c => ({ id_cita: c.id_cita, hora: c.hora })),
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al consultar disponibilidad", error });
   }
 };

@@ -1,26 +1,20 @@
-// Generado automáticamente por generate-routes.js
 import { Router } from "express";
-import { getAllEstadoPago, getEstadoPagoById, createEstadoPago, updateEstadoPago, deleteEstadoPago, cambiarEstadoPago } from "../controllers/EstadoPagoController";
+import { getAllEstadoPago, getEstadoPagoById, createEstadoPago,
+         updateEstadoPago, deleteEstadoPago, cambiarEstadoPago } from "../controllers/EstadoPagoController";
+import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// ── Rutas de EstadoPago ──────────────────────────────────────
-// GET    /           → listar todos
-router.get("/", getAllEstadoPago);
-
-// GET    /:id      → obtener uno por ID
+// ── Públicos ─────────────────────────────────────────────────
+router.get("/",    getAllEstadoPago);
 router.get("/:id", getEstadoPagoById);
 
-// POST   /           → crear nuevo
-router.post("/", createEstadoPago);
+// ── Admin + Empleado ─────────────────────────────────────────
+router.post("/",   verifyToken, requireRol("Admin", "Empleado"), createEstadoPago);
+router.put("/:id", verifyToken, requireRol("Admin", "Empleado"), updateEstadoPago);
+router.delete("/:id", verifyToken, requireRol("Admin", "Empleado"), deleteEstadoPago);
 
-// PUT    /:id      → actualizar
-router.put("/:id", updateEstadoPago);
-
-// DELETE /:id      → eliminar (valida dependencias)
-router.delete("/:id", deleteEstadoPago);
-
-// PATCH  /pago/:id_pago/estado            → Cambia el estadoPago de un Pago
-router.patch("/pago/:id_pago/estado", cambiarEstadoPago);
+// PATCH /pago/:id_pago/estado → cambiar estado de un Pago
+router.patch("/pago/:id_pago/estado", verifyToken, requireRol("Admin", "Empleado"), cambiarEstadoPago);
 
 export { router as estadoPagoRouter };

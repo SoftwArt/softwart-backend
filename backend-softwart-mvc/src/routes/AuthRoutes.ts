@@ -1,13 +1,13 @@
-// src/routes/AuthRoutes.ts
-import { Router }          from "express";
-import { login, registro } from "../controllers/AuthController";
-import { authLimiter }     from "../middlewares/rateLimit.middleware";
-import * as AuthController from "../controllers/AuthController";
+import { Router } from "express";
+import { registro, login, recuperar, resetPassword } from "../controllers/AuthController";
+import { authLimiter } from "../middlewares/rateLimit.middleware";
 
 const router = Router();
-router.post("/recuperar", authLimiter, AuthController.recuperar);
-router.post("/reset-password", authLimiter, AuthController.resetPassword);
-router.post("/login",    authLimiter, login);
-router.post("/registro", authLimiter, registro);
+
+// Todos públicos — rate-limited
+router.post("/registro",       authLimiter, registro);
+router.post("/login",          authLimiter, login);
+router.post("/recuperar",      authLimiter, recuperar);
+router.post("/reset-password", authLimiter, resetPassword);
 
 export { router as authRouter };

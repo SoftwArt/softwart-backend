@@ -1,4 +1,3 @@
-// src/routes/UsuarioRoutes.ts
 import { Router } from "express";
 import { getAllUsuario, getUsuarioById, createUsuario,
          updateUsuario, deleteUsuario, toggleEstadoUsuario } from "../controllers/UsuarioController";
@@ -6,7 +5,6 @@ import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// Todas las rutas de Usuario requieren token de Admin
 router.use(verifyToken, requireRol("Admin"));
 
 router.get("/",             getAllUsuario);

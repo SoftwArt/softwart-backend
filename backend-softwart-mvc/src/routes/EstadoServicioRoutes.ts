@@ -1,26 +1,20 @@
-// Generado automáticamente por generate-routes.js
 import { Router } from "express";
-import { getAllEstadoServicio, getEstadoServicioById, createEstadoServicio, updateEstadoServicio, deleteEstadoServicio, cambiarEstadoDetalle } from "../controllers/EstadoServicioController";
+import { getAllEstadoServicio, getEstadoServicioById, createEstadoServicio,
+         updateEstadoServicio, deleteEstadoServicio, cambiarEstadoDetalle } from "../controllers/EstadoServicioController";
+import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// ── Rutas de EstadoServicio ──────────────────────────────────
-// GET    /           → listar todos
-router.get("/", getAllEstadoServicio);
-
-// GET    /:id      → obtener uno por ID
+// ── Públicos ─────────────────────────────────────────────────
+router.get("/",    getAllEstadoServicio);
 router.get("/:id", getEstadoServicioById);
 
-// POST   /           → crear nuevo
-router.post("/", createEstadoServicio);
+// ── Admin + Empleado ─────────────────────────────────────────
+router.post("/",   verifyToken, requireRol("Admin", "Empleado"), createEstadoServicio);
+router.put("/:id", verifyToken, requireRol("Admin", "Empleado"), updateEstadoServicio);
+router.delete("/:id", verifyToken, requireRol("Admin", "Empleado"), deleteEstadoServicio);
 
-// PUT    /:id      → actualizar
-router.put("/:id", updateEstadoServicio);
-
-// DELETE /:id      → eliminar (valida dependencias)
-router.delete("/:id", deleteEstadoServicio);
-
-// PATCH  /detalle/:id_detalle/estado      → Cambia el estadoServicio de un DetalleVenta
-router.patch("/detalle/:id_detalle/estado", cambiarEstadoDetalle);
+// PATCH /detalle/:id_detalle/estado → cambiar estadoServicio de un DetalleVenta
+router.patch("/detalle/:id_detalle/estado", verifyToken, requireRol("Admin", "Empleado"), cambiarEstadoDetalle);
 
 export { router as estadoServicioRouter };

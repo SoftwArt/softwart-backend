@@ -5,7 +5,6 @@ import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// Admin y Empleado gestionan detalles de venta
 router.use(verifyToken, requireRol("Admin", "Empleado"));
 
 router.get("/",             getAllDetalleVenta);

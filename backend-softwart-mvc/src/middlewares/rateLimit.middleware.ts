@@ -1,26 +1,23 @@
 // src/middlewares/rateLimit.middleware.ts
-import rateLimit from "express-rate-limit";
-
-// ── Límite general para toda la API ──────────────────────────────────────────
+import rateLimit from 'express-rate-limit'
+ 
+const isDev = process.env.NODE_ENV !== 'production'
+ 
 export const generalLimiter = rateLimit({
-  windowMs:         15 * 60 * 1000,  // ventana de 15 minutos
-  max:              100,              // máx 100 requests por IP
-  standardHeaders:  true,            // devuelve info en headers RateLimit-*
-  legacyHeaders:    false,
-  message: {
-    success: false,
-    message: "Demasiadas solicitudes, intenta de nuevo en 15 minutos",
-  },
-});
-
-// ── Límite estricto para auth (login, registro) ───────────────────────────────
+  windowMs: 15 * 60 * 1000,       // 15 minutos
+  max: isDev ? 10_000 : 200,       // Dev: sin límite real | Prod: 200 req
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiadas solicitudes, espera unos minutos.' },
+})
+ 
 export const authLimiter = rateLimit({
-  windowMs:         15 * 60 * 1000,  // ventana de 15 minutos
-  max:              10,              // máx 10 intentos de login por IP
-  standardHeaders:  true,
-  legacyHeaders:    false,
-  message: {
-    success: false,
-    message: "Demasiados intentos de autenticación, intenta de nuevo en 15 minutos",
-  },
-});
+  windowMs: 15 * 60 * 1000,
+  max: isDev ? 200 : 15,           // Dev: holgado para tests | Prod: estricto
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiados intentos de autenticación. Espera 15 minutos.' },
+  // Sólo cuenta las respuestas fallidas (401/403) — los login exitosos no penalizan
+  skipSuccessfulRequests: true,
+})
+ 

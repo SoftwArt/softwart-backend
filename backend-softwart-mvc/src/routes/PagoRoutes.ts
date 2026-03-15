@@ -5,13 +5,12 @@ import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// Admin y Empleado gestionan pagos
 router.use(verifyToken, requireRol("Admin", "Empleado"));
 
-router.get("/",      getAllPago);
-router.get("/:id",   getPagoById);
-router.post("/",     createPago);
-router.put("/:id",   updatePago);
+router.get("/",       getAllPago);
+router.get("/:id",    getPagoById);
+router.post("/",      createPago);
+router.put("/:id",    updatePago);
 router.delete("/:id", deletePago);
 
 export { router as pagoRouter };

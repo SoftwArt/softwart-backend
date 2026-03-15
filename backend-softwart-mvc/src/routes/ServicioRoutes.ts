@@ -1,26 +1,18 @@
-// Generado automáticamente por generate-routes.js
 import { Router } from "express";
-import { getAllServicio, getServicioById, createServicio, updateServicio, deleteServicio, toggleEstadoServicio } from "../controllers/ServicioController";
+import { getAllServicio, getServicioById, createServicio,
+         updateServicio, deleteServicio, toggleEstadoServicio } from "../controllers/ServicioController";
+import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// ── Rutas de Servicio ────────────────────────────────────────
-// GET    /           → listar todos
-router.get("/", getAllServicio);
-
-// GET    /:id      → obtener uno por ID
+// ── Públicos (landing muestra los tipos de servicio) ─────────
+router.get("/",    getAllServicio);
 router.get("/:id", getServicioById);
 
-// POST   /           → crear nuevo
-router.post("/", createServicio);
-
-// PUT    /:id      → actualizar
-router.put("/:id", updateServicio);
-
-// DELETE /:id      → eliminar (valida dependencias)
-router.delete("/:id", deleteServicio);
-
-// PATCH  /:id/estado → activar / inactivar
-router.patch("/:id/estado", toggleEstadoServicio);
+// ── Admin + Empleado ─────────────────────────────────────────
+router.post("/",            verifyToken, requireRol("Admin", "Empleado"), createServicio);
+router.put("/:id",          verifyToken, requireRol("Admin", "Empleado"), updateServicio);
+router.delete("/:id",       verifyToken, requireRol("Admin", "Empleado"), deleteServicio);
+router.patch("/:id/estado", verifyToken, requireRol("Admin", "Empleado"), toggleEstadoServicio);
 
 export { router as servicioRouter };

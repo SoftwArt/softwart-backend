@@ -10,11 +10,24 @@ import bcrypt from "bcrypt";
 // Helper: elimina la clave del objeto antes de enviarlo
 const sinClave = ({ clave, ...rest }: Usuario) => rest;
 
-export const getAllUsuario = async (_req: Request, res: Response): Promise<void> => {
+export const getAllUsuario = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioRepo = AppDataSource.getRepository(Usuario);
-    const items = await usuarioRepo.find({ relations: ["rol"] });
-    res.json({ success: true, data: items.map(sinClave) });
+    const page  = Math.max(1, Number(req.query.page)  || 1);
+    const limit = Math.min(100, Number(req.query.limit) || 10);
+    const skip  = (page - 1) * limit;
+
+    const [items, total] = await usuarioRepo.findAndCount({
+      relations: ["rol"],
+      skip,
+      take: limit,
+    });
+
+    res.json({
+      success: true,
+      data: items.map(sinClave),
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener Usuario", error });
   }
@@ -45,10 +58,9 @@ export const createUsuario = async (req: Request, res: Response): Promise<void> 
     obj.clave  = await bcrypt.hash(req.body.clave, 10);
     obj.estado = req.body.estado !== undefined ? req.body.estado : true;
     if (req.body.id_rol !== undefined) {
-      const rolRepo = AppDataSource.getRepository(Rol);
-      const relRol  = await rolRepo.findOneBy({ id_rol: Number(req.body.id_rol) });
-      if (!relRol) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
-      obj.rol = relRol;
+      const rel = await AppDataSource.getRepository(Rol).findOneBy({ id_rol: Number(req.body.id_rol) });
+      if (!rel) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
+      obj.rol = rel;
     }
     await usuarioRepo.save(obj);
     res.status(201).json({ success: true, message: "Usuario creado exitosamente", data: sinClave(obj) });
@@ -68,10 +80,9 @@ export const updateUsuario = async (req: Request, res: Response): Promise<void> 
     if (req.body.correo !== undefined) item.correo = req.body.correo;
     if (req.body.clave  !== undefined) item.clave  = await bcrypt.hash(req.body.clave, 10);
     if (req.body.id_rol !== undefined) {
-      const rolRepo = AppDataSource.getRepository(Rol);
-      const relRol  = await rolRepo.findOneBy({ id_rol: Number(req.body.id_rol) });
-      if (!relRol) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
-      item.rol = relRol;
+      const rel = await AppDataSource.getRepository(Rol).findOneBy({ id_rol: Number(req.body.id_rol) });
+      if (!rel) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
+      item.rol = rel;
     }
     await usuarioRepo.save(item);
     res.json({ success: true, message: "Usuario actualizado", data: sinClave(item) });

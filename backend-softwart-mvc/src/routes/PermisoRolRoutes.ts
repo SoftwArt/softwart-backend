@@ -7,13 +7,8 @@ const router = Router();
 
 router.use(verifyToken, requireRol("Admin"));
 
-// GET    /           → listar todas las relaciones
-router.get("/",    getAllPermisoRol);
-
-// POST   /           → crear relación  { id_permiso, id_rol }
-router.post("/",   createPermisoRol);
-
-// DELETE /           → eliminar relación  { id_permiso, id_rol }
-router.delete("/", deletePermisoRol);
+router.get("/",    getAllPermisoRol);  // GET    /api/permiso-rol
+router.post("/",   createPermisoRol); // POST   /api/permiso-rol  { id_permiso, id_rol }
+router.delete("/", deletePermisoRol); // DELETE /api/permiso-rol  { id_permiso, id_rol }
 
 export { router as permisoRolRouter };

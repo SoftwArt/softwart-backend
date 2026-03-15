@@ -1,17 +1,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
-//  MarcoController.ts  —  Generado automáticamente por generate-controllers.js
+//  MarcoController.ts
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { Marco } from "../models/Marco";
 import { DetalleVenta } from "../models/DetalleVenta";
 
-
-export const getAllMarco = async (_req: Request, res: Response): Promise<void> => {
+export const getAllMarco = async (req: Request, res: Response): Promise<void> => {
   try {
     const marcoRepo = AppDataSource.getRepository(Marco);
-    const items = await marcoRepo.find();
-    res.json({ success: true, data: items });
+    const page  = Math.max(1, Number(req.query.page)  || 1);
+    const limit = Math.min(100, Number(req.query.limit) || 10);
+    const skip  = (page - 1) * limit;
+
+    const [items, total] = await marcoRepo.findAndCount({ skip, take: limit });
+
+    res.json({
+      success: true,
+      data: items,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener Marco", error });
   }
@@ -20,16 +28,13 @@ export const getAllMarco = async (_req: Request, res: Response): Promise<void> =
 export const getMarcoById = async (req: Request, res: Response): Promise<void> => {
   try {
     const marcoRepo = AppDataSource.getRepository(Marco);
-    const item = await marcoRepo.findOne({
-      where: { id_marco: Number(req.params.id) },
-    });
+    const item = await marcoRepo.findOne({ where: { id_marco: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
     res.json({ success: true, data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener Marco", error });
   }
 };
-
 
 export const createMarco = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -38,11 +43,10 @@ export const createMarco = async (req: Request, res: Response): Promise<void> =>
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
     const obj = marcoRepo.create();
-    obj.codigo = req.body.codigo;
-    obj.colilla = req.body.colilla;
+    obj.codigo            = req.body.codigo;
+    obj.colilla           = req.body.colilla;
     obj.precio_ensamblado = req.body.precio_ensamblado;
-    obj.estado = req.body.estado !== undefined ? req.body.estado : true;
-
+    obj.estado            = req.body.estado !== undefined ? req.body.estado : true;
     await marcoRepo.save(obj);
     res.status(201).json({ success: true, message: "Marco creado exitosamente", data: obj });
   } catch (error) {
@@ -53,14 +57,11 @@ export const createMarco = async (req: Request, res: Response): Promise<void> =>
 export const updateMarco = async (req: Request, res: Response): Promise<void> => {
   try {
     const marcoRepo = AppDataSource.getRepository(Marco);
-    const item = await marcoRepo.findOne({
-      where: { id_marco: Number(req.params.id) },
-    });
+    const item = await marcoRepo.findOne({ where: { id_marco: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
-    if (req.body.codigo !== undefined) item.codigo = req.body.codigo;
-    if (req.body.colilla !== undefined) item.colilla = req.body.colilla;
+    if (req.body.codigo            !== undefined) item.codigo            = req.body.codigo;
+    if (req.body.colilla           !== undefined) item.colilla           = req.body.colilla;
     if (req.body.precio_ensamblado !== undefined) item.precio_ensamblado = req.body.precio_ensamblado;
-
     await marcoRepo.save(item);
     res.json({ success: true, message: "Marco actualizado", data: item });
   } catch (error) {
@@ -70,12 +71,10 @@ export const updateMarco = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteMarco = async (req: Request, res: Response): Promise<void> => {
   try {
-    const marcoRepo = AppDataSource.getRepository(Marco);
+    const marcoRepo        = AppDataSource.getRepository(Marco);
     const detalleVentaRepo = AppDataSource.getRepository(DetalleVenta);
-    const countDetalleVenta = await detalleVentaRepo.count({ where: { marco: { id_marco: Number(req.params.id) } } });
-    if (countDetalleVenta > 0) {
-      res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${countDetalleVenta})` }); return;
-    }
+    const count = await detalleVentaRepo.count({ where: { marco: { id_marco: Number(req.params.id) } } });
+    if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${count})` }); return; }
     const item = await marcoRepo.findOneBy({ id_marco: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
     await marcoRepo.remove(item);
@@ -97,4 +96,3 @@ export const toggleEstadoMarco = async (req: Request, res: Response): Promise<vo
     res.status(500).json({ success: false, message: "Error al cambiar estado de Marco", error });
   }
 };
-
