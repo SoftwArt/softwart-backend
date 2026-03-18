@@ -4,10 +4,13 @@ const allowedOrigins = (process.env.CORS_ORIGIN ?? "*")
   .split(",")
   .map(o => o.trim());
 
+const isLocalhost = (origin: string) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
 export const corsMiddleware: RequestHandler = (req, res, next) => {
   const origin = req.headers.origin ?? "";
   const allow  = allowedOrigins.includes("*") ? "*"
-    : allowedOrigins.includes(origin) ? origin
+    : allowedOrigins.includes(origin) || isLocalhost(origin) ? origin
     : allowedOrigins[0];
 
   res.setHeader("Access-Control-Allow-Origin", allow);
