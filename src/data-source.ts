@@ -28,55 +28,39 @@ import { Pago }           from "./models/Pago";
 
 const isProd = process.env.NODE_ENV === "production";
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  DESARROLLO  (PostgreSQL)
-//  Renombra o comenta este bloque cuando vayas a producción.
-// ─────────────────────────────────────────────────────────────────────────────
+const entities = [
+  Permiso, Rol, PermisoRol, Usuario,
+  Cliente,
+  Servicio, EstadoCita, EstadoServicio, MetodoPago, EstadoPago,
+  Cita, Marco, Venta, DetalleVenta,
+  Pago,
+];
 
-export const AppDataSource = new DataSource({
-  type:        "postgres",
-  host:        process.env.DB_HOST     ?? "localhost",
-  port:        Number(process.env.DB_PORT ?? 5432),
-  username:    process.env.DB_USER     ?? "root",
-  password:    process.env.DB_PASSWORD ?? "",
-  database:    process.env.DB_NAME     ?? "mi_base_de_datos",
-  synchronize: true,   // ✅ OK en dev — crea/actualiza tablas automáticamente
-  logging:     true,   // muestra las queries en consola
-  entities: [
-    Permiso, Rol, PermisoRol, Usuario,
-    Cliente,
-    Servicio, EstadoCita, EstadoServicio, MetodoPago, EstadoPago,
-    Cita, Marco, Venta, DetalleVenta,
-    Pago,
-  ],
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  PRODUCCIÓN  (Supabase / PostgreSQL en Render)
-//  Cuando estés listo para prod:
-//    1. Comenta el bloque de DESARROLLO de arriba.
-//    2. Descomenta este bloque.
-//    3. Ajusta las variables en el dashboard de Render.
-// ─────────────────────────────────────────────────────────────────────────────
-
-// export const AppDataSource = new DataSource({
-//   type:        "postgres",
-//   host:        process.env.DB_HOST,
-//   port:        Number(process.env.DB_PORT ?? 5432),
-//   username:    process.env.DB_USER,
-//   password:    process.env.DB_PASSWORD,
-//   database:    process.env.DB_NAME,
-//   synchronize: false,   // ❌ nunca en prod → usa migraciones
-//   logging:     false,
-//   ssl: {
-//     rejectUnauthorized: false,  // requerido por Supabase/Render
-//   },
-//   entities: [
-//     Permiso, Rol, PermisoRol, Usuario,
-//     Cliente,
-//     Servicio, EstadoCita, EstadoServicio, MetodoPago, EstadoPago,
-//     Cita, Marco, Venta, DetalleVenta,
-//     Pago,
-//   ],
-//   // migrations: ["dist/migrations/*.js"],  // cuando generes migraciones con TypeORM CLI
-// });
+export const AppDataSource = isProd
+  // ─────────────────────────────────────────────────────────────────────────
+  //  PRODUCCIÓN — Supabase via DATABASE_URL (Session Pooler)
+  // ─────────────────────────────────────────────────────────────────────────
+  ? new DataSource({
+      type:        "postgres",
+      url:         process.env.DATABASE_URL,
+      synchronize: true,   // mientras no haya migraciones generadas
+      logging:     false,
+      ssl: {
+        rejectUnauthorized: false,  // requerido por Supabase Session Pooler
+      },
+      entities,
+    })
+  // ─────────────────────────────────────────────────────────────────────────
+  //  DESARROLLO — PostgreSQL local
+  // ─────────────────────────────────────────────────────────────────────────
+  : new DataSource({
+      type:        "postgres",
+      host:        process.env.DB_HOST     ?? "localhost",
+      port:        Number(process.env.DB_PORT ?? 5432),
+      username:    process.env.DB_USER     ?? "root",
+      password:    process.env.DB_PASSWORD ?? "",
+      database:    process.env.DB_NAME     ?? "mi_base_de_datos",
+      synchronize: true,
+      logging:     true,
+      entities,
+    });

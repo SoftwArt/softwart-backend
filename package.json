@@ -2,11 +2,11 @@
   "name": "backend-softwart-mvc",
   "version": "1.0.0",
   "description": "Backend SoftwArt — Sistema de gestión para marquetería",
-  "main": "dist/index.js",
+  "main": "dist/app.js",
   "scripts": {
     "dev":   "ts-node-dev --respawn --transpile-only src/app.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/app.js",
     "seed":  "ts-node src/seeds/index.ts"
   },
   "keywords": [],
