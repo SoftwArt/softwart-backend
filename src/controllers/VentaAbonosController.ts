@@ -21,8 +21,10 @@ export const getEstadoPagos = async (req: Request, res: Response): Promise<void>
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrada" }); return }
 
     const { total, num_abonos, porcentaje_primer_abono } = venta
-    const pagosRealizados = venta.pagos.length
-    const totalPagado     = venta.pagos.reduce((s, p) => s + Number(p.monto), 0)
+    // Orden determinista: siempre id_pago ASC para que historial_pagos[n-1] coincida con abono n
+    const pagosOrdenados  = [...venta.pagos].sort((a, b) => a.id_pago - b.id_pago)
+    const pagosRealizados = pagosOrdenados.length
+    const totalPagado     = pagosOrdenados.reduce((s, p) => s + Number(p.monto), 0)
     const saldo           = Math.round((Number(total) - totalPagado) * 100) / 100
     const abonos          = calcularAbonos(Number(total), num_abonos, porcentaje_primer_abono)
     const siguiente       = siguienteAbono(Number(total), num_abonos, porcentaje_primer_abono, pagosRealizados)
@@ -40,7 +42,7 @@ export const getEstadoPagos = async (req: Request, res: Response): Promise<void>
         completado:        saldo <= 0,
         plan_abonos:       abonos,
         siguiente_abono:   siguiente,
-        historial_pagos:   venta.pagos.map(p => ({
+        historial_pagos:   pagosOrdenados.map(p => ({
           id_pago:   p.id_pago,
           monto:     Number(p.monto),
           fecha:     p.fecha,
@@ -114,10 +116,10 @@ export const registrarAbono = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    // Buscar estado "Pendiente" para el nuevo pago
+    // Buscar estado "Validado" para el nuevo pago
     const estadoPendiente = await AppDataSource.getRepository(EstadoPago)
       .createQueryBuilder("ep")
-      .where("LOWER(ep.nombre) LIKE :n", { n: "%pendiente%" })
+      .where("LOWER(ep.nombre) LIKE :n", { n: "%validado%" })
       .getOne()
 
     const metodo = await AppDataSource.getRepository(MetodoPago)
@@ -140,9 +142,9 @@ export const registrarAbono = async (req: Request, res: Response): Promise<void>
     const completado           = nuevoPagosRealizados >= num_abonos
 
     // Si se completaron todos los abonos → activar estado de la venta
+    // Usar update() en lugar de save() para no tocar relaciones no cargadas (ej: cita)
     if (completado) {
-      venta.estado = true
-      await AppDataSource.getRepository(Venta).save(venta)
+      await AppDataSource.getRepository(Venta).update({ id_venta }, { estado: true })
     }
     const totalPagado          = venta.pagos.reduce((s, p) => s + Number(p.monto), 0) + montoEnviado
     const saldo                = Math.round((Number(total) - totalPagado) * 100) / 100

@@ -17,7 +17,7 @@ export const getAllVenta = async (req: Request, res: Response): Promise<void> =>
     const skip  = (page - 1) * limit;
 
     const [items, total] = await ventaRepo.findAndCount({
-      relations: ["cita", "cliente"],
+      relations: ["cita", "cliente", "pagos"],
       skip,
       take: limit,
     });
@@ -57,7 +57,7 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
     obj.total       = req.body.total;
     obj.observacion = req.body.observacion;
     obj.estado      = req.body.estado !== undefined ? req.body.estado : true;
-    if (req.body.id_cita !== undefined) {
+    if (req.body.id_cita != null) {
       const rel = await AppDataSource.getRepository(Cita).findOneBy({ id_cita: Number(req.body.id_cita) });
       if (!rel) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
       obj.cita = rel;
@@ -85,7 +85,7 @@ export const updateVenta = async (req: Request, res: Response): Promise<void> =>
     if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
     if (req.body.total       !== undefined) item.total       = req.body.total;
     if (req.body.observacion !== undefined) item.observacion = req.body.observacion;
-    if (req.body.id_cita !== undefined) {
+    if (req.body.id_cita != null) {
       const rel = await AppDataSource.getRepository(Cita).findOneBy({ id_cita: Number(req.body.id_cita) });
       if (!rel) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
       item.cita = rel;
