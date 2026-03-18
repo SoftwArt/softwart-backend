@@ -1,16 +1,38 @@
 {
   "name": "backend-softwart-mvc",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "bin": {
-  "create-backend-app": "./bin.js"
-},
-
+  "description": "Backend SoftwArt — Sistema de gestión para marquetería",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev":   "ts-node-dev --respawn --transpile-only src/app.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "seed":  "ts-node src/seeds/index.ts"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "author": "Sergio",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt":             "^6.0.0",
+    "cors":               "^2.8.5",
+    "dotenv":             "^16.6.1",
+    "express":            "^4.22.1",
+    "express-rate-limit": "^8.3.1",
+    "jsonwebtoken":       "^9.0.3",
+    "nodemailer":         "^8.0.2",
+    "pg":                 "^8.19.0",
+    "reflect-metadata":   "^0.2.2",
+    "typeorm":            "^0.3.28"
+  },
+  "devDependencies": {
+    "@types/bcrypt":      "^6.0.0",
+    "@types/cors":        "^2.8.17",
+    "@types/express":     "^5.0.6",
+    "@types/jsonwebtoken":"^9.0.10",
+    "@types/node":        "^25.3.3",
+    "@types/nodemailer":  "^7.0.11",
+    "ts-node":            "^10.9.2",
+    "ts-node-dev":        "^2.0.0",
+    "typescript":         "^5.9.3"
+  }
 }

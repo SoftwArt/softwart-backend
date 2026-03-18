@@ -16,6 +16,9 @@ export class Cita {
   @Column({ type: "time" })
   hora!: string;
 
+  @Column({ nullable: true })
+  observacion?: string;
+
   @ManyToOne(() => EstadoCita, (x) => x.citas)
   @JoinColumn({ name: "id_estado_cita" })
   estadoCita!: EstadoCita;

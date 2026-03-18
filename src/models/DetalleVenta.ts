@@ -14,8 +14,8 @@ export class DetalleVenta {
   @Column({ type: "date" })
   fecha!: Date;
 
-  @Column()
-  observacion!: string;
+  @Column({ nullable: true })
+  observacion?: string;
 
   @Column({ type: "decimal", precision: 10, scale: 2 })
   precio!: number;
