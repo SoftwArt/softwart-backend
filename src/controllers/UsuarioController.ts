@@ -91,11 +91,17 @@ export const updateUsuario = async (req: Request, res: Response): Promise<void> 
   }
 };
 
+const ADMIN_BASE = process.env.ADMIN_EMAIL ?? "admin@softwart.com";
+
 export const deleteUsuario = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioRepo = AppDataSource.getRepository(Usuario);
     const item = await usuarioRepo.findOneBy({ id_usuario: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Usuario no encontrado" }); return; }
+    if (item.correo === ADMIN_BASE) {
+      res.status(403).json({ success: false, message: "El usuario administrador base no puede eliminarse" });
+      return;
+    }
     await usuarioRepo.remove(item);
     res.json({ success: true, message: "Usuario eliminado correctamente" });
   } catch (error) {
@@ -108,6 +114,10 @@ export const toggleEstadoUsuario = async (req: Request, res: Response): Promise<
     const usuarioRepo = AppDataSource.getRepository(Usuario);
     const item = await usuarioRepo.findOneBy({ id_usuario: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Usuario no encontrado" }); return; }
+    if (item.correo === ADMIN_BASE) {
+      res.status(403).json({ success: false, message: "El usuario administrador base no puede desactivarse" });
+      return;
+    }
     item.estado = !item.estado;
     await usuarioRepo.save(item);
     res.json({ success: true, message: `Usuario ${item.estado ? "activado" : "inactivado"}`, data: { estado: item.estado } });
