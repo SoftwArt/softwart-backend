@@ -208,6 +208,55 @@ export const recuperar = async (req: Request, res: Response): Promise<void> => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/auth/reenviar-codigo
+//  Body: { correo }
+//  Idempotente: si el token aún no expiró, reenvía el mismo; si no, genera uno nuevo
+// ─────────────────────────────────────────────────────────────────────────────
+export const reenviarCodigo = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { correo } = req.body;
+
+    if (!correo) {
+      res.status(400).json({ success: false, message: "El correo es requerido" });
+      return;
+    }
+
+    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const usuario = await usuarioRepo.findOne({ where: { correo } });
+
+    // Respuesta genérica para no revelar si el correo existe
+    const okResponse = { success: true, message: "Si el correo existe, recibirás el código" };
+
+    if (!usuario) {
+      res.json(okResponse);
+      return;
+    }
+
+    const now = new Date();
+    let token: string;
+
+    // Idempotencia: reutilizar token si todavía es válido
+    if (usuario.token_recuperacion && usuario.token_expira && usuario.token_expira > now) {
+      token = usuario.token_recuperacion;
+    } else {
+      // Generar nuevo token y extender expiración 15 min
+      token = Math.floor(100000 + Math.random() * 900000).toString();
+      usuario.token_recuperacion = token;
+      usuario.token_expira       = new Date(Date.now() + 15 * 60 * 1000);
+      await usuarioRepo.save(usuario);
+    }
+
+    await sendRecoveryEmail(correo, token);
+
+    res.json(okResponse);
+
+  } catch (error) {
+    console.error("❌ Error en reenviarCodigo:", error);
+    res.status(500).json({ success: false, message: "Error al reenviar código", error });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/auth/reset-password
 //  Body: { token, nueva_clave }
 //  Valida token y actualiza contraseña
