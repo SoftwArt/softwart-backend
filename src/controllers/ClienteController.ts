@@ -6,6 +6,7 @@ import { AppDataSource } from "../data-source";
 import { Cliente } from "../models/Cliente";
 import { Cita } from "../models/Cita";
 import { Venta } from "../models/Venta";
+import { Usuario } from "../models/Usuario";
 
 export const getAllCliente = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -85,8 +86,12 @@ export const deleteCliente = async (req: Request, res: Response): Promise<void> 
     if (countVenta > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Venta asociados (${countVenta})` }); return; }
     const item = await clienteRepo.findOneBy({ id_cliente: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
+    // Eliminar también el Usuario asociado por correo
+    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const usuario = await usuarioRepo.findOneBy({ correo: item.correo });
     await clienteRepo.remove(item);
-    res.json({ success: true, message: "Cliente eliminado correctamente" });
+    if (usuario) await usuarioRepo.remove(usuario);
+    res.json({ success: true, message: "Cliente y usuario eliminados correctamente" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al eliminar Cliente", error });
   }
