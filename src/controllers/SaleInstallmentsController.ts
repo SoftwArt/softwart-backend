@@ -1,5 +1,5 @@
-// src/controllers/VentaAbonosController.ts
-// Endpoints de abonos por venta — se montan en /api/ventas/:id/...
+// src/controllers/SaleInstallmentsController.ts
+// Installment endpoints per sale — mounted on /api/sales/:id/...
 import { Request, Response } from "express";
 import { AppDataSource }     from "../data-source";
 import { Sale }             from "../models/Sale";
@@ -93,12 +93,12 @@ export const registerInstallment = async (req: Request, res: Response): Promise<
     }
 
     const montoEnviado  = Number(monto)
-    const montoEsperado = siguiente.montoEsperado
+    const montoEsperado = siguiente.expectedAmount
     const diferencia    = Math.abs(montoEnviado - montoEsperado)
 
     // Para el último abono: monto debe ser exacto (± tolerancia)
     // Para abonos intermedios: monto mínimo = montoEsperado (no puede pagar menos)
-    if (siguiente.esUltimo) {
+    if (siguiente.isLast) {
       if (diferencia > tolerancia) {
         res.status(400).json({
           success: false,
@@ -110,7 +110,7 @@ export const registerInstallment = async (req: Request, res: Response): Promise<
       if (montoEnviado < montoEsperado - tolerancia) {
         res.status(400).json({
           success: false,
-          message: `El abono #${siguiente.numero} debe ser de al menos $${montoEsperado.toLocaleString("es-CO")}. Recibido: $${montoEnviado.toLocaleString("es-CO")}`,
+          message: `El abono #${siguiente.number} debe ser de al menos $${montoEsperado.toLocaleString("es-CO")}. Recibido: $${montoEnviado.toLocaleString("es-CO")}`,
           data: { monto_esperado: montoEsperado, monto_recibido: montoEnviado },
         }); return
       }
@@ -153,10 +153,10 @@ export const registerInstallment = async (req: Request, res: Response): Promise<
       success: true,
       message: completado
         ? "✅ Último abono registrado. Venta completamente pagada."
-        : `Abono #${siguiente.numero} de ${num_abonos} registrado. Saldo pendiente: $${saldo.toLocaleString("es-CO")}`,
+        : `Abono #${siguiente.number} de ${num_abonos} registrado. Saldo pendiente: $${saldo.toLocaleString("es-CO")}`,
       data: {
         id_pago:          pago.id_pago,
-        abono_numero:     siguiente.numero,
+        abono_numero:     siguiente.number,
         monto:            montoEnviado,
         total_pagado:     totalPagado,
         saldo_pendiente:  saldo,
