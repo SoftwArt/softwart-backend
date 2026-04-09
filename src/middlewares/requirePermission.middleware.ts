@@ -2,7 +2,7 @@ import { RequestHandler } from "express";
 import { AppDataSource } from "../data-source";
 import { RolePermission } from "../models/RolePermission";
 
-export const requirePermiso = (nombrePermiso: string): RequestHandler => {
+export const requirePermission = (nombrePermiso: string): RequestHandler => {
   return async (req, res, next) => {
     try {
       if (!req.user) {

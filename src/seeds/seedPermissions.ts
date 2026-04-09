@@ -1,4 +1,4 @@
-// src/seeds/seedPermisos.ts
+// src/seeds/seedPermissions.ts
 import { AppDataSource } from "../data-source";
 import { Permission }       from "../models/Permission";
 import { Role }           from "../models/Role";
@@ -128,7 +128,7 @@ async function asignarPermisos(
   }
 }
 
-export async function seedPermisos(): Promise<void> {
+export async function seedPermissions(): Promise<void> {
   const permisoRepo    = AppDataSource.getRepository(Permission);
   const rolRepo        = AppDataSource.getRepository(Role);
   const permisoRolRepo = AppDataSource.getRepository(RolePermission);

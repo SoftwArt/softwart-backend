@@ -1,33 +1,33 @@
 // src/seeds/index.ts
-//  Ejecuta todos los seeds en orden seguro (idempotente).
-//  Llamar desde app.ts después de AppDataSource.initialize()
+//  Runs all seeds in safe order (idempotent).
+//  Called from app.ts after AppDataSource.initialize()
 // ─────────────────────────────────────────────────────────────────────────────
-import { seedServicios }      from "./seedServicios";
-import { seedEstadoCita }     from "./seedEstadoCita";
-import { seedEstadoServicio } from "./seedEstadoServicio";
-import { seedMetodoPago }     from "./seedMetodoPago";
-import { seedEstadoPago }     from "./seedEstadoPago";
-import { seedRoles }          from "./seedRoles";
-import { seedPermisos }       from "./seedPermisos";
-import { seedUsuarioAdmin }   from "./seedUsuarioAdmin";
+import { seedServices }          from "./seedServices";
+import { seedAppointmentStatus } from "./seedAppointmentStatus";
+import { seedServiceStatus }     from "./seedServiceStatus";
+import { seedPaymentMethod }     from "./seedPaymentMethod";
+import { seedPaymentStatus }     from "./seedPaymentStatus";
+import { seedRoles }             from "./seedRoles";
+import { seedPermissions }       from "./seedPermissions";
+import { seedAdminUser }         from "./seedAdminUser";
 
 export async function runAllSeeds(): Promise<void> {
-  console.log("\n🌱  Iniciando semilla...");
+  console.log("\n🌱  Running seeds...");
   try {
-    // ── Catálogos (sin dependencias) ─────────────────────────────────────────
-    await seedServicios();
-    await seedEstadoCita();
-    await seedEstadoServicio();
-    await seedMetodoPago();
-    await seedEstadoPago();
+    // ── Catalogs (no dependencies) ──────────────────────────────────────────
+    await seedServices();
+    await seedAppointmentStatus();
+    await seedServiceStatus();
+    await seedPaymentMethod();
+    await seedPaymentStatus();
 
-    // ── Seguridad (orden: roles → permisos → usuario admin) ──────────────────
+    // ── Security (order: roles → permissions → admin user) ──────────────────
     await seedRoles();
-    await seedPermisos();
-    await seedUsuarioAdmin();
+    await seedPermissions();
+    await seedAdminUser();
 
-    console.log("✅  Semilla completada\n");
+    console.log("✅  Seeds completed\n");
   } catch (error) {
-    console.error("❌  Error durante la semilla:", error);
+    console.error("❌  Seed error:", error);
   }
 }

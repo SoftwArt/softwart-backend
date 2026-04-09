@@ -1,8 +1,8 @@
-// src/seeds/seedEstadoCita.ts
+// src/seeds/seedAppointmentStatus.ts
 import { AppDataSource } from "../data-source";
 import { AppointmentStatus }    from "../models/AppointmentStatus";
 
-export async function seedEstadoCita(): Promise<void> {
+export async function seedAppointmentStatus(): Promise<void> {
   const repo = AppDataSource.getRepository(AppointmentStatus);
   if (await repo.count() > 0) return;
   await repo.save(repo.create([

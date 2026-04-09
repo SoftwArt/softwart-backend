@@ -2,7 +2,7 @@
 // Calcula el monto esperado para cada abono según la configuración de la venta
 // Exportado para usar en el controller y en tests
 
-export type AbonoEsperado = {
+export type ExpectedInstallment = {
   numero:   number   // 1-indexed
   monto:    number   // monto exacto esperado
   porcentaje: number // % del total (informativo)
@@ -14,11 +14,11 @@ export type AbonoEsperado = {
  * @param num_abonos        - Número de abonos configurados
  * @param porcentaje_primer - Porcentaje del total para el primer abono (0-100)
  */
-export function calcularAbonos(
+export function calculateInstallments(
   total: number,
   num_abonos: number,
   porcentaje_primer: number
-): AbonoEsperado[] {
+): ExpectedInstallment[] {
   const t = Number(total)
   const n = Math.max(1, num_abonos)
   const p = Math.min(99, Math.max(1, porcentaje_primer)) // entre 1 y 99
@@ -42,7 +42,7 @@ export function calcularAbonos(
   // N > 2: distribuir el resto equitativamente entre abonos intermedios
   // El último paga el saldo exacto para evitar redondeo
   const montoIntermedio = Math.round((resto / numResto) * 100) / 100
-  const abonos: AbonoEsperado[] = [
+  const abonos: ExpectedInstallment[] = [
     { numero: 1, monto: montoPrimero, porcentaje: p },
   ]
 
@@ -70,13 +70,13 @@ export function calcularAbonos(
 /**
  * Dado lo ya pagado, devuelve qué abono sigue y su monto esperado
  */
-export function siguienteAbono(
+export function nextInstallment(
   total: number,
   num_abonos: number,
   porcentaje_primer: number,
   pagosRealizados: number   // cuántos pagos ya hay
 ): { numero: number; montoEsperado: number; esUltimo: boolean } | null {
-  const abonos = calcularAbonos(total, num_abonos, porcentaje_primer)
+  const abonos = calculateInstallments(total, num_abonos, porcentaje_primer)
   const siguiente = abonos[pagosRealizados] // 0-indexed
   if (!siguiente) return null
   return {

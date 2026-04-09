@@ -1,4 +1,4 @@
-// src/seeds/seedUsuarioAdmin.ts
+// src/seeds/seedAdminUser.ts
 //  Crea el usuario Admin inicial si no existe.
 //  Credenciales tomadas del .env o valores por defecto de desarrollo.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -7,7 +7,7 @@ import { AppDataSource } from "../data-source";
 import { User }       from "../models/User";
 import { Role }           from "../models/Role";
 
-export async function seedUsuarioAdmin(): Promise<void> {
+export async function seedAdminUser(): Promise<void> {
   const usuarioRepo = AppDataSource.getRepository(User);
   const rolRepo     = AppDataSource.getRepository(Role);
 

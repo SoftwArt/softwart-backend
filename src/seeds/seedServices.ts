@@ -1,8 +1,8 @@
-// src/seeds/seedServicios.ts
+// src/seeds/seedServices.ts
 import { AppDataSource } from "../data-source";
 import { Service }      from "../models/Service";
 
-export async function seedServicios(): Promise<void> {
+export async function seedServices(): Promise<void> {
   const repo = AppDataSource.getRepository(Service);
   if (await repo.count() > 0) return;
   await repo.save(repo.create([

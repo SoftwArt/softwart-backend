@@ -6,7 +6,7 @@ import { Sale }             from "../models/Sale";
 import { Payment }              from "../models/Payment";
 import { PaymentStatus }        from "../models/PaymentStatus";
 import { PaymentMethod }        from "../models/PaymentMethod";
-import { calcularAbonos, siguienteAbono } from "../helpers/abonos.helper";
+import { calculateInstallments, nextInstallment } from "../helpers/installments.helper";
 
 // ── GET /api/ventas/:id/estado-pagos ─────────────────────────────────────────
 // Devuelve el estado actual de abonos: cuántos hay, cuánto falta, qué sigue
@@ -26,8 +26,8 @@ export const getPaymentPlan = async (req: Request, res: Response): Promise<void>
     const pagosRealizados = pagosOrdenados.length
     const totalPagado     = pagosOrdenados.reduce((s, p) => s + Number(p.monto), 0)
     const saldo           = Math.round((Number(total) - totalPagado) * 100) / 100
-    const abonos          = calcularAbonos(Number(total), num_abonos, porcentaje_primer_abono)
-    const siguiente       = siguienteAbono(Number(total), num_abonos, porcentaje_primer_abono, pagosRealizados)
+    const abonos          = calculateInstallments(Number(total), num_abonos, porcentaje_primer_abono)
+    const siguiente       = nextInstallment(Number(total), num_abonos, porcentaje_primer_abono, pagosRealizados)
 
     res.json({
       success: true,
@@ -87,7 +87,7 @@ export const registerInstallment = async (req: Request, res: Response): Promise<
     }
 
     // Calcular monto esperado para este abono
-    const siguiente = siguienteAbono(Number(total), num_abonos, porcentaje_primer_abono, pagosRealizados)
+    const siguiente = nextInstallment(Number(total), num_abonos, porcentaje_primer_abono, pagosRealizados)
     if (!siguiente) {
       res.status(409).json({ success: false, message: "No hay abonos pendientes para esta venta" }); return
     }
@@ -207,7 +207,7 @@ export const configureInstallments = async (req: Request, res: Response): Promis
 
     await ventaRepo.save(venta)
 
-    const abonos = calcularAbonos(Number(venta.total), venta.num_abonos, venta.porcentaje_primer_abono)
+    const abonos = calculateInstallments(Number(venta.total), venta.num_abonos, venta.porcentaje_primer_abono)
     res.json({
       success: true,
       message: "Configuración de abonos actualizada",
