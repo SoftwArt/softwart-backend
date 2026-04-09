@@ -8,7 +8,7 @@ import { Appointment } from "../models/Appointment";
 import { Sale } from "../models/Sale";
 import { User } from "../models/User";
 
-export const getAllCliente = async (req: Request, res: Response): Promise<void> => {
+export const getAllClient = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Client);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -27,7 +27,7 @@ export const getAllCliente = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const getClienteById = async (req: Request, res: Response): Promise<void> => {
+export const getClientById = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Client);
     const item = await clienteRepo.findOne({ where: { id_cliente: Number(req.params.id) } });
@@ -38,7 +38,7 @@ export const getClienteById = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const createCliente = async (req: Request, res: Response): Promise<void> => {
+export const createClient = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Client);
     const required = ["tipoDocumento", "documento", "nombre", "correo"];
@@ -58,7 +58,7 @@ export const createCliente = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const updateCliente = async (req: Request, res: Response): Promise<void> => {
+export const updateClient = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Client);
     const item = await clienteRepo.findOne({ where: { id_cliente: Number(req.params.id) } });
@@ -75,7 +75,7 @@ export const updateCliente = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const deleteCliente = async (req: Request, res: Response): Promise<void> => {
+export const deleteClient = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Client);
     const citaRepo    = AppDataSource.getRepository(Appointment);
@@ -97,7 +97,7 @@ export const deleteCliente = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const toggleEstadoCliente = async (req: Request, res: Response): Promise<void> => {
+export const toggleClientStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Client);
     const item = await clienteRepo.findOneBy({ id_cliente: Number(req.params.id) });

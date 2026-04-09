@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { registro, login, recuperar, resetPassword, reenviarCodigo } from "../controllers/AuthController";
+import { register, login, recover, resetPassword, resendCode } from "../controllers/AuthController";
 import { authLimiter, resendLimiter } from "../middlewares/rateLimit.middleware";
 
 const router = Router();
 
 // Todos públicos — rate-limited
-router.post("/registro",         authLimiter,   registro);
+router.post("/register",         authLimiter,   register);
 router.post("/login",            authLimiter,   login);
-router.post("/recuperar",        authLimiter,   recuperar);
+router.post("/recover",        authLimiter,   recover);
 router.post("/reset-password",   authLimiter,   resetPassword);
-router.post("/reenviar-codigo",  resendLimiter, reenviarCodigo);
+router.post("/reenviar-codigo",  resendLimiter, resendCode);
 
 export { router as authRouter };

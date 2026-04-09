@@ -6,7 +6,7 @@ import { AppDataSource } from "../data-source";
 import { ServiceStatus } from "../models/ServiceStatus";
 import { SaleDetail } from "../models/SaleDetail";
 
-export const getAllEstadoServicio = async (_req: Request, res: Response): Promise<void> => {
+export const getAllServiceStatus = async (_req: Request, res: Response): Promise<void> => {
   try {
     const items = await AppDataSource.getRepository(ServiceStatus).find();
     res.json({ success: true, data: items });
@@ -15,7 +15,7 @@ export const getAllEstadoServicio = async (_req: Request, res: Response): Promis
   }
 };
 
-export const getEstadoServicioById = async (req: Request, res: Response): Promise<void> => {
+export const getServiceStatusById = async (req: Request, res: Response): Promise<void> => {
   try {
     const item = await AppDataSource.getRepository(ServiceStatus).findOne({ where: { id_estado: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
@@ -25,7 +25,7 @@ export const getEstadoServicioById = async (req: Request, res: Response): Promis
   }
 };
 
-export const createEstadoServicio = async (req: Request, res: Response): Promise<void> => {
+export const createServiceStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo = AppDataSource.getRepository(ServiceStatus);
     if (!req.body.nombre) { res.status(400).json({ success: false, message: "nombre es requerido" }); return; }
@@ -37,7 +37,7 @@ export const createEstadoServicio = async (req: Request, res: Response): Promise
   }
 };
 
-export const updateEstadoServicio = async (req: Request, res: Response): Promise<void> => {
+export const updateServiceStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo = AppDataSource.getRepository(ServiceStatus);
     const item = await repo.findOne({ where: { id_estado: Number(req.params.id) } });
@@ -50,7 +50,7 @@ export const updateEstadoServicio = async (req: Request, res: Response): Promise
   }
 };
 
-export const deleteEstadoServicio = async (req: Request, res: Response): Promise<void> => {
+export const deleteServiceStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo             = AppDataSource.getRepository(ServiceStatus);
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
@@ -66,7 +66,7 @@ export const deleteEstadoServicio = async (req: Request, res: Response): Promise
 };
 
 // PATCH /api/estado-servicio/detalle/:id_detalle/estado
-export const cambiarEstadoDetalle = async (req: Request, res: Response): Promise<void> => {
+export const changeSaleDetailStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const detalleVentaRepo   = AppDataSource.getRepository(SaleDetail);
     const estadoServicioRepo = AppDataSource.getRepository(ServiceStatus);
@@ -78,6 +78,6 @@ export const cambiarEstadoDetalle = async (req: Request, res: Response): Promise
     await detalleVentaRepo.save(target);
     res.json({ success: true, message: "Estado de DetalleVenta actualizado", data: target });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error en cambiarEstadoDetalle", error });
+    res.status(500).json({ success: false, message: "Error en changeSaleDetailStatus", error });
   }
 };

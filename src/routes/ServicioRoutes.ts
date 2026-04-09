@@ -1,18 +1,18 @@
 import { Router } from "express";
-import { getAllServicio, getServicioById, createServicio,
-         updateServicio, deleteServicio, toggleEstadoServicio } from "../controllers/ServicioController";
+import { getAllService, getServiceById, createService,
+         updateService, deleteService, toggleServiceStatus } from "../controllers/ServiceController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
 // ── Públicos (landing muestra los tipos de servicio) ─────────
-router.get("/",    getAllServicio);
-router.get("/:id", getServicioById);
+router.get("/",    getAllService);
+router.get("/:id", getServiceById);
 
 // ── Admin + Empleado ─────────────────────────────────────────
-router.post("/",            verifyToken, requireRol("Admin", "Empleado"), createServicio);
-router.put("/:id",          verifyToken, requireRol("Admin", "Empleado"), updateServicio);
-router.delete("/:id",       verifyToken, requireRol("Admin", "Empleado"), deleteServicio);
-router.patch("/:id/estado", verifyToken, requireRol("Admin", "Empleado"), toggleEstadoServicio);
+router.post("/",            verifyToken, requireRol("Admin", "Empleado"), createService);
+router.put("/:id",          verifyToken, requireRol("Admin", "Empleado"), updateService);
+router.delete("/:id",       verifyToken, requireRol("Admin", "Empleado"), deleteService);
+router.patch("/:id/estado", verifyToken, requireRol("Admin", "Empleado"), toggleServiceStatus);
 
 export { router as servicioRouter };

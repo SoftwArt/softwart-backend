@@ -7,7 +7,7 @@ import { Role } from "../models/Role";
 import { RolePermission } from "../models/RolePermission";
 import { User } from "../models/User";
 
-export const getAllRol = async (req: Request, res: Response): Promise<void> => {
+export const getAllRole = async (req: Request, res: Response): Promise<void> => {
   try {
     const rolRepo = AppDataSource.getRepository(Role);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -26,7 +26,7 @@ export const getAllRol = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const getRolById = async (req: Request, res: Response): Promise<void> => {
+export const getRoleById = async (req: Request, res: Response): Promise<void> => {
   try {
     const rolRepo = AppDataSource.getRepository(Role);
     const item = await rolRepo.findOne({ where: { id_rol: Number(req.params.id) } });
@@ -37,7 +37,7 @@ export const getRolById = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const createRol = async (req: Request, res: Response): Promise<void> => {
+export const createRole = async (req: Request, res: Response): Promise<void> => {
   try {
     const rolRepo = AppDataSource.getRepository(Role);
     const required = ["nombre"];
@@ -53,7 +53,7 @@ export const createRol = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const updateRol = async (req: Request, res: Response): Promise<void> => {
+export const updateRole = async (req: Request, res: Response): Promise<void> => {
   try {
     const rolRepo = AppDataSource.getRepository(Role);
     const item = await rolRepo.findOne({ where: { id_rol: Number(req.params.id) } });
@@ -66,7 +66,7 @@ export const updateRol = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const deleteRol = async (req: Request, res: Response): Promise<void> => {
+export const deleteRole = async (req: Request, res: Response): Promise<void> => {
   try {
     const rolRepo        = AppDataSource.getRepository(Role);
     const permisoRolRepo = AppDataSource.getRepository(RolePermission);
@@ -84,7 +84,7 @@ export const deleteRol = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const toggleEstadoRol = async (req: Request, res: Response): Promise<void> => {
+export const toggleRoleStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const rolRepo = AppDataSource.getRepository(Role);
     const item = await rolRepo.findOneBy({ id_rol: Number(req.params.id) });

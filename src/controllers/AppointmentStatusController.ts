@@ -6,7 +6,7 @@ import { AppDataSource } from "../data-source";
 import { AppointmentStatus } from "../models/AppointmentStatus";
 import { Appointment } from "../models/Appointment";
 
-export const getAllEstadoCita = async (_req: Request, res: Response): Promise<void> => {
+export const getAllAppointmentStatus = async (_req: Request, res: Response): Promise<void> => {
   try {
     const items = await AppDataSource.getRepository(AppointmentStatus).find();
     res.json({ success: true, data: items });
@@ -15,7 +15,7 @@ export const getAllEstadoCita = async (_req: Request, res: Response): Promise<vo
   }
 };
 
-export const getEstadoCitaById = async (req: Request, res: Response): Promise<void> => {
+export const getAppointmentStatusById = async (req: Request, res: Response): Promise<void> => {
   try {
     const item = await AppDataSource.getRepository(AppointmentStatus).findOne({ where: { id_estado_cita: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
@@ -25,7 +25,7 @@ export const getEstadoCitaById = async (req: Request, res: Response): Promise<vo
   }
 };
 
-export const createEstadoCita = async (req: Request, res: Response): Promise<void> => {
+export const createAppointmentStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo = AppDataSource.getRepository(AppointmentStatus);
     if (!req.body.nombre) { res.status(400).json({ success: false, message: "nombre es requerido" }); return; }
@@ -37,7 +37,7 @@ export const createEstadoCita = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const updateEstadoCita = async (req: Request, res: Response): Promise<void> => {
+export const updateAppointmentStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo = AppDataSource.getRepository(AppointmentStatus);
     const item = await repo.findOne({ where: { id_estado_cita: Number(req.params.id) } });
@@ -50,7 +50,7 @@ export const updateEstadoCita = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const deleteEstadoCita = async (req: Request, res: Response): Promise<void> => {
+export const deleteAppointmentStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo     = AppDataSource.getRepository(AppointmentStatus);
     const citaRepo = AppDataSource.getRepository(Appointment);
@@ -66,7 +66,7 @@ export const deleteEstadoCita = async (req: Request, res: Response): Promise<voi
 };
 
 // PATCH /api/estado-cita/cita/:id_cita/estado
-export const cambiarEstadoCita = async (req: Request, res: Response): Promise<void> => {
+export const changeAppointmentStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const citaRepo       = AppDataSource.getRepository(Appointment);
     const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus);
@@ -78,6 +78,6 @@ export const cambiarEstadoCita = async (req: Request, res: Response): Promise<vo
     await citaRepo.save(target);
     res.json({ success: true, message: "Estado de Cita actualizado", data: target });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error en cambiarEstadoCita", error });
+    res.status(500).json({ success: false, message: "Error en changeAppointmentStatus", error });
   }
 };

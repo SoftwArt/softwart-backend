@@ -8,7 +8,7 @@ import { Sale } from "../models/Sale";
 import { AppointmentStatus } from "../models/AppointmentStatus";
 import { Client } from "../models/Client";
 
-export const getAllCita = async (req: Request, res: Response): Promise<void> => {
+export const getAllAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
     const citaRepo = AppDataSource.getRepository(Appointment);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -31,7 +31,7 @@ export const getAllCita = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const getCitaById = async (req: Request, res: Response): Promise<void> => {
+export const getAppointmentById = async (req: Request, res: Response): Promise<void> => {
   try {
     const citaRepo = AppDataSource.getRepository(Appointment);
     const item = await citaRepo.findOne({
@@ -45,7 +45,7 @@ export const getCitaById = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const createCita = async (req: Request, res: Response): Promise<void> => {
+export const createAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
     const citaRepo = AppDataSource.getRepository(Appointment);
     const required = ["fecha", "hora"];
@@ -73,7 +73,7 @@ export const createCita = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const updateCita = async (req: Request, res: Response): Promise<void> => {
+export const updateAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
     const citaRepo = AppDataSource.getRepository(Appointment);
     const item = await citaRepo.findOne({
@@ -102,7 +102,7 @@ export const updateCita = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const deleteCita = async (req: Request, res: Response): Promise<void> => {
+export const deleteAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
     const citaRepo  = AppDataSource.getRepository(Appointment);
     const ventaRepo = AppDataSource.getRepository(Sale);
@@ -128,7 +128,7 @@ import { Service }       from "../models/Service";
 import { Frame }         from "../models/Frame";
 import { ServiceStatus } from "../models/ServiceStatus";
 
-export const crearVentaDesdeCita = async (req: Request, res: Response): Promise<void> => {
+export const createSaleFromAppointment = async (req: Request, res: Response): Promise<void> => {
   const queryRunner = AppDataSource.createQueryRunner();
   await queryRunner.connect();
   await queryRunner.startTransaction();

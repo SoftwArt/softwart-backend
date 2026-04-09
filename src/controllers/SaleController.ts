@@ -9,7 +9,7 @@ import { Payment } from "../models/Payment";
 import { Appointment } from "../models/Appointment";
 import { Client } from "../models/Client";
 
-export const getAllVenta = async (req: Request, res: Response): Promise<void> => {
+export const getAllSale = async (req: Request, res: Response): Promise<void> => {
   try {
     const ventaRepo = AppDataSource.getRepository(Sale);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -32,7 +32,7 @@ export const getAllVenta = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const getVentaById = async (req: Request, res: Response): Promise<void> => {
+export const getSaleById = async (req: Request, res: Response): Promise<void> => {
   try {
     const ventaRepo = AppDataSource.getRepository(Sale);
     const item = await ventaRepo.findOne({
@@ -46,7 +46,7 @@ export const getVentaById = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const createVenta = async (req: Request, res: Response): Promise<void> => {
+export const createSale = async (req: Request, res: Response): Promise<void> => {
   try {
     const ventaRepo = AppDataSource.getRepository(Sale);
     const required = ["fecha", "total"];
@@ -74,7 +74,7 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const updateVenta = async (req: Request, res: Response): Promise<void> => {
+export const updateSale = async (req: Request, res: Response): Promise<void> => {
   try {
     const ventaRepo = AppDataSource.getRepository(Sale);
     const item = await ventaRepo.findOne({
@@ -102,7 +102,7 @@ export const updateVenta = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const deleteVenta = async (req: Request, res: Response): Promise<void> => {
+export const deleteSale = async (req: Request, res: Response): Promise<void> => {
   try {
     const ventaRepo        = AppDataSource.getRepository(Sale);
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
@@ -120,7 +120,7 @@ export const deleteVenta = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const toggleEstadoVenta = async (req: Request, res: Response): Promise<void> => {
+export const toggleSaleStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const ventaRepo = AppDataSource.getRepository(Sale);
     const item = await ventaRepo.findOneBy({ id_venta: Number(req.params.id) });

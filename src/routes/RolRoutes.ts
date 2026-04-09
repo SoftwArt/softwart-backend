@@ -1,17 +1,17 @@
 import { Router } from "express";
-import { getAllRol, getRolById, createRol,
-         updateRol, deleteRol, toggleEstadoRol } from "../controllers/RolController";
+import { getAllRole, getRoleById, createRole,
+         updateRole, deleteRole, toggleRoleStatus } from "../controllers/RoleController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
 router.use(verifyToken, requireRol("Admin"));
 
-router.get("/",             getAllRol);
-router.get("/:id",          getRolById);
-router.post("/",            createRol);
-router.put("/:id",          updateRol);
-router.delete("/:id",       deleteRol);
-router.patch("/:id/estado", toggleEstadoRol);
+router.get("/",             getAllRole);
+router.get("/:id",          getRoleById);
+router.post("/",            createRole);
+router.put("/:id",          updateRole);
+router.delete("/:id",       deleteRole);
+router.patch("/:id/estado", toggleRoleStatus);
 
 export { router as rolRouter };

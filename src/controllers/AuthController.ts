@@ -12,11 +12,11 @@ import { sendRecoveryEmail } from "../services/email.service";
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev_secret_cambiame_en_prod";
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/auth/registro
+//  POST /api/auth/register
 //  Uso exclusivo de la landing page — crea Cliente + Usuario en una sola llamada
 //  Body: { tipoDocumento, documento, nombre, correo, clave, telefono }
 // ─────────────────────────────────────────────────────────────────────────────
-export const registro = async (req: Request, res: Response): Promise<void> => {
+export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioRepo = AppDataSource.getRepository(User);
     const clienteRepo = AppDataSource.getRepository(Client);
@@ -163,11 +163,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/auth/recuperar
+//  POST /api/auth/recover
 //  Body: { correo }
 //  Genera token de recuperación y envía email
 // ─────────────────────────────────────────────────────────────────────────────
-export const recuperar = async (req: Request, res: Response): Promise<void> => {
+export const recover = async (req: Request, res: Response): Promise<void> => {
   try {
     const { correo } = req.body;
 
@@ -202,7 +202,7 @@ export const recuperar = async (req: Request, res: Response): Promise<void> => {
     res.json({ success: true, message: "Si el correo existe, recibirás un enlace de recuperación" });
 
   } catch (error) {
-    console.error("❌ Error en recuperar:", error);
+    console.error("❌ Error en recover:", error);
     res.status(500).json({ success: false, message: "Error al procesar solicitud", error });
   }
 };
@@ -212,7 +212,7 @@ export const recuperar = async (req: Request, res: Response): Promise<void> => {
 //  Body: { correo }
 //  Idempotente: si el token aún no expiró, reenvía el mismo; si no, genera uno nuevo
 // ─────────────────────────────────────────────────────────────────────────────
-export const reenviarCodigo = async (req: Request, res: Response): Promise<void> => {
+export const resendCode = async (req: Request, res: Response): Promise<void> => {
   try {
     const { correo } = req.body;
 
@@ -251,7 +251,7 @@ export const reenviarCodigo = async (req: Request, res: Response): Promise<void>
     res.json(okResponse);
 
   } catch (error) {
-    console.error("❌ Error en reenviarCodigo:", error);
+    console.error("❌ Error en resendCode:", error);
     res.status(500).json({ success: false, message: "Error al reenviar código", error });
   }
 };

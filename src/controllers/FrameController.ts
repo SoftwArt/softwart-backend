@@ -6,7 +6,7 @@ import { AppDataSource } from "../data-source";
 import { Frame } from "../models/Frame";
 import { SaleDetail } from "../models/SaleDetail";
 
-export const getAllMarco = async (req: Request, res: Response): Promise<void> => {
+export const getAllFrame = async (req: Request, res: Response): Promise<void> => {
   try {
     const marcoRepo = AppDataSource.getRepository(Frame);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -25,7 +25,7 @@ export const getAllMarco = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const getMarcoById = async (req: Request, res: Response): Promise<void> => {
+export const getFrameById = async (req: Request, res: Response): Promise<void> => {
   try {
     const marcoRepo = AppDataSource.getRepository(Frame);
     const item = await marcoRepo.findOne({ where: { id_marco: Number(req.params.id) } });
@@ -36,7 +36,7 @@ export const getMarcoById = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const createMarco = async (req: Request, res: Response): Promise<void> => {
+export const createFrame = async (req: Request, res: Response): Promise<void> => {
   try {
     const marcoRepo = AppDataSource.getRepository(Frame);
     const required = ["codigo", "colilla", "precio_ensamblado"];
@@ -54,7 +54,7 @@ export const createMarco = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const updateMarco = async (req: Request, res: Response): Promise<void> => {
+export const updateFrame = async (req: Request, res: Response): Promise<void> => {
   try {
     const marcoRepo = AppDataSource.getRepository(Frame);
     const item = await marcoRepo.findOne({ where: { id_marco: Number(req.params.id) } });
@@ -69,7 +69,7 @@ export const updateMarco = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const deleteMarco = async (req: Request, res: Response): Promise<void> => {
+export const deleteFrame = async (req: Request, res: Response): Promise<void> => {
   try {
     const marcoRepo        = AppDataSource.getRepository(Frame);
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
@@ -84,7 +84,7 @@ export const deleteMarco = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const toggleEstadoMarco = async (req: Request, res: Response): Promise<void> => {
+export const toggleFrameStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const marcoRepo = AppDataSource.getRepository(Frame);
     const item = await marcoRepo.findOneBy({ id_marco: Number(req.params.id) });

@@ -1,17 +1,17 @@
 import { Router } from "express";
-import { getAllCita, getCitaById, createCita,
-         updateCita, deleteCita, crearVentaDesdeCita } from "../controllers/CitaController";
+import { getAllAppointment, getAppointmentById, createAppointment,
+         updateAppointment, deleteAppointment, createSaleFromAppointment } from "../controllers/AppointmentController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
 router.use(verifyToken, requireRol("Admin", "Empleado"));
 
-router.get("/",       getAllCita);
-router.get("/:id",    getCitaById);
-router.post("/",      createCita);
-router.put("/:id",    updateCita);
-router.delete("/:id", deleteCita);
-router.post("/:id/crear-venta", crearVentaDesdeCita); // POST /api/citas/:id/crear-venta
+router.get("/",       getAllAppointment);
+router.get("/:id",    getAppointmentById);
+router.post("/",      createAppointment);
+router.put("/:id",    updateAppointment);
+router.delete("/:id", deleteAppointment);
+router.post("/:id/crear-venta", createSaleFromAppointment); // POST /api/citas/:id/crear-venta
 
 export { router as citaRouter };

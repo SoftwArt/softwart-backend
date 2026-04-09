@@ -8,7 +8,7 @@ import { Sale } from "../models/Sale";
 import { PaymentMethod } from "../models/PaymentMethod";
 import { PaymentStatus } from "../models/PaymentStatus";
 
-export const getAllPago = async (req: Request, res: Response): Promise<void> => {
+export const getAllPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const pagoRepo = AppDataSource.getRepository(Payment);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -31,7 +31,7 @@ export const getAllPago = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const getPagoById = async (req: Request, res: Response): Promise<void> => {
+export const getPaymentById = async (req: Request, res: Response): Promise<void> => {
   try {
     const pagoRepo = AppDataSource.getRepository(Payment);
     const item = await pagoRepo.findOne({
@@ -45,7 +45,7 @@ export const getPagoById = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-export const createPago = async (req: Request, res: Response): Promise<void> => {
+export const createPayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const pagoRepo = AppDataSource.getRepository(Payment);
     const required = ["fecha", "monto"];
@@ -77,7 +77,7 @@ export const createPago = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const updatePago = async (req: Request, res: Response): Promise<void> => {
+export const updatePayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const pagoRepo = AppDataSource.getRepository(Payment);
     const item = await pagoRepo.findOne({
@@ -110,7 +110,7 @@ export const updatePago = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const deletePago = async (req: Request, res: Response): Promise<void> => {
+export const deletePayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const pagoRepo = AppDataSource.getRepository(Payment);
     const item = await pagoRepo.findOneBy({ id_pago: Number(req.params.id) });

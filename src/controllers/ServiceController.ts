@@ -6,7 +6,7 @@ import { AppDataSource } from "../data-source";
 import { Service } from "../models/Service";
 import { SaleDetail } from "../models/SaleDetail";
 
-export const getAllServicio = async (req: Request, res: Response): Promise<void> => {
+export const getAllService = async (req: Request, res: Response): Promise<void> => {
   try {
     const servicioRepo = AppDataSource.getRepository(Service);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -25,7 +25,7 @@ export const getAllServicio = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const getServicioById = async (req: Request, res: Response): Promise<void> => {
+export const getServiceById = async (req: Request, res: Response): Promise<void> => {
   try {
     const servicioRepo = AppDataSource.getRepository(Service);
     const item = await servicioRepo.findOne({ where: { id_servicio: Number(req.params.id) } });
@@ -36,7 +36,7 @@ export const getServicioById = async (req: Request, res: Response): Promise<void
   }
 };
 
-export const createServicio = async (req: Request, res: Response): Promise<void> => {
+export const createService = async (req: Request, res: Response): Promise<void> => {
   try {
     const servicioRepo = AppDataSource.getRepository(Service);
     const required = ["nombre", "duracion"];
@@ -54,7 +54,7 @@ export const createServicio = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const updateServicio = async (req: Request, res: Response): Promise<void> => {
+export const updateService = async (req: Request, res: Response): Promise<void> => {
   try {
     const servicioRepo = AppDataSource.getRepository(Service);
     const item = await servicioRepo.findOne({ where: { id_servicio: Number(req.params.id) } });
@@ -69,7 +69,7 @@ export const updateServicio = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const deleteServicio = async (req: Request, res: Response): Promise<void> => {
+export const deleteService = async (req: Request, res: Response): Promise<void> => {
   try {
     const servicioRepo     = AppDataSource.getRepository(Service);
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
@@ -84,7 +84,7 @@ export const deleteServicio = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const toggleEstadoServicio = async (req: Request, res: Response): Promise<void> => {
+export const toggleServiceStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const servicioRepo = AppDataSource.getRepository(Service);
     const item = await servicioRepo.findOneBy({ id_servicio: Number(req.params.id) });

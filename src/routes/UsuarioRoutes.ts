@@ -1,17 +1,17 @@
 import { Router } from "express";
-import { getAllUsuario, getUsuarioById, createUsuario,
-         updateUsuario, deleteUsuario, toggleEstadoUsuario } from "../controllers/UsuarioController";
+import { getAllUser, getUserById, createUser,
+         updateUser, deleteUser, toggleUserStatus } from "../controllers/UserController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
 router.use(verifyToken, requireRol("Admin"));
 
-router.get("/",             getAllUsuario);
-router.get("/:id",          getUsuarioById);
-router.post("/",            createUsuario);
-router.put("/:id",          updateUsuario);
-router.delete("/:id",       deleteUsuario);
-router.patch("/:id/estado", toggleEstadoUsuario);
+router.get("/",             getAllUser);
+router.get("/:id",          getUserById);
+router.post("/",            createUser);
+router.put("/:id",          updateUser);
+router.delete("/:id",       deleteUser);
+router.patch("/:id/estado", toggleUserStatus);
 
 export { router as usuarioRouter };

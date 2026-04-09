@@ -1,17 +1,17 @@
 import { Router } from "express";
-import { getAllMarco, getMarcoById, createMarco,
-         updateMarco, deleteMarco, toggleEstadoMarco } from "../controllers/MarcoController";
+import { getAllFrame, getFrameById, createFrame,
+         updateFrame, deleteFrame, toggleFrameStatus } from "../controllers/FrameController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
 router.use(verifyToken, requireRol("Admin", "Empleado"));
 
-router.get("/",             getAllMarco);
-router.get("/:id",          getMarcoById);
-router.post("/",            createMarco);
-router.put("/:id",          updateMarco);
-router.delete("/:id",       deleteMarco);
-router.patch("/:id/estado", toggleEstadoMarco);
+router.get("/",             getAllFrame);
+router.get("/:id",          getFrameById);
+router.post("/",            createFrame);
+router.put("/:id",          updateFrame);
+router.delete("/:id",       deleteFrame);
+router.patch("/:id/estado", toggleFrameStatus);
 
 export { router as marcoRouter };

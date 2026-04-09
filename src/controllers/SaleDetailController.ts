@@ -9,7 +9,7 @@ import { Service } from "../models/Service";
 import { ServiceStatus } from "../models/ServiceStatus";
 import { Frame } from "../models/Frame";
 
-export const getAllDetalleVenta = async (req: Request, res: Response): Promise<void> => {
+export const getAllSaleDetail = async (req: Request, res: Response): Promise<void> => {
   try {
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -32,7 +32,7 @@ export const getAllDetalleVenta = async (req: Request, res: Response): Promise<v
   }
 };
 
-export const getDetalleVentaById = async (req: Request, res: Response): Promise<void> => {
+export const getSaleDetailById = async (req: Request, res: Response): Promise<void> => {
   try {
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const item = await detalleVentaRepo.findOne({
@@ -46,7 +46,7 @@ export const getDetalleVentaById = async (req: Request, res: Response): Promise<
   }
 };
 
-export const createDetalleVenta = async (req: Request, res: Response): Promise<void> => {
+export const createSaleDetail = async (req: Request, res: Response): Promise<void> => {
   try {
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const required = ["fecha", "precio"];
@@ -84,7 +84,7 @@ export const createDetalleVenta = async (req: Request, res: Response): Promise<v
   }
 };
 
-export const updateDetalleVenta = async (req: Request, res: Response): Promise<void> => {
+export const updateSaleDetail = async (req: Request, res: Response): Promise<void> => {
   try {
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const item = await detalleVentaRepo.findOne({
@@ -122,7 +122,7 @@ export const updateDetalleVenta = async (req: Request, res: Response): Promise<v
   }
 };
 
-export const deleteDetalleVenta = async (req: Request, res: Response): Promise<void> => {
+export const deleteSaleDetail = async (req: Request, res: Response): Promise<void> => {
   try {
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const item = await detalleVentaRepo.findOneBy({ id_detalle: Number(req.params.id) });
@@ -134,7 +134,7 @@ export const deleteDetalleVenta = async (req: Request, res: Response): Promise<v
   }
 };
 
-export const toggleEstadoDetalleVenta = async (req: Request, res: Response): Promise<void> => {
+export const toggleSaleDetailStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const item = await detalleVentaRepo.findOneBy({ id_detalle: Number(req.params.id) });

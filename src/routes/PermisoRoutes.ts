@@ -1,17 +1,17 @@
 import { Router } from "express";
-import { getAllPermiso, getPermisoById, createPermiso,
-         updatePermiso, deletePermiso, toggleEstadoPermiso } from "../controllers/PermisoController";
+import { getAllPermission, getPermissionById, createPermission,
+         updatePermission, deletePermission, togglePermissionStatus } from "../controllers/PermissionController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
 router.use(verifyToken, requireRol("Admin"));
 
-router.get("/",             getAllPermiso);
-router.get("/:id",          getPermisoById);
-router.post("/",            createPermiso);
-router.put("/:id",          updatePermiso);
-router.delete("/:id",       deletePermiso);
-router.patch("/:id/estado", toggleEstadoPermiso);
+router.get("/",             getAllPermission);
+router.get("/:id",          getPermissionById);
+router.post("/",            createPermission);
+router.put("/:id",          updatePermission);
+router.delete("/:id",       deletePermission);
+router.patch("/:id/estado", togglePermissionStatus);
 
 export { router as permisoRouter };

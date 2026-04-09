@@ -6,7 +6,7 @@ import { AppDataSource } from "../data-source";
 import { Permission } from "../models/Permission";
 import { RolePermission } from "../models/RolePermission";
 
-export const getAllPermiso = async (req: Request, res: Response): Promise<void> => {
+export const getAllPermission = async (req: Request, res: Response): Promise<void> => {
   try {
     const permisoRepo = AppDataSource.getRepository(Permission);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -25,7 +25,7 @@ export const getAllPermiso = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const getPermisoById = async (req: Request, res: Response): Promise<void> => {
+export const getPermissionById = async (req: Request, res: Response): Promise<void> => {
   try {
     const permisoRepo = AppDataSource.getRepository(Permission);
     const item = await permisoRepo.findOne({ where: { id_permiso: Number(req.params.id) } });
@@ -36,7 +36,7 @@ export const getPermisoById = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const createPermiso = async (req: Request, res: Response): Promise<void> => {
+export const createPermission = async (req: Request, res: Response): Promise<void> => {
   try {
     const permisoRepo = AppDataSource.getRepository(Permission);
     const required = ["nombre", "descripcion"];
@@ -53,7 +53,7 @@ export const createPermiso = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const updatePermiso = async (req: Request, res: Response): Promise<void> => {
+export const updatePermission = async (req: Request, res: Response): Promise<void> => {
   try {
     const permisoRepo = AppDataSource.getRepository(Permission);
     const item = await permisoRepo.findOne({ where: { id_permiso: Number(req.params.id) } });
@@ -67,7 +67,7 @@ export const updatePermiso = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const deletePermiso = async (req: Request, res: Response): Promise<void> => {
+export const deletePermission = async (req: Request, res: Response): Promise<void> => {
   try {
     const permisoRepo    = AppDataSource.getRepository(Permission);
     const permisoRolRepo = AppDataSource.getRepository(RolePermission);
@@ -82,7 +82,7 @@ export const deletePermiso = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const toggleEstadoPermiso = async (req: Request, res: Response): Promise<void> => {
+export const togglePermissionStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const permisoRepo = AppDataSource.getRepository(Permission);
     const item = await permisoRepo.findOneBy({ id_permiso: Number(req.params.id) });

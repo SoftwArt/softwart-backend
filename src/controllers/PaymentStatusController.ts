@@ -6,7 +6,7 @@ import { AppDataSource } from "../data-source";
 import { PaymentStatus } from "../models/PaymentStatus";
 import { Payment } from "../models/Payment";
 
-export const getAllEstadoPago = async (_req: Request, res: Response): Promise<void> => {
+export const getAllPaymentStatus = async (_req: Request, res: Response): Promise<void> => {
   try {
     const items = await AppDataSource.getRepository(PaymentStatus).find();
     res.json({ success: true, data: items });
@@ -15,7 +15,7 @@ export const getAllEstadoPago = async (_req: Request, res: Response): Promise<vo
   }
 };
 
-export const getEstadoPagoById = async (req: Request, res: Response): Promise<void> => {
+export const getPaymentStatusById = async (req: Request, res: Response): Promise<void> => {
   try {
     const item = await AppDataSource.getRepository(PaymentStatus).findOne({ where: { id_estado_pago: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "EstadoPago no encontrado" }); return; }
@@ -25,7 +25,7 @@ export const getEstadoPagoById = async (req: Request, res: Response): Promise<vo
   }
 };
 
-export const createEstadoPago = async (req: Request, res: Response): Promise<void> => {
+export const createPaymentStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo = AppDataSource.getRepository(PaymentStatus);
     if (!req.body.nombre) { res.status(400).json({ success: false, message: "nombre es requerido" }); return; }
@@ -37,7 +37,7 @@ export const createEstadoPago = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const updateEstadoPago = async (req: Request, res: Response): Promise<void> => {
+export const updatePaymentStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo = AppDataSource.getRepository(PaymentStatus);
     const item = await repo.findOne({ where: { id_estado_pago: Number(req.params.id) } });
@@ -50,7 +50,7 @@ export const updateEstadoPago = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const deleteEstadoPago = async (req: Request, res: Response): Promise<void> => {
+export const deletePaymentStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo     = AppDataSource.getRepository(PaymentStatus);
     const pagoRepo = AppDataSource.getRepository(Payment);
@@ -66,7 +66,7 @@ export const deleteEstadoPago = async (req: Request, res: Response): Promise<voi
 };
 
 // PATCH /api/estado-pago/pago/:id_pago/estado
-export const cambiarEstadoPago = async (req: Request, res: Response): Promise<void> => {
+export const changePaymentStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const pagoRepo       = AppDataSource.getRepository(Payment);
     const estadoPagoRepo = AppDataSource.getRepository(PaymentStatus);
@@ -78,6 +78,6 @@ export const cambiarEstadoPago = async (req: Request, res: Response): Promise<vo
     await pagoRepo.save(target);
     res.json({ success: true, message: "Estado de Pago actualizado", data: target });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error en cambiarEstadoPago", error });
+    res.status(500).json({ success: false, message: "Error en changePaymentStatus", error });
   }
 };

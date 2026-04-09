@@ -6,7 +6,7 @@ import { AppDataSource } from "../data-source";
 import { PaymentMethod } from "../models/PaymentMethod";
 import { Payment } from "../models/Payment";
 
-export const getAllMetodoPago = async (_req: Request, res: Response): Promise<void> => {
+export const getAllPaymentMethod = async (_req: Request, res: Response): Promise<void> => {
   try {
     const items = await AppDataSource.getRepository(PaymentMethod).find();
     res.json({ success: true, data: items });
@@ -15,7 +15,7 @@ export const getAllMetodoPago = async (_req: Request, res: Response): Promise<vo
   }
 };
 
-export const getMetodoPagoById = async (req: Request, res: Response): Promise<void> => {
+export const getPaymentMethodById = async (req: Request, res: Response): Promise<void> => {
   try {
     const item = await AppDataSource.getRepository(PaymentMethod).findOne({ where: { id_metodo_pago: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "MetodoPago no encontrado" }); return; }
@@ -25,7 +25,7 @@ export const getMetodoPagoById = async (req: Request, res: Response): Promise<vo
   }
 };
 
-export const createMetodoPago = async (req: Request, res: Response): Promise<void> => {
+export const createPaymentMethod = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo = AppDataSource.getRepository(PaymentMethod);
     if (!req.body.nombre) { res.status(400).json({ success: false, message: "nombre es requerido" }); return; }
@@ -37,7 +37,7 @@ export const createMetodoPago = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const updateMetodoPago = async (req: Request, res: Response): Promise<void> => {
+export const updatePaymentMethod = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo = AppDataSource.getRepository(PaymentMethod);
     const item = await repo.findOne({ where: { id_metodo_pago: Number(req.params.id) } });
@@ -50,7 +50,7 @@ export const updateMetodoPago = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const deleteMetodoPago = async (req: Request, res: Response): Promise<void> => {
+export const deletePaymentMethod = async (req: Request, res: Response): Promise<void> => {
   try {
     const repo     = AppDataSource.getRepository(PaymentMethod);
     const pagoRepo = AppDataSource.getRepository(Payment);
@@ -66,7 +66,7 @@ export const deleteMetodoPago = async (req: Request, res: Response): Promise<voi
 };
 
 // PATCH /api/metodo-pago/pago/:id_pago/metodo
-export const asignarMetodoPago = async (req: Request, res: Response): Promise<void> => {
+export const assignPaymentMethod = async (req: Request, res: Response): Promise<void> => {
   try {
     const pagoRepo       = AppDataSource.getRepository(Payment);
     const metodoPagoRepo = AppDataSource.getRepository(PaymentMethod);
@@ -78,6 +78,6 @@ export const asignarMetodoPago = async (req: Request, res: Response): Promise<vo
     await pagoRepo.save(target);
     res.json({ success: true, message: "Método de pago asignado", data: target });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error en asignarMetodoPago", error });
+    res.status(500).json({ success: false, message: "Error en assignPaymentMethod", error });
   }
 };

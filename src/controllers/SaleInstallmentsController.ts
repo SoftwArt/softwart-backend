@@ -10,7 +10,7 @@ import { calcularAbonos, siguienteAbono } from "../helpers/abonos.helper";
 
 // ── GET /api/ventas/:id/estado-pagos ─────────────────────────────────────────
 // Devuelve el estado actual de abonos: cuántos hay, cuánto falta, qué sigue
-export const getEstadoPagos = async (req: Request, res: Response): Promise<void> => {
+export const getPaymentPlan = async (req: Request, res: Response): Promise<void> => {
   try {
     const id_venta = Number(req.params.id)
 
@@ -58,7 +58,7 @@ export const getEstadoPagos = async (req: Request, res: Response): Promise<void>
 // ── POST /api/ventas/:id/abono ────────────────────────────────────────────────
 // Registra el siguiente abono con validación de monto
 // Body: { monto, id_metodo_pago, fecha?, tolerancia? }
-export const registrarAbono = async (req: Request, res: Response): Promise<void> => {
+export const registerInstallment = async (req: Request, res: Response): Promise<void> => {
   try {
     const id_venta = Number(req.params.id)
     const { monto, id_metodo_pago, fecha, tolerancia = 1 } = req.body
@@ -170,7 +170,7 @@ export const registrarAbono = async (req: Request, res: Response): Promise<void>
 
 // ── PATCH /api/ventas/:id/configurar-abonos ───────────────────────────────────
 // Permite cambiar num_abonos y porcentaje_primer_abono SOLO si no hay pagos aún
-export const configurarAbonos = async (req: Request, res: Response): Promise<void> => {
+export const configureInstallments = async (req: Request, res: Response): Promise<void> => {
   try {
     const id_venta = Number(req.params.id)
     const { num_abonos, porcentaje_primer_abono } = req.body

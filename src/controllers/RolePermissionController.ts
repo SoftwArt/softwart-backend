@@ -5,7 +5,7 @@ import { RolePermission }        from "../models/RolePermission";
 import { Permission }           from "../models/Permission";
 import { Role }               from "../models/Role";
 
-export const getAllPermisoRol = async (req: Request, res: Response): Promise<void> => {
+export const getAllRolePermission = async (req: Request, res: Response): Promise<void> => {
   try {
     const permisoRolRepo = AppDataSource.getRepository(RolePermission);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -25,7 +25,7 @@ export const getAllPermisoRol = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const createPermisoRol = async (req: Request, res: Response): Promise<void> => {
+export const createRolePermission = async (req: Request, res: Response): Promise<void> => {
   try {
     const permisoRolRepo = AppDataSource.getRepository(RolePermission);
     const permisoRepo    = AppDataSource.getRepository(Permission);
@@ -62,7 +62,7 @@ export const createPermisoRol = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const deletePermisoRol = async (req: Request, res: Response): Promise<void> => {
+export const deleteRolePermission = async (req: Request, res: Response): Promise<void> => {
   try {
     const permisoRolRepo = AppDataSource.getRepository(RolePermission);
     const { id_permiso, id_rol } = req.body;
@@ -71,7 +71,7 @@ export const deletePermisoRol = async (req: Request, res: Response): Promise<voi
       res.status(400).json({ success: false, message: "id_permiso e id_rol son requeridos" }); return;
     }
 
-    // QueryBuilder igual que en createPermisoRol para consistencia
+    // QueryBuilder igual que en createRolePermission para consistencia
     const item = await permisoRolRepo
       .createQueryBuilder("pr")
       .where("pr.id_permiso = :id_permiso AND pr.id_rol = :id_rol", {

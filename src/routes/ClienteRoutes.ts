@@ -1,17 +1,17 @@
 import { Router } from "express";
-import { getAllCliente, getClienteById, createCliente,
-         updateCliente, deleteCliente, toggleEstadoCliente } from "../controllers/ClienteController";
+import { getAllClient, getClientById, createClient,
+         updateClient, deleteClient, toggleClientStatus } from "../controllers/ClientController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 
 const router = Router();
 
 router.use(verifyToken, requireRol("Admin", "Empleado"));
 
-router.get("/",             getAllCliente);
-router.get("/:id",          getClienteById);
-router.post("/",            createCliente);
-router.put("/:id",          updateCliente);
-router.delete("/:id",       deleteCliente);
-router.patch("/:id/estado", toggleEstadoCliente);
+router.get("/",             getAllClient);
+router.get("/:id",          getClientById);
+router.post("/",            createClient);
+router.put("/:id",          updateClient);
+router.delete("/:id",       deleteClient);
+router.patch("/:id/estado", toggleClientStatus);
 
 export { router as clienteRouter };

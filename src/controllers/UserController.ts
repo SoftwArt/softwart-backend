@@ -10,7 +10,7 @@ import bcrypt from "bcrypt";
 // Helper: elimina la clave del objeto antes de enviarlo
 const sinClave = ({ clave, ...rest }: User) => rest;
 
-export const getAllUsuario = async (req: Request, res: Response): Promise<void> => {
+export const getAllUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioRepo = AppDataSource.getRepository(User);
     const page  = Math.max(1, Number(req.query.page)  || 1);
@@ -33,7 +33,7 @@ export const getAllUsuario = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const getUsuarioById = async (req: Request, res: Response): Promise<void> => {
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioRepo = AppDataSource.getRepository(User);
     const item = await usuarioRepo.findOne({
@@ -47,7 +47,7 @@ export const getUsuarioById = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const createUsuario = async (req: Request, res: Response): Promise<void> => {
+export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioRepo = AppDataSource.getRepository(User);
     const required = ["correo", "clave"];
@@ -69,7 +69,7 @@ export const createUsuario = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const updateUsuario = async (req: Request, res: Response): Promise<void> => {
+export const updateUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioRepo = AppDataSource.getRepository(User);
     const item = await usuarioRepo.findOne({
@@ -93,7 +93,7 @@ export const updateUsuario = async (req: Request, res: Response): Promise<void> 
 
 const ADMIN_BASE = process.env.ADMIN_EMAIL ?? "admin@softwart.com";
 
-export const deleteUsuario = async (req: Request, res: Response): Promise<void> => {
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioRepo = AppDataSource.getRepository(User);
     const item = await usuarioRepo.findOneBy({ id_usuario: Number(req.params.id) });
@@ -109,7 +109,7 @@ export const deleteUsuario = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const toggleEstadoUsuario = async (req: Request, res: Response): Promise<void> => {
+export const toggleUserStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const usuarioRepo = AppDataSource.getRepository(User);
     const item = await usuarioRepo.findOneBy({ id_usuario: Number(req.params.id) });

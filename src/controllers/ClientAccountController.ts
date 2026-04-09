@@ -13,7 +13,7 @@ import {
 } from "../services/email.service";
 
 // ── GET /api/cuenta/perfil ────────────────────────────────────────────────────
-export const verPerfil = async (req: Request, res: Response): Promise<void> => {
+export const viewProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const cliente = await AppDataSource.getRepository(Client)
       .findOneBy({ id_cliente: req.user!.id_cliente! });
@@ -27,7 +27,7 @@ export const verPerfil = async (req: Request, res: Response): Promise<void> => {
 // ── PUT /api/cuenta/perfil ────────────────────────────────────────────────────
 // Caso 1 — datos personales: { nombre?, telefono?, correo? }
 // Caso 2 — cambio de clave:  { clave_actual, clave }
-export const editarPerfil = async (req: Request, res: Response): Promise<void> => {
+export const editProfile = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Client);
     const usuarioRepo = AppDataSource.getRepository(User);
@@ -72,7 +72,7 @@ export const editarPerfil = async (req: Request, res: Response): Promise<void> =
 };
 
 // ── GET /api/cuenta/citas ─────────────────────────────────────────────────────
-export const misCitas = async (req: Request, res: Response): Promise<void> => {
+export const myAppointments = async (req: Request, res: Response): Promise<void> => {
   try {
     const citas = await AppDataSource.getRepository(Appointment).find({
       where:     { client: { id_cliente: req.user!.id_cliente! } },
@@ -87,7 +87,7 @@ export const misCitas = async (req: Request, res: Response): Promise<void> => {
 
 // ── POST /api/cuenta/citas ────────────────────────────────────────────────────
 // El cliente agenda su propia cita — id_cliente se toma del JWT, no del body
-export const crearMiCita = async (req: Request, res: Response): Promise<void> => {
+export const createMyAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { fecha, hora, observacion, id_estado_cita = 1 } = req.body;
 
@@ -145,7 +145,7 @@ export const crearMiCita = async (req: Request, res: Response): Promise<void> =>
 };
 
 // ── DELETE /api/cuenta ────────────────────────────────────────────────────────
-export const eliminarCuenta = async (req: Request, res: Response): Promise<void> => {
+export const deleteAccount = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Client);
     const usuarioRepo = AppDataSource.getRepository(User);
@@ -179,7 +179,7 @@ export const eliminarCuenta = async (req: Request, res: Response): Promise<void>
 
 // ── PATCH /api/cuenta/citas/:id/cancelar ─────────────────────────────────────
 // Solo puede cancelar sus propias citas y solo si están Pendientes
-export const cancelarMiCita = async (req: Request, res: Response): Promise<void> => {
+export const cancelMyAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
     const id_cita    = Number(req.params.id)
     const id_cliente = req.user!.id_cliente!
@@ -226,7 +226,7 @@ export const cancelarMiCita = async (req: Request, res: Response): Promise<void>
 // ── GET /api/cuenta/disponibilidad?fecha=YYYY-MM-DD ───────────────────────────
 // Devuelve los slots ocupados de una fecha para que el cliente vea la disponibilidad
 // SIN exponer datos privados de otros clientes (solo hora + id_cita)
-export const disponibilidadCitas = async (req: Request, res: Response): Promise<void> => {
+export const appointmentAvailability = async (req: Request, res: Response): Promise<void> => {
   try {
     const { fecha } = req.query
     if (!fecha || typeof fecha !== 'string') {
