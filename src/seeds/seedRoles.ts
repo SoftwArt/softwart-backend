@@ -1,9 +1,9 @@
 // src/seeds/seedRoles.ts
 import { AppDataSource } from "../data-source";
-import { Rol }           from "../models/Rol";
+import { Role }           from "../models/Role";
 
 export async function seedRoles(): Promise<void> {
-  const repo = AppDataSource.getRepository(Rol);
+  const repo = AppDataSource.getRepository(Role);
   if (await repo.count() > 0) return;
 
   await repo.save(repo.create([

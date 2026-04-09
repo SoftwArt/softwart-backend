@@ -1,8 +1,8 @@
 // src/seeds/seedPermisos.ts
 import { AppDataSource } from "../data-source";
-import { Permiso }       from "../models/Permiso";
-import { Rol }           from "../models/Rol";
-import { PermisoRol }    from "../models/PermisoRol";
+import { Permission }       from "../models/Permission";
+import { Role }           from "../models/Role";
+import { RolePermission }    from "../models/RolePermission";
 
 const PERMISOS_BASE = [
   // ── Cliente ──────────────────────────────────────────────────────────────
@@ -108,9 +108,9 @@ const PERMISOS_EMPLEADO = [
 ];
 
 async function asignarPermisos(
-  permisoRolRepo: ReturnType<typeof AppDataSource.getRepository<PermisoRol>>,
-  rol: Rol,
-  permisos: Permiso[],
+  permisoRolRepo: ReturnType<typeof AppDataSource.getRepository<RolePermission>>,
+  rol: Role,
+  permisos: Permission[],
 ): Promise<void> {
   for (const permiso of permisos) {
     const existe = await permisoRolRepo
@@ -120,18 +120,18 @@ async function asignarPermisos(
       .getOne();
 
     if (!existe) {
-      const pr    = new PermisoRol();
-      pr.permiso  = permiso;
-      pr.rol      = rol;
+      const pr     = new RolePermission();
+      pr.permission = permiso;
+      pr.role       = rol;
       await permisoRolRepo.save(pr);
     }
   }
 }
 
 export async function seedPermisos(): Promise<void> {
-  const permisoRepo    = AppDataSource.getRepository(Permiso);
-  const rolRepo        = AppDataSource.getRepository(Rol);
-  const permisoRolRepo = AppDataSource.getRepository(PermisoRol);
+  const permisoRepo    = AppDataSource.getRepository(Permission);
+  const rolRepo        = AppDataSource.getRepository(Role);
+  const permisoRolRepo = AppDataSource.getRepository(RolePermission);
 
   // ── 1. Crear permisos que no existan ──────────────────────────────────────
   for (const { nombre, descripcion } of PERMISOS_BASE) {

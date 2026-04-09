@@ -1,10 +1,9 @@
-// Generado automáticamente por generate-models.js
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Cita } from "./Cita";
-import { Venta } from "./Venta";
+import { Appointment } from "./Appointment";
+import { Sale } from "./Sale";
 
 @Entity("cliente")
-export class Cliente {
+export class Client {
 
   @PrimaryGeneratedColumn()
   id_cliente!: number;
@@ -27,10 +26,10 @@ export class Cliente {
   @Column({ type: "boolean" })
   estado!: boolean;
 
-  @OneToMany(() => Cita, (x) => x.cliente)
-  citas!: Cita[];
+  @OneToMany(() => Appointment, (x) => x.client)
+  appointments!: Appointment[];
 
-  @OneToMany(() => Venta, (x) => x.cliente)
-  ventas!: Venta[];
+  @OneToMany(() => Sale, (x) => x.client)
+  sales!: Sale[];
 
 }

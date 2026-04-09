@@ -1,9 +1,8 @@
-// Generado automáticamente por generate-models.js
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { DetalleVenta } from "./DetalleVenta";
+import { SaleDetail } from "./SaleDetail";
 
 @Entity("servicio")
-export class Servicio {
+export class Service {
 
   @PrimaryGeneratedColumn()
   id_servicio!: number;
@@ -20,7 +19,7 @@ export class Servicio {
   @Column({ type: "boolean" })
   estado!: boolean;
 
-  @OneToMany(() => DetalleVenta, (x) => x.servicio)
-  detallesVenta!: DetalleVenta[];
+  @OneToMany(() => SaleDetail, (x) => x.service)
+  saleDetails!: SaleDetail[];
 
 }

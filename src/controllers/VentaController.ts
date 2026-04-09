@@ -3,21 +3,21 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { Venta } from "../models/Venta";
-import { DetalleVenta } from "../models/DetalleVenta";
-import { Pago } from "../models/Pago";
-import { Cita } from "../models/Cita";
-import { Cliente } from "../models/Cliente";
+import { Sale } from "../models/Sale";
+import { SaleDetail } from "../models/SaleDetail";
+import { Payment } from "../models/Payment";
+import { Appointment } from "../models/Appointment";
+import { Client } from "../models/Client";
 
 export const getAllVenta = async (req: Request, res: Response): Promise<void> => {
   try {
-    const ventaRepo = AppDataSource.getRepository(Venta);
+    const ventaRepo = AppDataSource.getRepository(Sale);
     const page  = Math.max(1, Number(req.query.page)  || 1);
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
     const [items, total] = await ventaRepo.findAndCount({
-      relations: ["cita", "cliente", "pagos"],
+      relations: ["cita", "client", "payments"],
       skip,
       take: limit,
     });
@@ -34,10 +34,10 @@ export const getAllVenta = async (req: Request, res: Response): Promise<void> =>
 
 export const getVentaById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const ventaRepo = AppDataSource.getRepository(Venta);
+    const ventaRepo = AppDataSource.getRepository(Sale);
     const item = await ventaRepo.findOne({
       where: { id_venta: Number(req.params.id) },
-      relations: ["cita", "cliente"],
+      relations: ["cita", "client"],
     });
     if (!item) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -48,7 +48,7 @@ export const getVentaById = async (req: Request, res: Response): Promise<void> =
 
 export const createVenta = async (req: Request, res: Response): Promise<void> => {
   try {
-    const ventaRepo = AppDataSource.getRepository(Venta);
+    const ventaRepo = AppDataSource.getRepository(Sale);
     const required = ["fecha", "total"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
@@ -58,14 +58,14 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
     obj.observacion = req.body.observacion;
     obj.estado      = req.body.estado !== undefined ? req.body.estado : true;
     if (req.body.id_cita != null) {
-      const rel = await AppDataSource.getRepository(Cita).findOneBy({ id_cita: Number(req.body.id_cita) });
+      const rel = await AppDataSource.getRepository(Appointment).findOneBy({ id_cita: Number(req.body.id_cita) });
       if (!rel) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
-      obj.cita = rel;
+      obj.appointment = rel;
     }
     if (req.body.id_cliente !== undefined) {
-      const rel = await AppDataSource.getRepository(Cliente).findOneBy({ id_cliente: Number(req.body.id_cliente) });
+      const rel = await AppDataSource.getRepository(Client).findOneBy({ id_cliente: Number(req.body.id_cliente) });
       if (!rel) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
-      obj.cliente = rel;
+      obj.client = rel;
     }
     await ventaRepo.save(obj);
     res.status(201).json({ success: true, message: "Venta creado exitosamente", data: obj });
@@ -76,24 +76,24 @@ export const createVenta = async (req: Request, res: Response): Promise<void> =>
 
 export const updateVenta = async (req: Request, res: Response): Promise<void> => {
   try {
-    const ventaRepo = AppDataSource.getRepository(Venta);
+    const ventaRepo = AppDataSource.getRepository(Sale);
     const item = await ventaRepo.findOne({
       where: { id_venta: Number(req.params.id) },
-      relations: ["cita", "cliente"],
+      relations: ["cita", "client"],
     });
     if (!item) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
     if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
     if (req.body.total       !== undefined) item.total       = req.body.total;
     if (req.body.observacion !== undefined) item.observacion = req.body.observacion;
     if (req.body.id_cita != null) {
-      const rel = await AppDataSource.getRepository(Cita).findOneBy({ id_cita: Number(req.body.id_cita) });
+      const rel = await AppDataSource.getRepository(Appointment).findOneBy({ id_cita: Number(req.body.id_cita) });
       if (!rel) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
-      item.cita = rel;
+      item.appointment = rel;
     }
     if (req.body.id_cliente !== undefined) {
-      const rel = await AppDataSource.getRepository(Cliente).findOneBy({ id_cliente: Number(req.body.id_cliente) });
+      const rel = await AppDataSource.getRepository(Client).findOneBy({ id_cliente: Number(req.body.id_cliente) });
       if (!rel) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
-      item.cliente = rel;
+      item.client = rel;
     }
     await ventaRepo.save(item);
     res.json({ success: true, message: "Venta actualizado", data: item });
@@ -104,12 +104,12 @@ export const updateVenta = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteVenta = async (req: Request, res: Response): Promise<void> => {
   try {
-    const ventaRepo        = AppDataSource.getRepository(Venta);
-    const detalleVentaRepo = AppDataSource.getRepository(DetalleVenta);
-    const pagoRepo         = AppDataSource.getRepository(Pago);
-    const countDetalle = await detalleVentaRepo.count({ where: { venta: { id_venta: Number(req.params.id) } } });
+    const ventaRepo        = AppDataSource.getRepository(Sale);
+    const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
+    const pagoRepo         = AppDataSource.getRepository(Payment);
+    const countDetalle = await detalleVentaRepo.count({ where: { sale: { id_venta: Number(req.params.id) } } });
     if (countDetalle > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${countDetalle})` }); return; }
-    const countPago = await pagoRepo.count({ where: { venta: { id_venta: Number(req.params.id) } } });
+    const countPago = await pagoRepo.count({ where: { sale: { id_venta: Number(req.params.id) } } });
     if (countPago > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Pago asociados (${countPago})` }); return; }
     const item = await ventaRepo.findOneBy({ id_venta: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
@@ -122,7 +122,7 @@ export const deleteVenta = async (req: Request, res: Response): Promise<void> =>
 
 export const toggleEstadoVenta = async (req: Request, res: Response): Promise<void> => {
   try {
-    const ventaRepo = AppDataSource.getRepository(Venta);
+    const ventaRepo = AppDataSource.getRepository(Sale);
     const item = await ventaRepo.findOneBy({ id_venta: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
     item.estado = !item.estado;

@@ -1,11 +1,10 @@
-// Generado automáticamente por generate-models.js
 import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Cliente } from "./Cliente";
-import { EstadoCita } from "./EstadoCita";
-import { Venta } from "./Venta";
+import { Client } from "./Client";
+import { AppointmentStatus } from "./AppointmentStatus";
+import { Sale } from "./Sale";
 
 @Entity("cita")
-export class Cita {
+export class Appointment {
 
   @PrimaryGeneratedColumn()
   id_cita!: number;
@@ -19,15 +18,15 @@ export class Cita {
   @Column({ nullable: true })
   observacion?: string;
 
-  @ManyToOne(() => EstadoCita, (x) => x.citas)
+  @ManyToOne(() => AppointmentStatus, (x) => x.appointments)
   @JoinColumn({ name: "id_estado_cita" })
-  estadoCita!: EstadoCita;
+  appointmentStatus!: AppointmentStatus;
 
-  @ManyToOne(() => Cliente, (x) => x.citas)
+  @ManyToOne(() => Client, (x) => x.appointments)
   @JoinColumn({ name: "id_cliente" })
-  cliente!: Cliente;
+  client!: Client;
 
-  @OneToOne(() => Venta, (x) => x.cita)
-  venta?: Venta;
+  @OneToOne(() => Sale, (x) => x.appointment)
+  sale?: Sale;
 
 }

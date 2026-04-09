@@ -1,9 +1,9 @@
 // src/seeds/seedMetodoPago.ts
 import { AppDataSource } from "../data-source";
-import { MetodoPago }    from "../models/MetodoPago";
+import { PaymentMethod }    from "../models/PaymentMethod";
 
 export async function seedMetodoPago(): Promise<void> {
-  const repo = AppDataSource.getRepository(MetodoPago);
+  const repo = AppDataSource.getRepository(PaymentMethod);
   if (await repo.count() > 0) return;
   await repo.save(repo.create([
     { nombre: "Efectivo"      },

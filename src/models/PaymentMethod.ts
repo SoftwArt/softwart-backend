@@ -1,9 +1,8 @@
-// Generado automáticamente por generate-models.js
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Pago } from "./Pago";
+import { Payment } from "./Payment";
 
 @Entity("metodo_pago")
-export class MetodoPago {
+export class PaymentMethod {
 
   @PrimaryGeneratedColumn()
   id_metodo_pago!: number;
@@ -11,7 +10,7 @@ export class MetodoPago {
   @Column()
   nombre!: string;
 
-  @OneToMany(() => Pago, (x) => x.metodoPago)
-  pagos!: Pago[];
+  @OneToMany(() => Payment, (x) => x.paymentMethod)
+  payments!: Payment[];
 
 }

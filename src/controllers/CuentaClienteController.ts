@@ -1,11 +1,11 @@
 // src/controllers/CuentaClienteController.ts
 import { Request, Response } from "express";
 import { AppDataSource }     from "../data-source";
-import { Cliente }           from "../models/Cliente";
-import { Usuario }           from "../models/Usuario";
-import { Cita }              from "../models/Cita";
-import { EstadoCita }        from "../models/EstadoCita";
-import { Venta }             from "../models/Venta";
+import { Client }           from "../models/Client";
+import { User }           from "../models/User";
+import { Appointment }              from "../models/Appointment";
+import { AppointmentStatus }        from "../models/AppointmentStatus";
+import { Sale }             from "../models/Sale";
 import bcrypt                from "bcrypt";
 import {
   sendCitaConfirmacionEmail,
@@ -15,7 +15,7 @@ import {
 // ── GET /api/cuenta/perfil ────────────────────────────────────────────────────
 export const verPerfil = async (req: Request, res: Response): Promise<void> => {
   try {
-    const cliente = await AppDataSource.getRepository(Cliente)
+    const cliente = await AppDataSource.getRepository(Client)
       .findOneBy({ id_cliente: req.user!.id_cliente! });
     if (!cliente) { res.status(404).json({ success: false, message: "Perfil no encontrado" }); return; }
     res.json({ success: true, data: cliente });
@@ -29,8 +29,8 @@ export const verPerfil = async (req: Request, res: Response): Promise<void> => {
 // Caso 2 — cambio de clave:  { clave_actual, clave }
 export const editarPerfil = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clienteRepo = AppDataSource.getRepository(Cliente);
-    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const clienteRepo = AppDataSource.getRepository(Client);
+    const usuarioRepo = AppDataSource.getRepository(User);
     const cliente = await clienteRepo.findOneBy({ id_cliente: req.user!.id_cliente! });
     const usuario = await usuarioRepo.findOne({ where: { correo: req.user!.correo } });
     if (!cliente || !usuario) { res.status(404).json({ success: false, message: "Cuenta no encontrada" }); return; }
@@ -74,9 +74,9 @@ export const editarPerfil = async (req: Request, res: Response): Promise<void> =
 // ── GET /api/cuenta/citas ─────────────────────────────────────────────────────
 export const misCitas = async (req: Request, res: Response): Promise<void> => {
   try {
-    const citas = await AppDataSource.getRepository(Cita).find({
-      where:     { cliente: { id_cliente: req.user!.id_cliente! } },
-      relations: ["estadoCita"],
+    const citas = await AppDataSource.getRepository(Appointment).find({
+      where:     { client: { id_cliente: req.user!.id_cliente! } },
+      relations: ["appointmentStatus"],
       order:     { fecha: "DESC" },
     });
     res.json({ success: true, data: citas });
@@ -107,9 +107,9 @@ export const crearMiCita = async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ success: false, message: "La hora debe estar entre 13:00 y 18:00" }); return;
     }
 
-    const clienteRepo   = AppDataSource.getRepository(Cliente);
-    const estadoCitaRepo = AppDataSource.getRepository(EstadoCita);
-    const citaRepo      = AppDataSource.getRepository(Cita);
+    const clienteRepo   = AppDataSource.getRepository(Client);
+    const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus);
+    const citaRepo      = AppDataSource.getRepository(Appointment);
 
     const cliente    = await clienteRepo.findOneBy({ id_cliente: req.user!.id_cliente! });
     const estadoCita = await estadoCitaRepo.findOneBy({ id_estado_cita: Number(id_estado_cita) });
@@ -120,8 +120,8 @@ export const crearMiCita = async (req: Request, res: Response): Promise<void> =>
     const cita        = citaRepo.create();
     cita.fecha        = fecha;
     cita.hora         = hora;
-    cita.cliente      = cliente;
-    cita.estadoCita   = estadoCita;
+    cita.client      = cliente;
+    cita.appointmentStatus   = estadoCita;
     if (observacion)  (cita as any).observacion = observacion;
 
     await citaRepo.save(cita);
@@ -147,8 +147,8 @@ export const crearMiCita = async (req: Request, res: Response): Promise<void> =>
 // ── DELETE /api/cuenta ────────────────────────────────────────────────────────
 export const eliminarCuenta = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clienteRepo = AppDataSource.getRepository(Cliente);
-    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const clienteRepo = AppDataSource.getRepository(Client);
+    const usuarioRepo = AppDataSource.getRepository(User);
     const id_cliente  = req.user!.id_cliente!;
     const correo      = req.user!.correo;
 
@@ -159,8 +159,8 @@ export const eliminarCuenta = async (req: Request, res: Response): Promise<void>
     if (!cliente || !usuario) { res.status(404).json({ success: false, message: "Cuenta no encontrada" }); return; }
 
     const [totalCitas, totalVentas] = await Promise.all([
-      AppDataSource.getRepository(Cita).count({ where: { cliente: { id_cliente } } }),
-      AppDataSource.getRepository(Venta).count({ where: { cliente: { id_cliente } } }),
+      AppDataSource.getRepository(Appointment).count({ where: { client: { id_cliente } } }),
+      AppDataSource.getRepository(Sale).count({ where: { client: { id_cliente } } }),
     ]);
 
     if (totalCitas > 0 || totalVentas > 0) {
@@ -184,8 +184,8 @@ export const cancelarMiCita = async (req: Request, res: Response): Promise<void>
     const id_cita    = Number(req.params.id)
     const id_cliente = req.user!.id_cliente!
 
-    const citaRepo       = AppDataSource.getRepository(Cita)
-    const estadoCitaRepo = AppDataSource.getRepository(EstadoCita)
+    const citaRepo       = AppDataSource.getRepository(Appointment)
+    const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus)
 
     const cita = await citaRepo.findOne({
       where:     { id_cita },
@@ -197,15 +197,15 @@ export const cancelarMiCita = async (req: Request, res: Response): Promise<void>
     }
 
     // Verificar que la cita pertenece al cliente autenticado
-    if (cita.cliente?.id_cliente !== id_cliente) {
+    if (cita.client?.id_cliente !== id_cliente) {
       res.status(403).json({ success: false, message: 'No tienes permiso para cancelar esta cita' }); return
     }
 
     // Solo se pueden cancelar citas Pendientes (id 1)
-    if (cita.estadoCita?.id_estado_cita !== 1) {
+    if (cita.appointmentStatus?.id_estado_cita !== 1) {
       res.status(400).json({
         success: false,
-        message: `No se puede cancelar una cita en estado "${cita.estadoCita?.nombre ?? 'desconocido'}"`,
+        message: `No se puede cancelar una cita en estado "${cita.appointmentStatus?.nombre ?? 'desconocido'}"`,
       }); return
     }
 
@@ -214,7 +214,7 @@ export const cancelarMiCita = async (req: Request, res: Response): Promise<void>
       res.status(500).json({ success: false, message: 'Estado "Cancelada" no encontrado' }); return
     }
 
-    cita.estadoCita = estadoCancelada
+    cita.appointmentStatus = estadoCancelada
     await citaRepo.save(cita)
 
     res.json({ success: true, message: 'Cita cancelada correctamente' })
@@ -233,7 +233,7 @@ export const disponibilidadCitas = async (req: Request, res: Response): Promise<
       res.status(400).json({ success: false, message: "El parámetro 'fecha' es requerido" }); return;
     }
 
-    const citas = await AppDataSource.getRepository(Cita)
+    const citas = await AppDataSource.getRepository(Appointment)
       .createQueryBuilder('c')
       .select(['c.id_cita', 'c.hora'])
       .where('CAST(c.fecha AS DATE) = :fecha', { fecha })

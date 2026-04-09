@@ -3,12 +3,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { Permiso } from "../models/Permiso";
-import { PermisoRol } from "../models/PermisoRol";
+import { Permission } from "../models/Permission";
+import { RolePermission } from "../models/RolePermission";
 
 export const getAllPermiso = async (req: Request, res: Response): Promise<void> => {
   try {
-    const permisoRepo = AppDataSource.getRepository(Permiso);
+    const permisoRepo = AppDataSource.getRepository(Permission);
     const page  = Math.max(1, Number(req.query.page)  || 1);
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
@@ -27,7 +27,7 @@ export const getAllPermiso = async (req: Request, res: Response): Promise<void> 
 
 export const getPermisoById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const permisoRepo = AppDataSource.getRepository(Permiso);
+    const permisoRepo = AppDataSource.getRepository(Permission);
     const item = await permisoRepo.findOne({ where: { id_permiso: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Permiso no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -38,7 +38,7 @@ export const getPermisoById = async (req: Request, res: Response): Promise<void>
 
 export const createPermiso = async (req: Request, res: Response): Promise<void> => {
   try {
-    const permisoRepo = AppDataSource.getRepository(Permiso);
+    const permisoRepo = AppDataSource.getRepository(Permission);
     const required = ["nombre", "descripcion"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
@@ -55,7 +55,7 @@ export const createPermiso = async (req: Request, res: Response): Promise<void> 
 
 export const updatePermiso = async (req: Request, res: Response): Promise<void> => {
   try {
-    const permisoRepo = AppDataSource.getRepository(Permiso);
+    const permisoRepo = AppDataSource.getRepository(Permission);
     const item = await permisoRepo.findOne({ where: { id_permiso: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Permiso no encontrado" }); return; }
     if (req.body.nombre      !== undefined) item.nombre      = req.body.nombre;
@@ -69,9 +69,9 @@ export const updatePermiso = async (req: Request, res: Response): Promise<void> 
 
 export const deletePermiso = async (req: Request, res: Response): Promise<void> => {
   try {
-    const permisoRepo    = AppDataSource.getRepository(Permiso);
-    const permisoRolRepo = AppDataSource.getRepository(PermisoRol);
-    const count = await permisoRolRepo.count({ where: { permiso: { id_permiso: Number(req.params.id) } } });
+    const permisoRepo    = AppDataSource.getRepository(Permission);
+    const permisoRolRepo = AppDataSource.getRepository(RolePermission);
+    const count = await permisoRolRepo.count({ where: { permission: { id_permiso: Number(req.params.id) } } });
     if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen PermisoRol asociados (${count})` }); return; }
     const item = await permisoRepo.findOneBy({ id_permiso: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Permiso no encontrado" }); return; }
@@ -84,7 +84,7 @@ export const deletePermiso = async (req: Request, res: Response): Promise<void> 
 
 export const toggleEstadoPermiso = async (req: Request, res: Response): Promise<void> => {
   try {
-    const permisoRepo = AppDataSource.getRepository(Permiso);
+    const permisoRepo = AppDataSource.getRepository(Permission);
     const item = await permisoRepo.findOneBy({ id_permiso: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Permiso no encontrado" }); return; }
     item.estado = !item.estado;

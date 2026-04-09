@@ -3,14 +3,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { Cliente } from "../models/Cliente";
-import { Cita } from "../models/Cita";
-import { Venta } from "../models/Venta";
-import { Usuario } from "../models/Usuario";
+import { Client } from "../models/Client";
+import { Appointment } from "../models/Appointment";
+import { Sale } from "../models/Sale";
+import { User } from "../models/User";
 
 export const getAllCliente = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clienteRepo = AppDataSource.getRepository(Cliente);
+    const clienteRepo = AppDataSource.getRepository(Client);
     const page  = Math.max(1, Number(req.query.page)  || 1);
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
@@ -29,7 +29,7 @@ export const getAllCliente = async (req: Request, res: Response): Promise<void> 
 
 export const getClienteById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clienteRepo = AppDataSource.getRepository(Cliente);
+    const clienteRepo = AppDataSource.getRepository(Client);
     const item = await clienteRepo.findOne({ where: { id_cliente: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -40,7 +40,7 @@ export const getClienteById = async (req: Request, res: Response): Promise<void>
 
 export const createCliente = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clienteRepo = AppDataSource.getRepository(Cliente);
+    const clienteRepo = AppDataSource.getRepository(Client);
     const required = ["tipoDocumento", "documento", "nombre", "correo"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
@@ -60,7 +60,7 @@ export const createCliente = async (req: Request, res: Response): Promise<void> 
 
 export const updateCliente = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clienteRepo = AppDataSource.getRepository(Cliente);
+    const clienteRepo = AppDataSource.getRepository(Client);
     const item = await clienteRepo.findOne({ where: { id_cliente: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
     if (req.body.tipoDocumento !== undefined) item.tipoDocumento = req.body.tipoDocumento;
@@ -77,17 +77,17 @@ export const updateCliente = async (req: Request, res: Response): Promise<void> 
 
 export const deleteCliente = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clienteRepo = AppDataSource.getRepository(Cliente);
-    const citaRepo    = AppDataSource.getRepository(Cita);
-    const ventaRepo   = AppDataSource.getRepository(Venta);
-    const countCita  = await citaRepo.count({ where: { cliente: { id_cliente: Number(req.params.id) } } });
+    const clienteRepo = AppDataSource.getRepository(Client);
+    const citaRepo    = AppDataSource.getRepository(Appointment);
+    const ventaRepo   = AppDataSource.getRepository(Sale);
+    const countCita  = await citaRepo.count({ where: { client: { id_cliente: Number(req.params.id) } } });
     if (countCita > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Cita asociados (${countCita})` }); return; }
-    const countVenta = await ventaRepo.count({ where: { cliente: { id_cliente: Number(req.params.id) } } });
+    const countVenta = await ventaRepo.count({ where: { client: { id_cliente: Number(req.params.id) } } });
     if (countVenta > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Venta asociados (${countVenta})` }); return; }
     const item = await clienteRepo.findOneBy({ id_cliente: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
     // Eliminar también el Usuario asociado por correo
-    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const usuarioRepo = AppDataSource.getRepository(User);
     const usuario = await usuarioRepo.findOneBy({ correo: item.correo });
     await clienteRepo.remove(item);
     if (usuario) await usuarioRepo.remove(usuario);
@@ -99,7 +99,7 @@ export const deleteCliente = async (req: Request, res: Response): Promise<void> 
 
 export const toggleEstadoCliente = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clienteRepo = AppDataSource.getRepository(Cliente);
+    const clienteRepo = AppDataSource.getRepository(Client);
     const item = await clienteRepo.findOneBy({ id_cliente: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
     item.estado = !item.estado;

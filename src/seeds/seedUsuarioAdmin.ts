@@ -4,12 +4,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import bcrypt            from "bcrypt";
 import { AppDataSource } from "../data-source";
-import { Usuario }       from "../models/Usuario";
-import { Rol }           from "../models/Rol";
+import { User }       from "../models/User";
+import { Role }           from "../models/Role";
 
 export async function seedUsuarioAdmin(): Promise<void> {
-  const usuarioRepo = AppDataSource.getRepository(Usuario);
-  const rolRepo     = AppDataSource.getRepository(Rol);
+  const usuarioRepo = AppDataSource.getRepository(User);
+  const rolRepo     = AppDataSource.getRepository(Role);
 
   const correo = process.env.ADMIN_EMAIL    ?? "admin@softwart.com";
   const clave  = process.env.ADMIN_PASSWORD ?? "Admin1234!";
@@ -27,7 +27,7 @@ export async function seedUsuarioAdmin(): Promise<void> {
   const usuario = usuarioRepo.create({
     correo,
     clave:  hash,
-    rol:    rolAdmin,
+    role:   rolAdmin,
     estado: true,
   });
 

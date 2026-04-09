@@ -1,9 +1,9 @@
 // src/seeds/seedServicios.ts
 import { AppDataSource } from "../data-source";
-import { Servicio }      from "../models/Servicio";
+import { Service }      from "../models/Service";
 
 export async function seedServicios(): Promise<void> {
-  const repo = AppDataSource.getRepository(Servicio);
+  const repo = AppDataSource.getRepository(Service);
   if (await repo.count() > 0) return;
   await repo.save(repo.create([
     { nombre: "Personalización", descripcion: "Servicio integral de atención y asesoría personalizada para materializar las ideas únicas de cada cliente. Dedicamos el tiempo necesario para entender tu visión y convertirla en una pieza irrepetible, desde la concepción del diseño hasta el acabado final.",                                                     duracion: 8,  estado: true },

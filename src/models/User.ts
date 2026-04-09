@@ -1,9 +1,8 @@
-// Generado automáticamente por generate-models.js
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Rol } from "./Rol";
+import { Role } from "./Role";
 
 @Entity("usuario")
-export class Usuario {
+export class User {
 
   @PrimaryGeneratedColumn()
   id_usuario!: number;
@@ -16,15 +15,15 @@ export class Usuario {
 
   @Column({ type: "boolean" })
   estado!: boolean;
-  
+
   @Column({ type: "varchar", nullable: true })
   token_recuperacion!: string | null;
 
   @Column({ type: "timestamp", nullable: true })
   token_expira!: Date | null;
 
-  @ManyToOne(() => Rol, (x) => x.usuarios)
+  @ManyToOne(() => Role, (x) => x.users)
   @JoinColumn({ name: "id_rol" })
-  rol!: Rol;
+  role!: Role;
 
 }

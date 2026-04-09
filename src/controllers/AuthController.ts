@@ -1,9 +1,9 @@
 // src/controllers/AuthController.ts
 import { Request, Response } from "express";
 import { AppDataSource }     from "../data-source";
-import { Usuario }           from "../models/Usuario";
-import { Cliente }           from "../models/Cliente";
-import { Rol }               from "../models/Rol";
+import { User }           from "../models/User";
+import { Client }           from "../models/Client";
+import { Role }               from "../models/Role";
 import jwt                   from "jsonwebtoken";
 import bcrypt                from "bcrypt";
 import crypto                from "crypto";
@@ -18,9 +18,9 @@ const JWT_SECRET = process.env.JWT_SECRET ?? "dev_secret_cambiame_en_prod";
 // ─────────────────────────────────────────────────────────────────────────────
 export const registro = async (req: Request, res: Response): Promise<void> => {
   try {
-    const usuarioRepo = AppDataSource.getRepository(Usuario);
-    const clienteRepo = AppDataSource.getRepository(Cliente);
-    const rolRepo     = AppDataSource.getRepository(Rol);
+    const usuarioRepo = AppDataSource.getRepository(User);
+    const clienteRepo = AppDataSource.getRepository(Client);
+    const rolRepo     = AppDataSource.getRepository(Role);
 
     const { tipoDocumento, documento, nombre, correo, clave, telefono } = req.body;
 
@@ -66,7 +66,7 @@ export const registro = async (req: Request, res: Response): Promise<void> => {
     const usuario = usuarioRepo.create({
       correo,
       clave:  hash,
-      rol:    rolCliente,
+      role:   rolCliente,
       estado: true,
     });
     await usuarioRepo.save(usuario);
@@ -90,7 +90,7 @@ export const registro = async (req: Request, res: Response): Promise<void> => {
 //  POST /api/auth/login
 //  Body: { correo, clave }
 //  El token incluye id_cliente (null si es Admin/Empleado sin Cliente asociado)
-//  El frontend usa "rol" para redirigir:
+//  El frontend usa "role" para redirigir:
 //    "Admin" / "Empleado" → panel admin  (PrivateRoute React)
 //    "Cliente"            → landing / mis citas
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,13 +103,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const usuarioRepo = AppDataSource.getRepository(Usuario);
-    const clienteRepo = AppDataSource.getRepository(Cliente);
+    const usuarioRepo = AppDataSource.getRepository(User);
+    const clienteRepo = AppDataSource.getRepository(Client);
 
     // Buscar usuario (seguridad)
     const usuario = await usuarioRepo.findOne({
       where:     { correo },
-      relations: ["rol"],
+      relations: ["role"],
     });
 
     if (!usuario) {
@@ -136,8 +136,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       {
         id_usuario: usuario.id_usuario,
         correo:     usuario.correo,
-        id_rol:     usuario.rol?.id_rol,
-        rol:        usuario.rol?.nombre,
+        id_rol:     usuario.role?.id_rol,
+        rol:        usuario.role?.nombre,
         id_cliente,
       },
       JWT_SECRET,
@@ -151,7 +151,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       data: {
         id_usuario: usuario.id_usuario,
         correo:     usuario.correo,
-        rol:        usuario.rol?.nombre,
+        rol:        usuario.role?.nombre,
         id_cliente,
         nombre:     cliente?.nombre ?? null,
       },
@@ -176,7 +176,7 @@ export const recuperar = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const usuarioRepo = AppDataSource.getRepository(User);
     const usuario = await usuarioRepo.findOne({ where: { correo } });
 
     if (!usuario) {
@@ -221,7 +221,7 @@ export const reenviarCodigo = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const usuarioRepo = AppDataSource.getRepository(User);
     const usuario = await usuarioRepo.findOne({ where: { correo } });
 
     // Respuesta genérica para no revelar si el correo existe
@@ -270,7 +270,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const usuarioRepo = AppDataSource.getRepository(User);
     const usuario     = await usuarioRepo.findOne({
       where: { token_recuperacion: token },
     });

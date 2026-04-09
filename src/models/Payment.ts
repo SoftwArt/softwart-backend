@@ -1,11 +1,10 @@
-// Generado automáticamente por generate-models.js
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-import { EstadoPago } from "./EstadoPago";
-import { MetodoPago } from "./MetodoPago";
-import { Venta } from "./Venta";
+import { PaymentStatus } from "./PaymentStatus";
+import { PaymentMethod } from "./PaymentMethod";
+import { Sale } from "./Sale";
 
 @Entity("pago")
-export class Pago {
+export class Payment {
 
   @PrimaryGeneratedColumn()
   id_pago!: number;
@@ -19,16 +18,16 @@ export class Pago {
   @Column({ nullable: true })
   observacion?: string;
 
-  @ManyToOne(() => Venta, (x) => x.pagos)
+  @ManyToOne(() => Sale, (x) => x.payments)
   @JoinColumn({ name: "id_venta" })
-  venta!: Venta;
+  sale!: Sale;
 
-  @ManyToOne(() => MetodoPago, (x) => x.pagos)
+  @ManyToOne(() => PaymentMethod, (x) => x.payments)
   @JoinColumn({ name: "id_metodo_pago" })
-  metodoPago!: MetodoPago;
+  paymentMethod!: PaymentMethod;
 
-  @ManyToOne(() => EstadoPago, (x) => x.pagos)
+  @ManyToOne(() => PaymentStatus, (x) => x.payments)
   @JoinColumn({ name: "id_estado_pago" })
-  estadoPago!: EstadoPago;
+  paymentStatus!: PaymentStatus;
 
 }

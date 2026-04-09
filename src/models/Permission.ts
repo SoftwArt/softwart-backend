@@ -1,9 +1,8 @@
-// Generado automáticamente por generate-models.js
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { PermisoRol } from "./PermisoRol";
+import { RolePermission } from "./RolePermission";
 
 @Entity("permiso")
-export class Permiso {
+export class Permission {
 
   @PrimaryGeneratedColumn()
   id_permiso!: number;
@@ -17,7 +16,7 @@ export class Permiso {
   @Column({ type: "boolean" })
   estado!: boolean;
 
-  @OneToMany(() => PermisoRol, (x) => x.permiso)
-  permisoRoles!: PermisoRol[];
+  @OneToMany(() => RolePermission, (x) => x.permission)
+  rolePermissions!: RolePermission[];
 
 }

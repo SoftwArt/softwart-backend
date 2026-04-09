@@ -3,12 +3,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { Marco } from "../models/Marco";
-import { DetalleVenta } from "../models/DetalleVenta";
+import { Frame } from "../models/Frame";
+import { SaleDetail } from "../models/SaleDetail";
 
 export const getAllMarco = async (req: Request, res: Response): Promise<void> => {
   try {
-    const marcoRepo = AppDataSource.getRepository(Marco);
+    const marcoRepo = AppDataSource.getRepository(Frame);
     const page  = Math.max(1, Number(req.query.page)  || 1);
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
@@ -27,7 +27,7 @@ export const getAllMarco = async (req: Request, res: Response): Promise<void> =>
 
 export const getMarcoById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const marcoRepo = AppDataSource.getRepository(Marco);
+    const marcoRepo = AppDataSource.getRepository(Frame);
     const item = await marcoRepo.findOne({ where: { id_marco: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -38,7 +38,7 @@ export const getMarcoById = async (req: Request, res: Response): Promise<void> =
 
 export const createMarco = async (req: Request, res: Response): Promise<void> => {
   try {
-    const marcoRepo = AppDataSource.getRepository(Marco);
+    const marcoRepo = AppDataSource.getRepository(Frame);
     const required = ["codigo", "colilla", "precio_ensamblado"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
@@ -56,7 +56,7 @@ export const createMarco = async (req: Request, res: Response): Promise<void> =>
 
 export const updateMarco = async (req: Request, res: Response): Promise<void> => {
   try {
-    const marcoRepo = AppDataSource.getRepository(Marco);
+    const marcoRepo = AppDataSource.getRepository(Frame);
     const item = await marcoRepo.findOne({ where: { id_marco: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
     if (req.body.codigo            !== undefined) item.codigo            = req.body.codigo;
@@ -71,9 +71,9 @@ export const updateMarco = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteMarco = async (req: Request, res: Response): Promise<void> => {
   try {
-    const marcoRepo        = AppDataSource.getRepository(Marco);
-    const detalleVentaRepo = AppDataSource.getRepository(DetalleVenta);
-    const count = await detalleVentaRepo.count({ where: { marco: { id_marco: Number(req.params.id) } } });
+    const marcoRepo        = AppDataSource.getRepository(Frame);
+    const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
+    const count = await detalleVentaRepo.count({ where: { frame: { id_marco: Number(req.params.id) } } });
     if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${count})` }); return; }
     const item = await marcoRepo.findOneBy({ id_marco: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
@@ -86,7 +86,7 @@ export const deleteMarco = async (req: Request, res: Response): Promise<void> =>
 
 export const toggleEstadoMarco = async (req: Request, res: Response): Promise<void> => {
   try {
-    const marcoRepo = AppDataSource.getRepository(Marco);
+    const marcoRepo = AppDataSource.getRepository(Frame);
     const item = await marcoRepo.findOneBy({ id_marco: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
     item.estado = !item.estado;

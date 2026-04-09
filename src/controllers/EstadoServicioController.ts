@@ -3,12 +3,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { EstadoServicio } from "../models/EstadoServicio";
-import { DetalleVenta } from "../models/DetalleVenta";
+import { ServiceStatus } from "../models/ServiceStatus";
+import { SaleDetail } from "../models/SaleDetail";
 
 export const getAllEstadoServicio = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const items = await AppDataSource.getRepository(EstadoServicio).find();
+    const items = await AppDataSource.getRepository(ServiceStatus).find();
     res.json({ success: true, data: items });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener EstadoServicio", error });
@@ -17,7 +17,7 @@ export const getAllEstadoServicio = async (_req: Request, res: Response): Promis
 
 export const getEstadoServicioById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const item = await AppDataSource.getRepository(EstadoServicio).findOne({ where: { id_estado: Number(req.params.id) } });
+    const item = await AppDataSource.getRepository(ServiceStatus).findOne({ where: { id_estado: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
     res.json({ success: true, data: item });
   } catch (error) {
@@ -27,7 +27,7 @@ export const getEstadoServicioById = async (req: Request, res: Response): Promis
 
 export const createEstadoServicio = async (req: Request, res: Response): Promise<void> => {
   try {
-    const repo = AppDataSource.getRepository(EstadoServicio);
+    const repo = AppDataSource.getRepository(ServiceStatus);
     if (!req.body.nombre) { res.status(400).json({ success: false, message: "nombre es requerido" }); return; }
     const obj = repo.create({ nombre: req.body.nombre });
     await repo.save(obj);
@@ -39,7 +39,7 @@ export const createEstadoServicio = async (req: Request, res: Response): Promise
 
 export const updateEstadoServicio = async (req: Request, res: Response): Promise<void> => {
   try {
-    const repo = AppDataSource.getRepository(EstadoServicio);
+    const repo = AppDataSource.getRepository(ServiceStatus);
     const item = await repo.findOne({ where: { id_estado: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
     if (req.body.nombre !== undefined) item.nombre = req.body.nombre;
@@ -52,9 +52,9 @@ export const updateEstadoServicio = async (req: Request, res: Response): Promise
 
 export const deleteEstadoServicio = async (req: Request, res: Response): Promise<void> => {
   try {
-    const repo             = AppDataSource.getRepository(EstadoServicio);
-    const detalleVentaRepo = AppDataSource.getRepository(DetalleVenta);
-    const count = await detalleVentaRepo.count({ where: { estadoServicio: { id_estado: Number(req.params.id) } } });
+    const repo             = AppDataSource.getRepository(ServiceStatus);
+    const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
+    const count = await detalleVentaRepo.count({ where: { serviceStatus: { id_estado: Number(req.params.id) } } });
     if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${count})` }); return; }
     const item = await repo.findOneBy({ id_estado: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
@@ -68,13 +68,13 @@ export const deleteEstadoServicio = async (req: Request, res: Response): Promise
 // PATCH /api/estado-servicio/detalle/:id_detalle/estado
 export const cambiarEstadoDetalle = async (req: Request, res: Response): Promise<void> => {
   try {
-    const detalleVentaRepo   = AppDataSource.getRepository(DetalleVenta);
-    const estadoServicioRepo = AppDataSource.getRepository(EstadoServicio);
+    const detalleVentaRepo   = AppDataSource.getRepository(SaleDetail);
+    const estadoServicioRepo = AppDataSource.getRepository(ServiceStatus);
     const target = await detalleVentaRepo.findOneBy({ id_detalle: Number(req.params.id_detalle) });
     if (!target) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
     const nuevoEstado = await estadoServicioRepo.findOneBy({ id_estado: Number(req.body.id_estado) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
-    target.estadoServicio = nuevoEstado;
+    target.serviceStatus = nuevoEstado;
     await detalleVentaRepo.save(target);
     res.json({ success: true, message: "Estado de DetalleVenta actualizado", data: target });
   } catch (error) {

@@ -3,20 +3,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { Cita } from "../models/Cita";
-import { Venta } from "../models/Venta";
-import { EstadoCita } from "../models/EstadoCita";
-import { Cliente } from "../models/Cliente";
+import { Appointment } from "../models/Appointment";
+import { Sale } from "../models/Sale";
+import { AppointmentStatus } from "../models/AppointmentStatus";
+import { Client } from "../models/Client";
 
 export const getAllCita = async (req: Request, res: Response): Promise<void> => {
   try {
-    const citaRepo = AppDataSource.getRepository(Cita);
+    const citaRepo = AppDataSource.getRepository(Appointment);
     const page  = Math.max(1, Number(req.query.page)  || 1);
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
     const [items, total] = await citaRepo.findAndCount({
-      relations: ["estadoCita", "cliente"],
+      relations: ["appointmentStatus", "client"],
       skip,
       take: limit,
     });
@@ -33,10 +33,10 @@ export const getAllCita = async (req: Request, res: Response): Promise<void> => 
 
 export const getCitaById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const citaRepo = AppDataSource.getRepository(Cita);
+    const citaRepo = AppDataSource.getRepository(Appointment);
     const item = await citaRepo.findOne({
       where: { id_cita: Number(req.params.id) },
-      relations: ["estadoCita", "cliente"],
+      relations: ["appointmentStatus", "client"],
     });
     if (!item) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -47,7 +47,7 @@ export const getCitaById = async (req: Request, res: Response): Promise<void> =>
 
 export const createCita = async (req: Request, res: Response): Promise<void> => {
   try {
-    const citaRepo = AppDataSource.getRepository(Cita);
+    const citaRepo = AppDataSource.getRepository(Appointment);
     const required = ["fecha", "hora"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
@@ -55,16 +55,16 @@ export const createCita = async (req: Request, res: Response): Promise<void> => 
     obj.fecha = req.body.fecha;
     obj.hora  = req.body.hora;
     if (req.body.id_estado_cita !== undefined) {
-      const estadoCitaRepo = AppDataSource.getRepository(EstadoCita);
+      const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus);
       const rel = await estadoCitaRepo.findOneBy({ id_estado_cita: Number(req.body.id_estado_cita) });
       if (!rel) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
-      obj.estadoCita = rel;
+      obj.appointmentStatus = rel;
     }
     if (req.body.id_cliente !== undefined) {
-      const clienteRepo = AppDataSource.getRepository(Cliente);
+      const clienteRepo = AppDataSource.getRepository(Client);
       const rel = await clienteRepo.findOneBy({ id_cliente: Number(req.body.id_cliente) });
       if (!rel) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
-      obj.cliente = rel;
+      obj.client = rel;
     }
     await citaRepo.save(obj);
     res.status(201).json({ success: true, message: "Cita creado exitosamente", data: obj });
@@ -75,25 +75,25 @@ export const createCita = async (req: Request, res: Response): Promise<void> => 
 
 export const updateCita = async (req: Request, res: Response): Promise<void> => {
   try {
-    const citaRepo = AppDataSource.getRepository(Cita);
+    const citaRepo = AppDataSource.getRepository(Appointment);
     const item = await citaRepo.findOne({
       where: { id_cita: Number(req.params.id) },
-      relations: ["estadoCita", "cliente"],
+      relations: ["appointmentStatus", "client"],
     });
     if (!item) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
     if (req.body.fecha !== undefined) item.fecha = req.body.fecha;
     if (req.body.hora  !== undefined) item.hora  = req.body.hora;
     if (req.body.id_estado_cita !== undefined) {
-      const estadoCitaRepo = AppDataSource.getRepository(EstadoCita);
+      const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus);
       const rel = await estadoCitaRepo.findOneBy({ id_estado_cita: Number(req.body.id_estado_cita) });
       if (!rel) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
-      item.estadoCita = rel;
+      item.appointmentStatus = rel;
     }
     if (req.body.id_cliente !== undefined) {
-      const clienteRepo = AppDataSource.getRepository(Cliente);
+      const clienteRepo = AppDataSource.getRepository(Client);
       const rel = await clienteRepo.findOneBy({ id_cliente: Number(req.body.id_cliente) });
       if (!rel) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
-      item.cliente = rel;
+      item.client = rel;
     }
     await citaRepo.save(item);
     res.json({ success: true, message: "Cita actualizado", data: item });
@@ -104,9 +104,9 @@ export const updateCita = async (req: Request, res: Response): Promise<void> => 
 
 export const deleteCita = async (req: Request, res: Response): Promise<void> => {
   try {
-    const citaRepo  = AppDataSource.getRepository(Cita);
-    const ventaRepo = AppDataSource.getRepository(Venta);
-    const countVenta = await ventaRepo.count({ where: { cita: { id_cita: Number(req.params.id) } } });
+    const citaRepo  = AppDataSource.getRepository(Appointment);
+    const ventaRepo = AppDataSource.getRepository(Sale);
+    const countVenta = await ventaRepo.count({ where: { appointment: { id_cita: Number(req.params.id) } } });
     if (countVenta > 0) {
       res.status(409).json({ success: false, message: `No se puede eliminar: existen Venta asociados (${countVenta})` }); return;
     }
@@ -123,11 +123,10 @@ export const deleteCita = async (req: Request, res: Response): Promise<void> => 
 // Crea una Venta + sus DetalleVenta (pedidos) a partir de una cita
 // Body: { servicios: [{ id_servicio, id_marco?, precio, observacion? }], observacion? }
 // La operación es atómica — si falla algo, no queda nada a medias
-import { Venta as VentaModel }       from "../models/Venta";
-import { DetalleVenta }              from "../models/DetalleVenta";
-import { Servicio }                  from "../models/Servicio";
-import { Marco }                     from "../models/Marco";
-import { EstadoServicio }            from "../models/EstadoServicio";
+import { SaleDetail }    from "../models/SaleDetail";
+import { Service }       from "../models/Service";
+import { Frame }         from "../models/Frame";
+import { ServiceStatus } from "../models/ServiceStatus";
 
 export const crearVentaDesdeCita = async (req: Request, res: Response): Promise<void> => {
   const queryRunner = AppDataSource.createQueryRunner();
@@ -147,16 +146,16 @@ export const crearVentaDesdeCita = async (req: Request, res: Response): Promise<
     }
 
     // Cargar cita con cliente
-    const cita = await queryRunner.manager.findOne(Cita, {
+    const cita = await queryRunner.manager.findOne(Appointment, {
       where: { id_cita },
-      relations: ["cliente", "estadoCita"],
+      relations: ["client", "appointmentStatus"],
     });
     if (!cita) { res.status(404).json({ success: false, message: "Cita no encontrada" }); return; }
-    if (!cita.cliente) { res.status(400).json({ success: false, message: "La cita no tiene cliente asociado" }); return; }
+    if (!cita.client) { res.status(400).json({ success: false, message: "La cita no tiene cliente asociado" }); return; }
 
     // Verificar que no tenga ya una venta
-    const ventaExistente = await queryRunner.manager.findOne(VentaModel, {
-      where: { cita: { id_cita } },
+    const ventaExistente = await queryRunner.manager.findOne(Sale, {
+      where: { appointment: { id_cita } },
     });
     if (ventaExistente) {
       res.status(409).json({ success: false, message: "Esta cita ya tiene una venta registrada", data: { id_venta: ventaExistente.id_venta } });
@@ -165,7 +164,7 @@ export const crearVentaDesdeCita = async (req: Request, res: Response): Promise<
 
     // Primer estado de servicio (Sin empezar)
     const estadoInicial = await queryRunner.manager
-      .createQueryBuilder(EstadoServicio, "es")
+      .createQueryBuilder(ServiceStatus, "es")
       .where("LOWER(es.nombre) LIKE :n", { n: "%sin empezar%" })
       .getOne();
 
@@ -173,44 +172,44 @@ export const crearVentaDesdeCita = async (req: Request, res: Response): Promise<
     const total = servicios.reduce((sum, s) => sum + Number(s.precio), 0);
 
     // Crear Venta
-    const venta        = queryRunner.manager.create(VentaModel);
+    const venta        = queryRunner.manager.create(Sale);
     venta.fecha        = new Date();
     venta.total        = total;
     venta.observacion  = observacion ?? undefined;
     venta.estado       = true;
-    venta.cliente      = cita.cliente;
-    venta.cita         = cita;
+    venta.client      = cita.client;
+    venta.appointment  = cita;
     await queryRunner.manager.save(venta);
 
     // Crear DetalleVenta por cada servicio
     for (const s of servicios) {
-      const servicio = await queryRunner.manager.findOneBy(Servicio, { id_servicio: s.id_servicio });
+      const servicio = await queryRunner.manager.findOneBy(Service, { id_servicio: s.id_servicio });
       if (!servicio) {
         await queryRunner.rollbackTransaction();
         res.status(404).json({ success: false, message: `Servicio #${s.id_servicio} no encontrado` });
         return;
       }
 
-      const detalle         = queryRunner.manager.create(DetalleVenta);
-      detalle.venta         = venta;
-      detalle.servicio      = servicio;
+      const detalle         = queryRunner.manager.create(SaleDetail);
+      detalle.sale         = venta;
+      detalle.service      = servicio;
       detalle.precio        = s.precio;
       detalle.fecha         = venta.fecha;
       detalle.estado        = false;          // pendiente de iniciar
-      if (estadoInicial) detalle.estadoServicio = estadoInicial;
+      if (estadoInicial) detalle.serviceStatus = estadoInicial;
       if (s.observacion) (detalle as any).observacion = s.observacion;
 
       if (s.id_marco) {
-        const marco = await queryRunner.manager.findOneBy(Marco, { id_marco: s.id_marco });
-        if (marco) detalle.marco = marco;
+        const marco = await queryRunner.manager.findOneBy(Frame, { id_marco: s.id_marco });
+        if (marco) detalle.frame = marco;
       }
 
       await queryRunner.manager.save(detalle);
     }
 
     // Marcar cita como Completada (id 2)
-    const estadoCompletada = await queryRunner.manager.findOneBy(EstadoCita, { id_estado_cita: 2 });
-    if (estadoCompletada) { cita.estadoCita = estadoCompletada; await queryRunner.manager.save(cita); }
+    const estadoCompletada = await queryRunner.manager.findOneBy(AppointmentStatus, { id_estado_cita: 2 });
+    if (estadoCompletada) { cita.appointmentStatus = estadoCompletada; await queryRunner.manager.save(cita); }
 
     await queryRunner.commitTransaction();
 

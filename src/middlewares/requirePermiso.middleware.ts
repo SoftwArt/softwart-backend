@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import { AppDataSource } from "../data-source";
-import { PermisoRol } from "../models/PermisoRol";
+import { RolePermission } from "../models/RolePermission";
 
 export const requirePermiso = (nombrePermiso: string): RequestHandler => {
   return async (req, res, next) => {
@@ -10,7 +10,7 @@ export const requirePermiso = (nombrePermiso: string): RequestHandler => {
       }
 
       const { id_rol } = req.user;
-      const permisoRepo = AppDataSource.getRepository(PermisoRol);
+      const permisoRepo = AppDataSource.getRepository(RolePermission);
 
       const tienePermiso = await permisoRepo
         .createQueryBuilder("pr")

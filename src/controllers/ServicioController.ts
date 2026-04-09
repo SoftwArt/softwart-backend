@@ -3,12 +3,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { Servicio } from "../models/Servicio";
-import { DetalleVenta } from "../models/DetalleVenta";
+import { Service } from "../models/Service";
+import { SaleDetail } from "../models/SaleDetail";
 
 export const getAllServicio = async (req: Request, res: Response): Promise<void> => {
   try {
-    const servicioRepo = AppDataSource.getRepository(Servicio);
+    const servicioRepo = AppDataSource.getRepository(Service);
     const page  = Math.max(1, Number(req.query.page)  || 1);
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
@@ -27,7 +27,7 @@ export const getAllServicio = async (req: Request, res: Response): Promise<void>
 
 export const getServicioById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const servicioRepo = AppDataSource.getRepository(Servicio);
+    const servicioRepo = AppDataSource.getRepository(Service);
     const item = await servicioRepo.findOne({ where: { id_servicio: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Servicio no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -38,7 +38,7 @@ export const getServicioById = async (req: Request, res: Response): Promise<void
 
 export const createServicio = async (req: Request, res: Response): Promise<void> => {
   try {
-    const servicioRepo = AppDataSource.getRepository(Servicio);
+    const servicioRepo = AppDataSource.getRepository(Service);
     const required = ["nombre", "duracion"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
@@ -56,7 +56,7 @@ export const createServicio = async (req: Request, res: Response): Promise<void>
 
 export const updateServicio = async (req: Request, res: Response): Promise<void> => {
   try {
-    const servicioRepo = AppDataSource.getRepository(Servicio);
+    const servicioRepo = AppDataSource.getRepository(Service);
     const item = await servicioRepo.findOne({ where: { id_servicio: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Servicio no encontrado" }); return; }
     if (req.body.nombre      !== undefined) item.nombre      = req.body.nombre;
@@ -71,9 +71,9 @@ export const updateServicio = async (req: Request, res: Response): Promise<void>
 
 export const deleteServicio = async (req: Request, res: Response): Promise<void> => {
   try {
-    const servicioRepo     = AppDataSource.getRepository(Servicio);
-    const detalleVentaRepo = AppDataSource.getRepository(DetalleVenta);
-    const count = await detalleVentaRepo.count({ where: { servicio: { id_servicio: Number(req.params.id) } } });
+    const servicioRepo     = AppDataSource.getRepository(Service);
+    const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
+    const count = await detalleVentaRepo.count({ where: { service: { id_servicio: Number(req.params.id) } } });
     if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${count})` }); return; }
     const item = await servicioRepo.findOneBy({ id_servicio: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Servicio no encontrado" }); return; }
@@ -86,7 +86,7 @@ export const deleteServicio = async (req: Request, res: Response): Promise<void>
 
 export const toggleEstadoServicio = async (req: Request, res: Response): Promise<void> => {
   try {
-    const servicioRepo = AppDataSource.getRepository(Servicio);
+    const servicioRepo = AppDataSource.getRepository(Service);
     const item = await servicioRepo.findOneBy({ id_servicio: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Servicio no encontrado" }); return; }
     item.estado = !item.estado;

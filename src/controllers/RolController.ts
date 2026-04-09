@@ -3,13 +3,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { Rol } from "../models/Rol";
-import { PermisoRol } from "../models/PermisoRol";
-import { Usuario } from "../models/Usuario";
+import { Role } from "../models/Role";
+import { RolePermission } from "../models/RolePermission";
+import { User } from "../models/User";
 
 export const getAllRol = async (req: Request, res: Response): Promise<void> => {
   try {
-    const rolRepo = AppDataSource.getRepository(Rol);
+    const rolRepo = AppDataSource.getRepository(Role);
     const page  = Math.max(1, Number(req.query.page)  || 1);
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
@@ -28,7 +28,7 @@ export const getAllRol = async (req: Request, res: Response): Promise<void> => {
 
 export const getRolById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const rolRepo = AppDataSource.getRepository(Rol);
+    const rolRepo = AppDataSource.getRepository(Role);
     const item = await rolRepo.findOne({ where: { id_rol: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -39,7 +39,7 @@ export const getRolById = async (req: Request, res: Response): Promise<void> => 
 
 export const createRol = async (req: Request, res: Response): Promise<void> => {
   try {
-    const rolRepo = AppDataSource.getRepository(Rol);
+    const rolRepo = AppDataSource.getRepository(Role);
     const required = ["nombre"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
@@ -55,7 +55,7 @@ export const createRol = async (req: Request, res: Response): Promise<void> => {
 
 export const updateRol = async (req: Request, res: Response): Promise<void> => {
   try {
-    const rolRepo = AppDataSource.getRepository(Rol);
+    const rolRepo = AppDataSource.getRepository(Role);
     const item = await rolRepo.findOne({ where: { id_rol: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
     if (req.body.nombre !== undefined) item.nombre = req.body.nombre;
@@ -68,12 +68,12 @@ export const updateRol = async (req: Request, res: Response): Promise<void> => {
 
 export const deleteRol = async (req: Request, res: Response): Promise<void> => {
   try {
-    const rolRepo        = AppDataSource.getRepository(Rol);
-    const permisoRolRepo = AppDataSource.getRepository(PermisoRol);
-    const usuarioRepo    = AppDataSource.getRepository(Usuario);
-    const countPermisoRol = await permisoRolRepo.count({ where: { rol: { id_rol: Number(req.params.id) } } });
+    const rolRepo        = AppDataSource.getRepository(Role);
+    const permisoRolRepo = AppDataSource.getRepository(RolePermission);
+    const usuarioRepo    = AppDataSource.getRepository(User);
+    const countPermisoRol = await permisoRolRepo.count({ where: { role: { id_rol: Number(req.params.id) } } });
     if (countPermisoRol > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen PermisoRol asociados (${countPermisoRol})` }); return; }
-    const countUsuario = await usuarioRepo.count({ where: { rol: { id_rol: Number(req.params.id) } } });
+    const countUsuario = await usuarioRepo.count({ where: { role: { id_rol: Number(req.params.id) } } });
     if (countUsuario > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Usuario asociados (${countUsuario})` }); return; }
     const item = await rolRepo.findOneBy({ id_rol: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
@@ -86,7 +86,7 @@ export const deleteRol = async (req: Request, res: Response): Promise<void> => {
 
 export const toggleEstadoRol = async (req: Request, res: Response): Promise<void> => {
   try {
-    const rolRepo = AppDataSource.getRepository(Rol);
+    const rolRepo = AppDataSource.getRepository(Role);
     const item = await rolRepo.findOneBy({ id_rol: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
     item.estado = !item.estado;

@@ -10,30 +10,30 @@ dotenv.config();
 
 import { DataSource } from "typeorm";
 
-import { Permiso }        from "./models/Permiso";
-import { Rol }            from "./models/Rol";
-import { PermisoRol }     from "./models/PermisoRol";
-import { Usuario }        from "./models/Usuario";
-import { Cliente }        from "./models/Cliente";
-import { Servicio }       from "./models/Servicio";
-import { EstadoCita }     from "./models/EstadoCita";
-import { EstadoServicio } from "./models/EstadoServicio";
-import { MetodoPago }     from "./models/MetodoPago";
-import { EstadoPago }     from "./models/EstadoPago";
-import { Cita }           from "./models/Cita";
-import { Marco }          from "./models/Marco";
-import { Venta }          from "./models/Venta";
-import { DetalleVenta }   from "./models/DetalleVenta";
-import { Pago }           from "./models/Pago";
+import { Permission }        from "./models/Permission";
+import { Role }              from "./models/Role";
+import { RolePermission }    from "./models/RolePermission";
+import { User }              from "./models/User";
+import { Client }            from "./models/Client";
+import { Service }           from "./models/Service";
+import { AppointmentStatus } from "./models/AppointmentStatus";
+import { ServiceStatus }     from "./models/ServiceStatus";
+import { PaymentMethod }     from "./models/PaymentMethod";
+import { PaymentStatus }     from "./models/PaymentStatus";
+import { Appointment }       from "./models/Appointment";
+import { Frame }             from "./models/Frame";
+import { Sale }              from "./models/Sale";
+import { SaleDetail }        from "./models/SaleDetail";
+import { Payment }           from "./models/Payment";
 
 const isProd = process.env.NODE_ENV === "production";
 
 const entities = [
-  Permiso, Rol, PermisoRol, Usuario,
-  Cliente,
-  Servicio, EstadoCita, EstadoServicio, MetodoPago, EstadoPago,
-  Cita, Marco, Venta, DetalleVenta,
-  Pago,
+  Permission, Role, RolePermission, User,
+  Client,
+  Service, AppointmentStatus, ServiceStatus, PaymentMethod, PaymentStatus,
+  Appointment, Frame, Sale, SaleDetail,
+  Payment,
 ];
 
 export const AppDataSource = isProd

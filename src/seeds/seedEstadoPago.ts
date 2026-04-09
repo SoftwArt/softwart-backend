@@ -1,9 +1,9 @@
 // src/seeds/seedEstadoPago.ts
 import { AppDataSource } from "../data-source";
-import { EstadoPago }    from "../models/EstadoPago";
+import { PaymentStatus }    from "../models/PaymentStatus";
 
 export async function seedEstadoPago(): Promise<void> {
-  const repo = AppDataSource.getRepository(EstadoPago);
+  const repo = AppDataSource.getRepository(PaymentStatus);
   if (await repo.count() > 0) return;
   await repo.save(repo.create([
     { nombre: "Pendiente" },

@@ -3,12 +3,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { EstadoPago } from "../models/EstadoPago";
-import { Pago } from "../models/Pago";
+import { PaymentStatus } from "../models/PaymentStatus";
+import { Payment } from "../models/Payment";
 
 export const getAllEstadoPago = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const items = await AppDataSource.getRepository(EstadoPago).find();
+    const items = await AppDataSource.getRepository(PaymentStatus).find();
     res.json({ success: true, data: items });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener EstadoPago", error });
@@ -17,7 +17,7 @@ export const getAllEstadoPago = async (_req: Request, res: Response): Promise<vo
 
 export const getEstadoPagoById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const item = await AppDataSource.getRepository(EstadoPago).findOne({ where: { id_estado_pago: Number(req.params.id) } });
+    const item = await AppDataSource.getRepository(PaymentStatus).findOne({ where: { id_estado_pago: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "EstadoPago no encontrado" }); return; }
     res.json({ success: true, data: item });
   } catch (error) {
@@ -27,7 +27,7 @@ export const getEstadoPagoById = async (req: Request, res: Response): Promise<vo
 
 export const createEstadoPago = async (req: Request, res: Response): Promise<void> => {
   try {
-    const repo = AppDataSource.getRepository(EstadoPago);
+    const repo = AppDataSource.getRepository(PaymentStatus);
     if (!req.body.nombre) { res.status(400).json({ success: false, message: "nombre es requerido" }); return; }
     const obj = repo.create({ nombre: req.body.nombre });
     await repo.save(obj);
@@ -39,7 +39,7 @@ export const createEstadoPago = async (req: Request, res: Response): Promise<voi
 
 export const updateEstadoPago = async (req: Request, res: Response): Promise<void> => {
   try {
-    const repo = AppDataSource.getRepository(EstadoPago);
+    const repo = AppDataSource.getRepository(PaymentStatus);
     const item = await repo.findOne({ where: { id_estado_pago: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "EstadoPago no encontrado" }); return; }
     if (req.body.nombre !== undefined) item.nombre = req.body.nombre;
@@ -52,9 +52,9 @@ export const updateEstadoPago = async (req: Request, res: Response): Promise<voi
 
 export const deleteEstadoPago = async (req: Request, res: Response): Promise<void> => {
   try {
-    const repo     = AppDataSource.getRepository(EstadoPago);
-    const pagoRepo = AppDataSource.getRepository(Pago);
-    const count = await pagoRepo.count({ where: { estadoPago: { id_estado_pago: Number(req.params.id) } } });
+    const repo     = AppDataSource.getRepository(PaymentStatus);
+    const pagoRepo = AppDataSource.getRepository(Payment);
+    const count = await pagoRepo.count({ where: { paymentStatus: { id_estado_pago: Number(req.params.id) } } });
     if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Pago asociados (${count})` }); return; }
     const item = await repo.findOneBy({ id_estado_pago: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "EstadoPago no encontrado" }); return; }
@@ -68,13 +68,13 @@ export const deleteEstadoPago = async (req: Request, res: Response): Promise<voi
 // PATCH /api/estado-pago/pago/:id_pago/estado
 export const cambiarEstadoPago = async (req: Request, res: Response): Promise<void> => {
   try {
-    const pagoRepo       = AppDataSource.getRepository(Pago);
-    const estadoPagoRepo = AppDataSource.getRepository(EstadoPago);
+    const pagoRepo       = AppDataSource.getRepository(Payment);
+    const estadoPagoRepo = AppDataSource.getRepository(PaymentStatus);
     const target = await pagoRepo.findOneBy({ id_pago: Number(req.params.id_pago) });
     if (!target) { res.status(404).json({ success: false, message: "Pago no encontrado" }); return; }
     const nuevoEstado = await estadoPagoRepo.findOneBy({ id_estado_pago: Number(req.body.id_estado_pago) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoPago no encontrado" }); return; }
-    target.estadoPago = nuevoEstado;
+    target.paymentStatus = nuevoEstado;
     await pagoRepo.save(target);
     res.json({ success: true, message: "Estado de Pago actualizado", data: target });
   } catch (error) {

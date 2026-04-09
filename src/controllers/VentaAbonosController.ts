@@ -2,10 +2,10 @@
 // Endpoints de abonos por venta — se montan en /api/ventas/:id/...
 import { Request, Response } from "express";
 import { AppDataSource }     from "../data-source";
-import { Venta }             from "../models/Venta";
-import { Pago }              from "../models/Pago";
-import { EstadoPago }        from "../models/EstadoPago";
-import { MetodoPago }        from "../models/MetodoPago";
+import { Sale }             from "../models/Sale";
+import { Payment }              from "../models/Payment";
+import { PaymentStatus }        from "../models/PaymentStatus";
+import { PaymentMethod }        from "../models/PaymentMethod";
 import { calcularAbonos, siguienteAbono } from "../helpers/abonos.helper";
 
 // ── GET /api/ventas/:id/estado-pagos ─────────────────────────────────────────
@@ -14,15 +14,15 @@ export const getEstadoPagos = async (req: Request, res: Response): Promise<void>
   try {
     const id_venta = Number(req.params.id)
 
-    const venta = await AppDataSource.getRepository(Venta).findOne({
+    const venta = await AppDataSource.getRepository(Sale).findOne({
       where:     { id_venta },
-      relations: ["pagos", "pagos.estadoPago"],
+      relations: ["payments", "pagos.paymentStatus"],
     })
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrada" }); return }
 
     const { total, num_abonos, porcentaje_primer_abono } = venta
     // Orden determinista: siempre id_pago ASC para que historial_pagos[n-1] coincida con abono n
-    const pagosOrdenados  = [...venta.pagos].sort((a, b) => a.id_pago - b.id_pago)
+    const pagosOrdenados  = [...venta.payments].sort((a, b) => a.id_pago - b.id_pago)
     const pagosRealizados = pagosOrdenados.length
     const totalPagado     = pagosOrdenados.reduce((s, p) => s + Number(p.monto), 0)
     const saldo           = Math.round((Number(total) - totalPagado) * 100) / 100
@@ -46,7 +46,7 @@ export const getEstadoPagos = async (req: Request, res: Response): Promise<void>
           id_pago:   p.id_pago,
           monto:     Number(p.monto),
           fecha:     p.fecha,
-          estado:    p.estadoPago?.nombre ?? "—",
+          estado:    p.paymentStatus?.nombre ?? "—",
         })),
       },
     })
@@ -68,14 +68,14 @@ export const registrarAbono = async (req: Request, res: Response): Promise<void>
       res.status(400).json({ success: false, message: "monto e id_metodo_pago son requeridos" }); return
     }
 
-    const ventaRepo = AppDataSource.getRepository(Venta)
+    const ventaRepo = AppDataSource.getRepository(Sale)
     const venta     = await ventaRepo.findOne({
       where:     { id_venta },
-      relations: ["pagos"],
+      relations: ["payments"],
     })
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrada" }); return }
 
-    const pagosRealizados = venta.pagos.length
+    const pagosRealizados = venta.payments.length
     const { total, num_abonos, porcentaje_primer_abono } = venta
 
     // Verificar que no se hayan completado todos los abonos
@@ -117,24 +117,24 @@ export const registrarAbono = async (req: Request, res: Response): Promise<void>
     }
 
     // Buscar estado "Validado" para el nuevo pago
-    const estadoPendiente = await AppDataSource.getRepository(EstadoPago)
+    const estadoPendiente = await AppDataSource.getRepository(PaymentStatus)
       .createQueryBuilder("ep")
       .where("LOWER(ep.nombre) LIKE :n", { n: "%validado%" })
       .getOne()
 
-    const metodo = await AppDataSource.getRepository(MetodoPago)
+    const metodo = await AppDataSource.getRepository(PaymentMethod)
       .findOneBy({ id_metodo_pago: Number(id_metodo_pago) })
     if (!metodo) {
       res.status(404).json({ success: false, message: "Método de pago no encontrado" }); return
     }
 
-    const pagoRepo = AppDataSource.getRepository(Pago)
+    const pagoRepo = AppDataSource.getRepository(Payment)
     const pago     = pagoRepo.create()
-    pago.venta     = venta
+    pago.sale     = venta
     pago.monto     = montoEnviado
     pago.fecha     = fecha ? new Date(fecha) : new Date()
-    pago.metodoPago  = metodo
-    if (estadoPendiente) pago.estadoPago = estadoPendiente
+    pago.paymentMethod  = metodo
+    if (estadoPendiente) pago.paymentStatus = estadoPendiente
 
     await pagoRepo.save(pago)
 
@@ -144,9 +144,9 @@ export const registrarAbono = async (req: Request, res: Response): Promise<void>
     // Si se completaron todos los abonos → activar estado de la venta
     // Usar update() en lugar de save() para no tocar relaciones no cargadas (ej: cita)
     if (completado) {
-      await AppDataSource.getRepository(Venta).update({ id_venta }, { estado: true })
+      await AppDataSource.getRepository(Sale).update({ id_venta }, { estado: true })
     }
-    const totalPagado          = venta.pagos.reduce((s, p) => s + Number(p.monto), 0) + montoEnviado
+    const totalPagado          = venta.payments.reduce((s, p) => s + Number(p.monto), 0) + montoEnviado
     const saldo                = Math.round((Number(total) - totalPagado) * 100) / 100
 
     res.status(201).json({
@@ -175,14 +175,14 @@ export const configurarAbonos = async (req: Request, res: Response): Promise<voi
     const id_venta = Number(req.params.id)
     const { num_abonos, porcentaje_primer_abono } = req.body
 
-    const ventaRepo = AppDataSource.getRepository(Venta)
+    const ventaRepo = AppDataSource.getRepository(Sale)
     const venta     = await ventaRepo.findOne({
       where:     { id_venta },
-      relations: ["pagos"],
+      relations: ["payments"],
     })
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrada" }); return }
 
-    if (venta.pagos.length > 0) {
+    if (venta.payments.length > 0) {
       res.status(409).json({
         success: false,
         message: "No se puede cambiar la configuración de abonos: ya hay pagos registrados.",
