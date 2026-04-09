@@ -14,4 +14,4 @@ router.put("/:id",          updatePermission);
 router.delete("/:id",       deletePermission);
 router.patch("/:id/estado", togglePermissionStatus);
 
-export { router as permisoRouter };
+export { router as permissionRouter };

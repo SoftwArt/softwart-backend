@@ -17,4 +17,4 @@ router.delete("/:id", verifyToken, requireRol("Admin", "Empleado"), deletePaymen
 // PATCH /pago/:id_pago/estado → cambiar estado de un Pago
 router.patch("/pago/:id_pago/estado", verifyToken, requireRol("Admin", "Empleado"), changePaymentStatus);
 
-export { router as estadoPagoRouter };
+export { router as paymentStatusRouter };

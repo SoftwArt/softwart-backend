@@ -15,4 +15,4 @@ router.put("/:id",          verifyToken, requireRol("Admin", "Empleado"), update
 router.delete("/:id",       verifyToken, requireRol("Admin", "Empleado"), deleteService);
 router.patch("/:id/estado", verifyToken, requireRol("Admin", "Empleado"), toggleServiceStatus);
 
-export { router as servicioRouter };
+export { router as serviceRouter };

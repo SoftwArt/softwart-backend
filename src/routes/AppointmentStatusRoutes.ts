@@ -17,4 +17,4 @@ router.delete("/:id", verifyToken, requireRol("Admin", "Empleado"), deleteAppoin
 // PATCH /cita/:id_cita/estado → cambiar estado de una Cita
 router.patch("/cita/:id_cita/estado", verifyToken, requireRol("Admin", "Empleado"), changeAppointmentStatus);
 
-export { router as estadoCitaRouter };
+export { router as appointmentStatusRouter };

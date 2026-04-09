@@ -14,4 +14,4 @@ router.put("/:id",          updateRole);
 router.delete("/:id",       deleteRole);
 router.patch("/:id/estado", toggleRoleStatus);
 
-export { router as rolRouter };
+export { router as roleRouter };

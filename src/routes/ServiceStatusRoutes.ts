@@ -17,4 +17,4 @@ router.delete("/:id", verifyToken, requireRol("Admin", "Empleado"), deleteServic
 // PATCH /detalle/:id_detalle/estado → cambiar estadoServicio de un DetalleVenta
 router.patch("/detalle/:id_detalle/estado", verifyToken, requireRol("Admin", "Empleado"), changeSaleDetailStatus);
 
-export { router as estadoServicioRouter };
+export { router as serviceStatusRouter };

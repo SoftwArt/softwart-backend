@@ -14,4 +14,4 @@ router.put("/:id",          updateSale);
 router.delete("/:id",       deleteSale);
 router.patch("/:id/estado", toggleSaleStatus);
 
-export { router as ventaRouter };
+export { router as saleRouter };

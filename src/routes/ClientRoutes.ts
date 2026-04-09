@@ -14,4 +14,4 @@ router.put("/:id",          updateClient);
 router.delete("/:id",       deleteClient);
 router.patch("/:id/estado", toggleClientStatus);
 
-export { router as clienteRouter };
+export { router as clientRouter };

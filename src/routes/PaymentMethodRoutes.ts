@@ -17,4 +17,4 @@ router.delete("/:id", verifyToken, requireRol("Admin", "Empleado"), deletePaymen
 // PATCH /pago/:id_pago/metodo → asignar método de pago a un Pago
 router.patch("/pago/:id_pago/metodo", verifyToken, requireRol("Admin", "Empleado"), assignPaymentMethod);
 
-export { router as metodoPagoRouter };
+export { router as paymentMethodRouter };

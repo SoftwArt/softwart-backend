@@ -14,4 +14,4 @@ router.put("/:id",    updateAppointment);
 router.delete("/:id", deleteAppointment);
 router.post("/:id/crear-venta", createSaleFromAppointment); // POST /api/citas/:id/crear-venta
 
-export { router as citaRouter };
+export { router as appointmentRouter };

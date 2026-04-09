@@ -2,55 +2,55 @@
 //  routes/index.ts
 // ─────────────────────────────────────────────────────────────────────────────
 import { Application } from "express";
-import { permisoRouter }        from "./PermisoRoutes";
-import { rolRouter }            from "./RolRoutes";
-import { permisoRolRouter }     from "./PermisoRolRoutes";
-import { usuarioRouter }        from "./UsuarioRoutes";
-import { clienteRouter }        from "./ClienteRoutes";
-import { servicioRouter }       from "./ServicioRoutes";
-import { estadoCitaRouter }     from "./EstadoCitaRoutes";
-import { estadoServicioRouter } from "./EstadoServicioRoutes";
-import { metodoPagoRouter }     from "./MetodoPagoRoutes";
-import { estadoPagoRouter }     from "./EstadoPagoRoutes";
-import { citaRouter }           from "./CitaRoutes";
-import { marcoRouter }          from "./MarcoRoutes";
-import { ventaAbonosRouter } from "./VentaAbonosRoutes";
-import { ventaRouter }          from "./VentaRoutes";
-import { detalleVentaRouter }   from "./DetalleVentaRoutes";
-import { pagoRouter }           from "./PagoRoutes";
-import { authRouter }           from "./AuthRoutes";
-import { cuentaClienteRouter }  from "./CuentaClienteRoutes";
-import { dashboardRouter } from './dashboard.routes'
+import { permissionRouter }        from "./PermissionRoutes";
+import { roleRouter }              from "./RoleRoutes";
+import { rolePermissionRouter }    from "./RolePermissionRoutes";
+import { userRouter }              from "./UserRoutes";
+import { clientRouter }            from "./ClientRoutes";
+import { serviceRouter }           from "./ServiceRoutes";
+import { appointmentStatusRouter } from "./AppointmentStatusRoutes";
+import { serviceStatusRouter }     from "./ServiceStatusRoutes";
+import { paymentMethodRouter }     from "./PaymentMethodRoutes";
+import { paymentStatusRouter }     from "./PaymentStatusRoutes";
+import { appointmentRouter }       from "./AppointmentRoutes";
+import { frameRouter }             from "./FrameRoutes";
+import { saleInstallmentsRouter }  from "./SaleInstallmentsRoutes";
+import { saleRouter }              from "./SaleRoutes";
+import { saleDetailRouter }        from "./SaleDetailRoutes";
+import { paymentRouter }           from "./PaymentRoutes";
+import { authRouter }              from "./AuthRoutes";
+import { clientAccountRouter }     from "./ClientAccountRoutes";
+import { dashboardRouter }         from "./dashboard.routes";
 
 export function registerRoutes(app: Application): void {
-  // ── Seguridad ─────────────────────────────────────────────
-  app.use("/api/permisos",    permisoRouter);
-  app.use("/api/roles",       rolRouter);
-  app.use("/api/permiso-rol", permisoRolRouter);
-  app.use("/api/usuarios",    usuarioRouter);
+  // ── Security ──────────────────────────────────────────────
+  app.use("/api/permissions",      permissionRouter);
+  app.use("/api/roles",            roleRouter);
+  app.use("/api/role-permissions", rolePermissionRouter);
+  app.use("/api/users",            userRouter);
 
-  // ── Clientes ──────────────────────────────────────────────
-  app.use("/api/clientes",    clienteRouter);
+  // ── Clients ───────────────────────────────────────────────
+  app.use("/api/clients",          clientRouter);
 
-  // ── Catálogos (GETs públicos) ─────────────────────────────
-  app.use("/api/servicios",        servicioRouter);
-  app.use("/api/estado-cita",      estadoCitaRouter);
-  app.use("/api/estado-servicio",  estadoServicioRouter);
-  app.use("/api/metodo-pago",      metodoPagoRouter);
-  app.use("/api/estado-pago",      estadoPagoRouter);
+  // ── Catalogs ──────────────────────────────────────────────
+  app.use("/api/services",           serviceRouter);
+  app.use("/api/appointment-status", appointmentStatusRouter);
+  app.use("/api/service-status",     serviceStatusRouter);
+  app.use("/api/payment-methods",    paymentMethodRouter);
+  app.use("/api/payment-status",     paymentStatusRouter);
 
-  // ── Operación ─────────────────────────────────────────────
-  app.use("/api/citas",         citaRouter);
-  app.use("/api/marcos",        marcoRouter);
-  app.use("/api/ventas", ventaAbonosRouter);
-  app.use("/api/ventas",        ventaRouter);
-  app.use("/api/detalle-venta", detalleVentaRouter);
-  app.use("/api/pagos",         pagoRouter);
+  // ── Operations ────────────────────────────────────────────
+  app.use("/api/appointments",   appointmentRouter);
+  app.use("/api/frames",         frameRouter);
+  app.use("/api/sales",          saleInstallmentsRouter);
+  app.use("/api/sales",          saleRouter);
+  app.use("/api/sale-details",   saleDetailRouter);
+  app.use("/api/payments",       paymentRouter);
 
-  // ── Auth y cuenta ─────────────────────────────────────────
-  app.use("/api/auth",   authRouter);
-  app.use("/api/cuenta", cuentaClienteRouter);
+  // ── Auth & Account ────────────────────────────────────────
+  app.use("/api/auth",    authRouter);
+  app.use("/api/account", clientAccountRouter);
 
   // ── Dashboard ─────────────────────────────────────────────
-  app.use('/api/dashboard', dashboardRouter)
+  app.use("/api/dashboard", dashboardRouter);
 }

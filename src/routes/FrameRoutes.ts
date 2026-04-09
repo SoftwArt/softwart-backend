@@ -14,4 +14,4 @@ router.put("/:id",          updateFrame);
 router.delete("/:id",       deleteFrame);
 router.patch("/:id/estado", toggleFrameStatus);
 
-export { router as marcoRouter };
+export { router as frameRouter };

@@ -11,4 +11,4 @@ router.get("/",    getAllRolePermission);  // GET    /api/permiso-rol
 router.post("/",   createRolePermission); // POST   /api/permiso-rol  { id_permiso, id_rol }
 router.delete("/", deleteRolePermission); // DELETE /api/permiso-rol  { id_permiso, id_rol }
 
-export { router as permisoRolRouter };
+export { router as rolePermissionRouter };

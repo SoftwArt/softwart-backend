@@ -1,5 +1,5 @@
 // src/routes/VentaAbonosRoutes.ts
-// Se monta en app.ts como: app.use("/api/ventas", ventaAbonosRouter)
+// Se monta en app.ts como: app.use("/api/ventas", saleInstallmentsRouter)
 // Convive con las rutas existentes de /api/ventas (VentaController)
 import { Router }                                                from "express";
 import { getPaymentPlan, registerInstallment, configureInstallments }     from "../controllers/SaleInstallmentsController";
@@ -14,4 +14,4 @@ router.get  ("/:id/estado-pagos",      getPaymentPlan);     // GET  /api/ventas/
 router.post ("/:id/abono",             registerInstallment);      // POST /api/ventas/:id/abono
 router.patch("/:id/configurar-abonos", configureInstallments);    // PATCH /api/ventas/:id/configurar-abonos
 
-export { router as ventaAbonosRouter };
+export { router as saleInstallmentsRouter };

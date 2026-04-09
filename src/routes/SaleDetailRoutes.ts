@@ -14,4 +14,4 @@ router.put("/:id",          updateSaleDetail);
 router.delete("/:id",       deleteSaleDetail);
 router.patch("/:id/estado", toggleSaleDetailStatus);
 
-export { router as detalleVentaRouter };
+export { router as saleDetailRouter };

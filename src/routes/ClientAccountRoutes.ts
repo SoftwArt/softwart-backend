@@ -14,4 +14,4 @@ router.patch("/citas/:id/cancelar", cancelMyAppointment); // PATCH /api/cuenta/c
 router.get("/disponibilidad", appointmentAvailability); // GET /api/cuenta/disponibilidad?fecha=
 router.delete("/",     deleteAccount);  // DELETE /api/cuenta
 
-export { router as cuentaClienteRouter };
+export { router as clientAccountRouter };
