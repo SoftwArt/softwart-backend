@@ -12,6 +12,6 @@ router.get("/:id",    getAppointmentById);
 router.post("/",      createAppointment);
 router.put("/:id",    updateAppointment);
 router.delete("/:id", deleteAppointment);
-router.post("/:id/crear-venta", createSaleFromAppointment); // POST /api/citas/:id/crear-venta
+router.post("/:id/create-sale", createSaleFromAppointment);
 
 export { router as appointmentRouter };

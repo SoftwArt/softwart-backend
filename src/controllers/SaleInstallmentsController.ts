@@ -16,15 +16,17 @@ export const getPaymentPlan = async (req: Request, res: Response): Promise<void>
 
     const venta = await AppDataSource.getRepository(Sale).findOne({
       where:     { id_venta },
-      relations: ["payments", "pagos.paymentStatus"],
+      relations: ["payments", "payments.paymentStatus"],
     })
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrada" }); return }
 
     const { total, num_abonos, porcentaje_primer_abono } = venta
     // Orden determinista: siempre id_pago ASC para que historial_pagos[n-1] coincida con abono n
-    const pagosOrdenados  = [...venta.payments].sort((a, b) => a.id_pago - b.id_pago)
-    const pagosRealizados = pagosOrdenados.length
-    const totalPagado     = pagosOrdenados.reduce((s, p) => s + Number(p.monto), 0)
+    const todosOrdenados  = [...venta.payments].sort((a, b) => a.id_pago - b.id_pago)
+    // Excluir pagos anulados de los cálculos
+    const pagosActivos    = todosOrdenados.filter(p => !p.paymentStatus?.nombre?.toLowerCase().includes("anulado"))
+    const pagosRealizados = pagosActivos.length
+    const totalPagado     = pagosActivos.reduce((s, p) => s + Number(p.monto), 0)
     const saldo           = Math.round((Number(total) - totalPagado) * 100) / 100
     const abonos          = calculateInstallments(Number(total), num_abonos, porcentaje_primer_abono)
     const siguiente       = nextInstallment(Number(total), num_abonos, porcentaje_primer_abono, pagosRealizados)
@@ -42,12 +44,19 @@ export const getPaymentPlan = async (req: Request, res: Response): Promise<void>
         completado:        saldo <= 0,
         plan_abonos:       abonos,
         siguiente_abono:   siguiente,
-        historial_pagos:   pagosOrdenados.map(p => ({
+        historial_pagos:   pagosActivos.map(p => ({
           id_pago:   p.id_pago,
           monto:     Number(p.monto),
           fecha:     p.fecha,
           estado:    p.paymentStatus?.nombre ?? "—",
         })),
+        pagos_anulados:    todosOrdenados
+          .filter(p => p.paymentStatus?.nombre?.toLowerCase().includes("anulado"))
+          .map(p => ({
+            id_pago: p.id_pago,
+            monto:   Number(p.monto),
+            fecha:   p.fecha,
+          })),
       },
     })
   } catch (error) {
@@ -71,11 +80,13 @@ export const registerInstallment = async (req: Request, res: Response): Promise<
     const ventaRepo = AppDataSource.getRepository(Sale)
     const venta     = await ventaRepo.findOne({
       where:     { id_venta },
-      relations: ["payments"],
+      relations: ["payments", "payments.paymentStatus"],
     })
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrada" }); return }
 
-    const pagosRealizados = venta.payments.length
+    // Excluir pagos anulados del conteo
+    const pagosActivos    = venta.payments.filter(p => !p.paymentStatus?.nombre?.toLowerCase().includes("anulado"))
+    const pagosRealizados = pagosActivos.length
     const { total, num_abonos, porcentaje_primer_abono } = venta
 
     // Verificar que no se hayan completado todos los abonos
@@ -146,7 +157,7 @@ export const registerInstallment = async (req: Request, res: Response): Promise<
     if (completado) {
       await AppDataSource.getRepository(Sale).update({ id_venta }, { estado: true })
     }
-    const totalPagado          = venta.payments.reduce((s, p) => s + Number(p.monto), 0) + montoEnviado
+    const totalPagado          = pagosActivos.reduce((s, p) => s + Number(p.monto), 0) + montoEnviado
     const saldo                = Math.round((Number(total) - totalPagado) * 100) / 100
 
     res.status(201).json({
@@ -178,11 +189,12 @@ export const configureInstallments = async (req: Request, res: Response): Promis
     const ventaRepo = AppDataSource.getRepository(Sale)
     const venta     = await ventaRepo.findOne({
       where:     { id_venta },
-      relations: ["payments"],
+      relations: ["payments", "payments.paymentStatus"],
     })
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrada" }); return }
 
-    if (venta.payments.length > 0) {
+    const pagosActivos = venta.payments.filter(p => !p.paymentStatus?.nombre?.toLowerCase().includes("anulado"))
+    if (pagosActivos.length > 0) {
       res.status(409).json({
         success: false,
         message: "No se puede cambiar la configuración de abonos: ya hay pagos registrados.",

@@ -10,8 +10,8 @@ const router = Router();
 // Todas requieren estar autenticado como Admin o Empleado
 router.use(verifyToken, requireRol("Admin", "Empleado"));
 
-router.get  ("/:id/estado-pagos",      getPaymentPlan);     // GET  /api/ventas/:id/estado-pagos
-router.post ("/:id/abono",             registerInstallment);      // POST /api/ventas/:id/abono
-router.patch("/:id/configurar-abonos", configureInstallments);    // PATCH /api/ventas/:id/configurar-abonos
+router.get  ("/:id/payment-plan",            getPaymentPlan);
+router.post ("/:id/installment",             registerInstallment);
+router.patch("/:id/configure-installments",  configureInstallments);
 
 export { router as saleInstallmentsRouter };

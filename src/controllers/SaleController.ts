@@ -17,7 +17,7 @@ export const getAllSale = async (req: Request, res: Response): Promise<void> => 
     const skip  = (page - 1) * limit;
 
     const [items, total] = await ventaRepo.findAndCount({
-      relations: ["cita", "client", "payments"],
+      relations: ["appointment", "client", "payments", "payments.paymentStatus"],
       skip,
       take: limit,
     });
@@ -37,7 +37,7 @@ export const getSaleById = async (req: Request, res: Response): Promise<void> =>
     const ventaRepo = AppDataSource.getRepository(Sale);
     const item = await ventaRepo.findOne({
       where: { id_venta: Number(req.params.id) },
-      relations: ["cita", "client"],
+      relations: ["appointment", "client"],
     });
     if (!item) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -79,7 +79,7 @@ export const updateSale = async (req: Request, res: Response): Promise<void> => 
     const ventaRepo = AppDataSource.getRepository(Sale);
     const item = await ventaRepo.findOne({
       where: { id_venta: Number(req.params.id) },
-      relations: ["cita", "client"],
+      relations: ["appointment", "client"],
     });
     if (!item) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
     if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;

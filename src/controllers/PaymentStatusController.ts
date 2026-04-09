@@ -70,8 +70,15 @@ export const changePaymentStatus = async (req: Request, res: Response): Promise<
   try {
     const pagoRepo       = AppDataSource.getRepository(Payment);
     const estadoPagoRepo = AppDataSource.getRepository(PaymentStatus);
-    const target = await pagoRepo.findOneBy({ id_pago: Number(req.params.id_pago) });
+    const target = await pagoRepo.findOne({ where: { id_pago: Number(req.params.id_pago) }, relations: ["paymentStatus"] });
     if (!target) { res.status(404).json({ success: false, message: "Pago no encontrado" }); return; }
+    const estadoActual = target.paymentStatus?.nombre?.toLowerCase() ?? ""
+    if (estadoActual.includes("anulado")) {
+      res.status(409).json({ success: false, message: "No se puede cambiar el estado de un pago anulado" }); return;
+    }
+    if (estadoActual.includes("validado")) {
+      res.status(409).json({ success: false, message: "No se puede cambiar el estado de un pago validado" }); return;
+    }
     const nuevoEstado = await estadoPagoRepo.findOneBy({ id_estado_pago: Number(req.body.id_estado_pago) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoPago no encontrado" }); return; }
     target.paymentStatus = nuevoEstado;
