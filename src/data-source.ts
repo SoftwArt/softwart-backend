@@ -36,6 +36,8 @@ const entities = [
   Payment,
 ];
 
+const migrations = [__dirname + "/migrations/*.{ts,js}"];
+
 export const AppDataSource = isProd
   // ─────────────────────────────────────────────────────────────────────────
   //  PRODUCCIÓN — Supabase via DATABASE_URL (Session Pooler)
@@ -43,12 +45,14 @@ export const AppDataSource = isProd
   ? new DataSource({
       type:        "postgres",
       url:         process.env.DATABASE_URL,
-      synchronize: true,   // mientras no haya migraciones generadas
+      synchronize: false,
       logging:     false,
       ssl: {
         rejectUnauthorized: false,  // requerido por Supabase Session Pooler
       },
       entities,
+      migrations,
+      migrationsTableName: "typeorm_migrations",
     })
   // ─────────────────────────────────────────────────────────────────────────
   //  DESARROLLO — PostgreSQL local
@@ -63,4 +67,6 @@ export const AppDataSource = isProd
       synchronize: true,
       logging:     true,
       entities,
+      migrations,
+      migrationsTableName: "typeorm_migrations",
     });
