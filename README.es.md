@@ -19,6 +19,7 @@ SoftwArt reemplaza todo eso. Cubre el ciclo completo del negocio desde el regist
 | ORM | TypeORM |
 | Base de datos | PostgreSQL (Supabase en producción) |
 | Auth | JWT (8h) + bcrypt (salt 10) |
+| Headers de seguridad | Helmet |
 | Rate limiting | express-rate-limit |
 | Email | nodemailer (Gmail SMTP) |
 | Deploy | Render |
@@ -124,23 +125,46 @@ npm install
 
 # 2. Configurar variables de entorno
 cp .env.example .env
-# Completar: DATABASE_URL, JWT_SECRET, SMTP_USER, SMTP_PASS
+# Completar: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET, SMTP_USER, SMTP_PASS
 
 # 3. Ejecutar seeds (datos iniciales)
-npx ts-node src/seeds/index.ts
+npm run seed
 
 # 4. Correr en desarrollo
 npm run dev
 # → http://localhost:3001
 ```
 
+### Scripts disponibles
+
+| Script | Descripción |
+|---|---|
+| `npm run dev` | Servidor de desarrollo con hot reload |
+| `npm run build` | Compila TypeScript a `dist/` |
+| `npm run start` | Corre el build compilado (producción) |
+| `npm run seed` | Carga datos iniciales de catálogo |
+| `npm run backup` | Exporta la BD a `backups/` (requiere cliente PostgreSQL) |
+| `npm run migration:generate` | Genera migración desde cambios en entidades |
+| `npm run migration:run` | Aplica migraciones pendientes |
+| `npm run migration:revert` | Revierte la última migración |
+| `npm run migration:show` | Lista migraciones aplicadas / pendientes |
+
 ### Variables de entorno requeridas
 
 ```env
-DATABASE_URL=        # PostgreSQL connection string
-JWT_SECRET=          # Clave para firmar tokens
+# Producción (Render)
+DATABASE_URL=        # Connection string de Supabase
+JWT_SECRET=          # Clave para firmar tokens (mín. 64 chars)
 SMTP_USER=           # Gmail para envío de correos
 SMTP_PASS=           # App password de Gmail
+FRONTEND_URL=        # https://softwart.online (CORS)
+
+# Desarrollo (local)
+DB_HOST=             # ej. localhost
+DB_PORT=             # ej. 5432
+DB_USER=
+DB_PASSWORD=
+DB_NAME=
 ```
 
 ---

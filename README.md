@@ -19,6 +19,7 @@ SoftwArt replaces all of that. It covers the full business cycle from client reg
 | ORM | TypeORM |
 | Database | PostgreSQL (Supabase in production) |
 | Auth | JWT (8h) + bcrypt (salt 10) |
+| Security headers | Helmet |
 | Rate limiting | express-rate-limit |
 | Email | nodemailer (Gmail SMTP) |
 | Deploy | Render |
@@ -58,6 +59,7 @@ Converting an appointment into a sale is an **atomic transaction**: it creates `
 ### Flexible installment model
 
 Each sale configures its own payment plan:
+
 - `num_abonos` (default: 2) and `porcentaje_primer_abono` (default: 70%)
 - First installment = `total × pct / 100`; middle installments split the remainder equally; last installment = exact remaining balance
 - Plan configuration is locked once any payment has been registered
@@ -73,19 +75,20 @@ Each sale configures its own payment plan:
 
 ## Middleware
 
-| Middleware | Description |
-|---|---|
-| `generalLimiter` | 100 req / 15 min |
-| `authLimiter` | 10 req / 15 min (auth routes only) |
-| `verifyToken` | Validates JWT, injects `req.user` |
-| `requireRol(...roles)` | Role-based access control |
-| `requireCliente` | Verifies token carries `id_cliente` |
+| Middleware               | Description                           |
+| ------------------------ | ------------------------------------- |
+| `generalLimiter`       | 100 req / 15 min                      |
+| `authLimiter`          | 10 req / 15 min (auth routes only)    |
+| `verifyToken`          | Validates JWT, injects `req.user`   |
+| `requireRol(...roles)` | Role-based access control             |
+| `requireCliente`       | Verifies token carries `id_cliente` |
 
 ---
 
 ## Key endpoints
 
 ### Public — Auth
+
 ```
 POST /api/auth/login
 POST /api/auth/registro
@@ -94,6 +97,7 @@ POST /api/auth/reset
 ```
 
 ### Client portal (`verifyToken` + `requireCliente`)
+
 ```
 GET    /api/cuenta/perfil
 PUT    /api/cuenta/perfil
@@ -105,6 +109,7 @@ DELETE /api/cuenta
 ```
 
 ### Admin / employee panel
+
 ```
 POST  /api/citas/:id/crear-venta
 GET   /api/ventas/:id/estado-pagos
@@ -124,23 +129,46 @@ npm install
 
 # 2. Set up environment variables
 cp .env.example .env
-# Fill in: DATABASE_URL, JWT_SECRET, SMTP_USER, SMTP_PASS
+# Fill in: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET, SMTP_USER, SMTP_PASS
 
 # 3. Seed initial data
-npx ts-node src/seeds/index.ts
+npm run seed
 
 # 4. Start dev server
 npm run dev
 # → http://localhost:3001
 ```
 
+### Available scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start dev server with hot reload |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm run start` | Run compiled build (production) |
+| `npm run seed` | Seed initial catalog data |
+| `npm run backup` | Dump database to `backups/` (requires PostgreSQL client tools) |
+| `npm run migration:generate` | Generate migration from entity changes |
+| `npm run migration:run` | Apply pending migrations |
+| `npm run migration:revert` | Revert last migration |
+| `npm run migration:show` | List applied / pending migrations |
+
 ### Required environment variables
 
 ```env
-DATABASE_URL=        # PostgreSQL connection string
-JWT_SECRET=          # Token signing secret
+# Production (Render)
+DATABASE_URL=        # Supabase connection string
+JWT_SECRET=          # Token signing secret (min 64 chars)
 SMTP_USER=           # Gmail address for outgoing email
 SMTP_PASS=           # Gmail app password
+FRONTEND_URL=        # https://softwart.online (CORS)
+
+# Development (local)
+DB_HOST=             # e.g. localhost
+DB_PORT=             # e.g. 5432
+DB_USER=
+DB_PASSWORD=
+DB_NAME=
 ```
 
 ---
