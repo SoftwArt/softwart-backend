@@ -202,3 +202,9 @@ All responses follow the format: `{ success: boolean, data?, message?, meta? }`
 
 Capstone project — Technology in Software Analysis and Development, SENA (Medellín, Colombia).
 Built by **Sergio E. León V.**
+
+---
+
+## Development tools
+
+Built with AI-assisted development using [Claude](https://claude.ai) and [Claude Code](https://claude.ai/code) by Anthropic.
