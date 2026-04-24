@@ -189,7 +189,7 @@ export const cancelMyAppointment = async (req: Request, res: Response): Promise<
 
     const cita = await citaRepo.findOne({
       where:     { id_cita },
-      relations: ['cliente', 'estadoCita'],
+      relations: ['client', 'appointmentStatus'],
     })
 
     if (!cita) {
