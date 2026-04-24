@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import "reflect-metadata";
-import express, { Application } from "express";
+import express, { Application, Request, Response, NextFunction } from "express";
 import swaggerUi from "swagger-ui-express";
 
 import { AppDataSource } from "./data-source";
@@ -24,15 +24,18 @@ app.use(corsMiddleware);
 
 // Swagger UI — dev only (docs for production live in softwart-docs repo)
 if (process.env.NODE_ENV !== "production") {
-  app.use("/api/docs", (_req, res, next) => {
-    res.setHeader(
-      "Content-Security-Policy",
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
-    );
-    next();
-  });
-  app.use("/api/docs", swaggerUi.serve);
-  app.get("/api/docs", swaggerUi.setup(swaggerSpec));
+  app.use(
+    "/api/docs",
+    (_req: Request, res: Response, next: NextFunction) => {
+      res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+      );
+      next();
+    },
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec)
+  );
 }
 
 app.get("/", (_req, res) => {
