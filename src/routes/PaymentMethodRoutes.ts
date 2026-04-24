@@ -1,20 +1,20 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { getAllPaymentMethod, getPaymentMethodById, createPaymentMethod,
          updatePaymentMethod, deletePaymentMethod, assignPaymentMethod } from "../controllers/PaymentMethodController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
+import { validate } from "../middlewares/validate.middleware";
+import { createPaymentMethodSchema, updatePaymentMethodSchema,
+         assignPaymentMethodSchema } from "../schemas/admin.schemas";
 
 const router = Router();
 
-// ── Públicos ─────────────────────────────────────────────────
 router.get("/",    getAllPaymentMethod);
 router.get("/:id", getPaymentMethodById);
 
-// ── Admin + Empleado ─────────────────────────────────────────
-router.post("/",   verifyToken, requireRol("Admin", "Empleado"), createPaymentMethod);
-router.put("/:id", verifyToken, requireRol("Admin", "Empleado"), updatePaymentMethod);
+router.post("/",   verifyToken, requireRol("Admin", "Empleado"), validate(createPaymentMethodSchema), createPaymentMethod);
+router.put("/:id", verifyToken, requireRol("Admin", "Empleado"), validate(updatePaymentMethodSchema), updatePaymentMethod);
 router.delete("/:id", verifyToken, requireRol("Admin", "Empleado"), deletePaymentMethod);
 
-// PATCH /pago/:id_pago/metodo → asignar método de pago a un Pago
-router.patch("/pago/:id_pago/metodo", verifyToken, requireRol("Admin", "Empleado"), assignPaymentMethod);
+router.patch("/pago/:id_pago/metodo", verifyToken, requireRol("Admin", "Empleado"), validate(assignPaymentMethodSchema), assignPaymentMethod);
 
 export { router as paymentMethodRouter };

@@ -1,7 +1,9 @@
-import { Router } from "express";
+﻿import { Router } from "express";
 import { getAllSale, getSaleById, createSale,
          updateSale, deleteSale, toggleSaleStatus } from "../controllers/SaleController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
+import { validate } from "../middlewares/validate.middleware";
+import { createSaleSchema, updateSaleSchema } from "../schemas/admin.schemas";
 
 const router = Router();
 
@@ -9,8 +11,8 @@ router.use(verifyToken, requireRol("Admin", "Empleado"));
 
 router.get("/",             getAllSale);
 router.get("/:id",          getSaleById);
-router.post("/",            createSale);
-router.put("/:id",          updateSale);
+router.post("/",            validate(createSaleSchema), createSale);
+router.put("/:id",          validate(updateSaleSchema), updateSale);
 router.delete("/:id",       deleteSale);
 router.patch("/:id/estado", toggleSaleStatus);
 

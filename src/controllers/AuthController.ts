@@ -7,6 +7,8 @@ import { Role }               from "../models/Role";
 import jwt                   from "jsonwebtoken";
 import bcrypt                from "bcrypt";
 import crypto                from "crypto";
+
+const hashToken = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
 import { sendRecoveryEmail } from "../services/email.service";
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -190,11 +192,11 @@ export const recover = async (req: Request, res: Response): Promise<void> => {
     const token  = Math.floor(100000 + Math.random() * 900000).toString();
     const expira = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
 
-    usuario.token_recuperacion = token;
+    usuario.token_recuperacion = hashToken(token);
     usuario.token_expira       = expira;
     await usuarioRepo.save(usuario);
 
-    console.log("2️⃣ Token guardado en BD, enviando email...");
+    console.log("2️⃣ Token guardado en BD (hash SHA-256), enviando email...");
 
     await sendRecoveryEmail(correo, token);
 
@@ -233,19 +235,11 @@ export const resendCode = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const now = new Date();
-    let token: string;
-
-    // Idempotencia: reutilizar token si todavía es válido
-    if (usuario.token_recuperacion && usuario.token_expira && usuario.token_expira > now) {
-      token = usuario.token_recuperacion;
-    } else {
-      // Generar nuevo token y extender expiración 15 min
-      token = Math.floor(100000 + Math.random() * 900000).toString();
-      usuario.token_recuperacion = token;
-      usuario.token_expira       = new Date(Date.now() + 15 * 60 * 1000);
-      await usuarioRepo.save(usuario);
-    }
+    // Siempre generamos nuevo token: no podemos recuperar el plaintext desde el hash almacenado
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    usuario.token_recuperacion = hashToken(token);
+    usuario.token_expira       = new Date(Date.now() + 15 * 60 * 1000);
+    await usuarioRepo.save(usuario);
 
     await sendRecoveryEmail(correo, token);
 
@@ -273,7 +267,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
 
     const usuarioRepo = AppDataSource.getRepository(User);
     const usuario     = await usuarioRepo.findOne({
-      where: { token_recuperacion: token },
+      where: { token_recuperacion: hashToken(token) },
     });
 
     if (!usuario || !usuario.token_expira) {
