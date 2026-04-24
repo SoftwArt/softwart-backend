@@ -89,28 +89,29 @@ Cada venta configura su propio plan de pago:
 ### Públicos — Auth
 ```
 POST /api/auth/login
-POST /api/auth/registro
-POST /api/auth/recuperar
-POST /api/auth/reset
+POST /api/auth/register
+POST /api/auth/recover
+POST /api/auth/reset-password
+POST /api/auth/reenviar-codigo
 ```
 
 ### Portal cliente (`verifyToken` + `requireCliente`)
 ```
-GET    /api/cuenta/perfil
-PUT    /api/cuenta/perfil
-GET    /api/cuenta/citas
-POST   /api/cuenta/citas
-PATCH  /api/cuenta/citas/:id/cancelar
-GET    /api/cuenta/disponibilidad?fecha=YYYY-MM-DD
-DELETE /api/cuenta
+GET    /api/account/perfil
+PUT    /api/account/perfil
+GET    /api/account/citas
+POST   /api/account/citas
+PATCH  /api/account/citas/:id/cancelar
+GET    /api/account/disponibilidad?fecha=YYYY-MM-DD
+DELETE /api/account
 ```
 
 ### Panel admin/empleado
 ```
-POST  /api/citas/:id/crear-venta
-GET   /api/ventas/:id/estado-pagos
-POST  /api/ventas/:id/abono
-PATCH /api/ventas/:id/configurar-abonos
+POST  /api/appointments/:id/create-sale
+GET   /api/sales/:id/payment-plan
+POST  /api/sales/:id/installment
+PATCH /api/sales/:id/configure-installments
 ```
 
 ---
@@ -119,7 +120,7 @@ PATCH /api/ventas/:id/configurar-abonos
 
 ```bash
 # 1. Clonar e instalar
-git clone https://github.com/selvcebo/softwart-backend
+git clone https://github.com/SoftwArt/softwart-backend
 cd softwart-backend
 npm install
 
@@ -189,8 +190,9 @@ Todas las respuestas siguen el formato: `{ success: boolean, data?, message?, me
 
 ## Repositorios relacionados
 
-- [softwart-frontend](https://github.com/selvcebo/softwart-frontend) — React + TypeScript + Vite + Tailwind
-- [softwart-mobile](https://github.com/selvcebo/softwart-mobile) — Flutter + Clean Architecture
+- [softwart-frontend](https://github.com/SoftwArt/frontend-softwart-2) — React + TypeScript + Vite + Tailwind
+- [softwart-mobile](https://github.com/SoftwArt/softwart-mobile) — Flutter + Clean Architecture
+- [softwart-docs](https://github.com/SoftwArt/softwart-docs) — Diagramas C4, MHU, documentación del proyecto
 
 ---
 
