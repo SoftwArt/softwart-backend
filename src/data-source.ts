@@ -27,6 +27,7 @@ import { SaleDetail }        from "./models/SaleDetail";
 import { Payment }           from "./models/Payment";
 
 const isProd = process.env.NODE_ENV === "production";
+const isTest = process.env.NODE_ENV === "test";
 
 const entities = [
   Permission, Role, RolePermission, User,
@@ -36,7 +37,7 @@ const entities = [
   Payment,
 ];
 
-const migrations = [__dirname + "/migrations/*.{ts,js}"];
+const migrations = isTest ? [] : [__dirname + "/migrations/*.{ts,js}"];
 
 export const AppDataSource = isProd
   // ─────────────────────────────────────────────────────────────────────────
@@ -65,7 +66,8 @@ export const AppDataSource = isProd
       password:    process.env.DB_PASSWORD ?? "",
       database:    process.env.DB_NAME     ?? "mi_base_de_datos",
       synchronize: true,
-      logging:     true,
+      dropSchema:  isTest,
+      logging:     !isTest,
       entities,
       migrations,
       migrationsTableName: "typeorm_migrations",

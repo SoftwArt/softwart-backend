@@ -1,8 +1,8 @@
-# SoftwArt — Backend
+﻿# SoftwArt — Backend
 
 > 🇨🇴 También disponible en [español](./README.es.md)
 
-REST API powering **SoftwArt**, a business management system built for Arte Café — a framing and marquetry shop in Medellín, Colombia. The business previously relied entirely on physical records: paper agendas, handwritten receipts, and verbal payment agreements. That workflow caused real problems — customers had to visit in person just to book an appointment or see what their finished piece might look like, and the owner dealt with constant disputes over payments and orders with no paper trail to back her up.
+REST API powering **SoftwArt**, a business management system built for Arte Café — a framing and marquetry shop in Medellín, Colombia. The business previously relied entirely on physical records: paper agendas, handwritten receipts, and verbal payment agreements. That workflow caused real problems — customers had to visit in person just to book an appointment, and the owner dealt with constant disputes over payments with no paper trail.
 
 SoftwArt replaces all of that. It covers the full business cycle from client registration to final payment, and exposes a REST API consumed by both the web panel and the Android mobile app.
 
@@ -19,9 +19,12 @@ SoftwArt replaces all of that. It covers the full business cycle from client reg
 | ORM | TypeORM |
 | Database | PostgreSQL (Supabase in production) |
 | Auth | JWT (8h) + bcrypt (salt 10) |
+| Validation | Zod — `validate(schema)` middleware, 422 on failure |
 | Security headers | Helmet |
 | Rate limiting | express-rate-limit |
 | Email | nodemailer (Gmail SMTP) |
+| API docs | OpenAPI 3.0 + Swagger UI (dev) / Redoc (prod) |
+| Tests | Vitest + supertest (24 tests) |
 | Deploy | Render |
 
 ---
@@ -35,16 +38,24 @@ src/
 ├── controllers/   — endpoint logic
 ├── models/        — TypeORM entities (15 total)
 ├── routes/        — per-module route registration
-├── middlewares/   — auth, cors, rate limiting, 404 handler
+├── middlewares/   — auth, cors, rate limiting, validate, 404 handler
+├── schemas/       — Zod schemas by domain (auth, account, appointment, sale)
 ├── errors/        — custom error hierarchy (AppError → subtypes)
-├── helpers/       — reusable business logic (e.g. installment calculation)
+├── helpers/       — reusable business logic (installment calculation)
 ├── services/      — email service (fire & forget)
-└── seeds/         — initial system data
+├── seeds/         — initial system data
+├── migrations/    — TypeORM migrations (synchronize: false in prod)
+├── docs/          — swagger.ts (OpenAPI 3.0 spec)
+├── tests/
+│   ├── unit/        — installments.helper.test.ts
+│   └── integration/ — auth.test.ts, create-sale.test.ts
+├── app.ts         — Express app setup (exports `app`)
+└── server.ts      — bootstrap: DB init, seeds, listen
 ```
 
 ### Design decision: Usuario vs Cliente as separate entities
 
-`Usuario` (authentication) and `Cliente` (business domain) are **independent entities**, linked by email address without a direct foreign key. This keeps the auth system decoupled from the business model — admin users can exist without being customers, and the auth layer can evolve independently.
+`Usuario` (authentication) and `Cliente` (business domain) are **independent entities**, linked by email address without a direct foreign key. This keeps the auth system decoupled from the business model — admin users can exist without being customers.
 
 JWT payload: `{ id_usuario, correo, id_rol, rol, id_cliente }`
 
@@ -58,10 +69,8 @@ Converting an appointment into a sale is an **atomic transaction**: it creates `
 
 ### Flexible installment model
 
-Each sale configures its own payment plan:
-
 - `num_abonos` (default: 2) and `porcentaje_primer_abono` (default: 70%)
-- First installment = `total × pct / 100`; middle installments split the remainder equally; last installment = exact remaining balance
+- First installment = `total × pct / 100`; middle installments split the remainder equally; last = exact balance
 - Plan configuration is locked once any payment has been registered
 - Sale is automatically marked as paid when all installments are completed
 
@@ -73,15 +82,17 @@ Each sale configures its own payment plan:
 
 ---
 
-## Middleware
+## Security
 
-| Middleware               | Description                           |
-| ------------------------ | ------------------------------------- |
-| `generalLimiter`       | 100 req / 15 min                      |
-| `authLimiter`          | 10 req / 15 min (auth routes only)    |
-| `verifyToken`          | Validates JWT, injects `req.user`   |
-| `requireRol(...roles)` | Role-based access control             |
-| `requireCliente`       | Verifies token carries `id_cliente` |
+| Mechanism | Detail |
+|---|---|
+| Helmet.js | HTTP security headers (CSP, X-Frame-Options, HSTS) |
+| JWT fail-fast | Server refuses to start if `JWT_SECRET` is not defined |
+| Zod validation | 422 on all body-receiving endpoints via `validate(schema)` |
+| Rate limiting | 100 req/15min general · 10 req/15min auth routes |
+| CORS | `localhost:3000` and `softwart.online` only |
+| bcrypt | Salt rounds = 10 |
+| RBAC | `requireRol()`, `requireCliente()`, `requirePermission()` |
 
 ---
 
@@ -118,43 +129,84 @@ POST  /api/sales/:id/installment
 PATCH /api/sales/:id/configure-installments
 ```
 
+Full API reference: [softwart-docs](https://github.com/SoftwArt/softwart-docs) (Redoc, GitHub Pages)
+
 ---
 
 ## Running locally
 
 ```bash
-# 1. Clone and install
 git clone https://github.com/SoftwArt/softwart-backend
 cd softwart-backend
 npm install
-
-# 2. Set up environment variables
-cp .env.example .env
-# Fill in: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET, SMTP_USER, SMTP_PASS
-
-# 3. Seed initial data
+cp .env.example .env   # fill in DB_*, JWT_SECRET, SMTP_*, FRONTEND_URL
 npm run seed
-
-# 4. Start dev server
-npm run dev
-# → http://localhost:3001
+npm run dev            # → http://localhost:3001
 ```
 
-### Available scripts
+### Or with Docker
+
+```bash
+docker compose up --build
+docker compose exec backend npm run seed   # first time only
+docker compose down -v                     # full reset
+```
+
+PostgreSQL 16 on `localhost:5432` (user/pass/db: `softwart`). Backend on `localhost:3001`.
+
+---
+
+## API documentation
+
+- **Dev**: Swagger UI at `http://localhost:3001/api/docs` — not exposed in production
+- **Prod**: Redoc static docs at [softwart-docs](https://github.com/SoftwArt/softwart-docs)
+
+```bash
+npm run docs:export   # generates swagger.json → copy to softwart-docs repo
+```
+
+---
+
+## Tests
+
+**Vitest + supertest — 24 tests total**
+
+| Suite | Tests | Requires DB |
+|---|---|---|
+| `unit/installments.helper.test.ts` | 11 | No |
+| `integration/auth.test.ts` | 8 | Yes |
+| `integration/create-sale.test.ts` | 5 | Yes |
+
+Integration tests use a separate `softwart_test` database with `dropSchema: true` for a clean slate on every run.
+
+```bash
+npm test                 # run all 24 tests
+npm run test:watch       # watch mode
+npm run test:coverage    # with coverage report
+```
+
+---
+
+## Available scripts
 
 | Script | Description |
 |---|---|
-| `npm run dev` | Start dev server with hot reload |
+| `npm run dev` | Dev server with hot reload |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm run start` | Run compiled build (production) |
 | `npm run seed` | Seed initial catalog data |
-| `npm run backup` | Dump database to `backups/` (requires PostgreSQL client tools) |
+| `npm test` | Run all tests (24 total) |
+| `npm run test:coverage` | Tests with coverage report |
+| `npm run docs:export` | Export `swagger.json` for softwart-docs |
+| `npm run backup` | Dump database to `backups/` |
 | `npm run migration:generate` | Generate migration from entity changes |
 | `npm run migration:run` | Apply pending migrations |
 | `npm run migration:revert` | Revert last migration |
 | `npm run migration:show` | List applied / pending migrations |
 
-### Required environment variables
+---
+
+## Required environment variables
 
 ```env
 # Production (Render)
@@ -165,8 +217,8 @@ SMTP_PASS=           # Gmail app password
 FRONTEND_URL=        # https://softwart.online (CORS)
 
 # Development (local)
-DB_HOST=             # e.g. localhost
-DB_PORT=             # e.g. 5432
+DB_HOST=
+DB_PORT=
 DB_USER=
 DB_PASSWORD=
 DB_NAME=
@@ -175,8 +227,6 @@ DB_NAME=
 ---
 
 ## Custom error hierarchy
-
-Consistent error responses across the entire API:
 
 ```
 AppError (base)
@@ -188,15 +238,15 @@ AppError (base)
 └── ValidationError   422
 ```
 
-All responses follow the format: `{ success: boolean, data?, message?, meta? }`
+All responses: `{ success: boolean, data?, message?, meta? }`
 
 ---
 
 ## Related repositories
 
-- [softwart-frontend](https://github.com/SoftwArt/frontend-softwart-2) — React + TypeScript + Vite + Tailwind
-- [softwart-mobile](https://github.com/SoftwArt/softwart-mobile) — Flutter + Clean Architecture
-- [softwart-docs](https://github.com/SoftwArt/softwart-docs) — C4 diagrams, MHU, project documentation
+- [frontend-softwart-2](https://github.com/SoftwArt/frontend-softwart-2) — React + TypeScript + Vite + Tailwind
+- [mobile-softwart](https://github.com/SoftwArt/mobile-softwart) — Flutter + Clean Architecture
+- [softwart-docs](https://github.com/SoftwArt/softwart-docs) — API docs (Redoc), C4 diagrams, MHU, SCRUM documentation
 
 ---
 
@@ -206,7 +256,5 @@ Capstone project — Technology in Software Analysis and Development, SENA (Mede
 Built by **Sergio E. León V.**
 
 ---
-
-## Development tools
 
 Built with AI-assisted development using [Claude](https://claude.ai) and [Claude Code](https://claude.ai/code) by Anthropic.

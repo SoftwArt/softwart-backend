@@ -8,6 +8,7 @@ RUN npm ci
 
 COPY tsconfig.json ./
 COPY src/ ./src/
+COPY types/ ./types/
 
 RUN npm run build
 
@@ -23,4 +24,4 @@ COPY --from=build /app/dist ./dist
 
 EXPOSE 3001
 
-CMD ["node", "dist/app.js"]
+CMD ["node", "dist/server.js"]
