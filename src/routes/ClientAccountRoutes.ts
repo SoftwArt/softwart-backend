@@ -2,16 +2,18 @@
 import { Router }                                                          from "express";
 import { viewProfile, editProfile, myAppointments, createMyAppointment, cancelMyAppointment, deleteAccount, appointmentAvailability } from "../controllers/ClientAccountController";
 import { verifyToken, requireCliente }                                     from "../middlewares/auth.middleware";
+import { validate }                                                        from "../middlewares/validate.middleware";
+import { editProfileSchema, createMyAppointmentSchema }                    from "../schemas/account.schemas";
 
 const router = Router();
 router.use(verifyToken, requireCliente);
 
-router.get("/perfil",  viewProfile);       // GET    /api/cuenta/perfil
-router.put("/perfil",  editProfile);    // PUT    /api/cuenta/perfil
-router.get("/citas",   myAppointments);        // GET    /api/cuenta/citas
-router.post("/citas",  createMyAppointment);     // POST   /api/cuenta/citas
-router.patch("/citas/:id/cancelar", cancelMyAppointment); // PATCH /api/cuenta/citas/:id/cancelar
-router.get("/disponibilidad", appointmentAvailability); // GET /api/cuenta/disponibilidad?fecha=
-router.delete("/",     deleteAccount);  // DELETE /api/cuenta
+router.get("/perfil",              viewProfile);
+router.put("/perfil",              validate(editProfileSchema),            editProfile);
+router.get("/citas",               myAppointments);
+router.post("/citas",              validate(createMyAppointmentSchema),    createMyAppointment);
+router.patch("/citas/:id/cancelar", cancelMyAppointment);
+router.get("/disponibilidad",      appointmentAvailability);
+router.delete("/",                 deleteAccount);
 
 export { router as clientAccountRouter };
