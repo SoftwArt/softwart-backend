@@ -5,3 +5,5 @@ dist/
 CLAUDE.md
 .env.example
 backups/
+swagger.json
+redoc.html
