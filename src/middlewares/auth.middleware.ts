@@ -1,7 +1,8 @@
 import { RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "dev_secret_cambiame_en_prod";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
 
 export interface AuthUser {
   id_usuario: number;

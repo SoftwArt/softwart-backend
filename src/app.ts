@@ -7,6 +7,7 @@ import express, { Application } from "express";
 import { AppDataSource } from "./data-source";
 import { runAllSeeds } from "./seeds/index";
 import { registerRoutes } from "./routes";
+import helmet from "helmet";
 import { corsMiddleware, notFoundMiddleware, generalLimiter } from "./middlewares";
 import { errorHandler } from "./errors";
 
@@ -14,6 +15,7 @@ const app: Application = express();
 const PORT = Number(process.env.PORT ?? 3000);
 
 app.set("trust proxy", 1);
+app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(corsMiddleware);
