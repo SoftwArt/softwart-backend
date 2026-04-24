@@ -3,6 +3,7 @@ dotenv.config();
 
 import "reflect-metadata";
 import express, { Application } from "express";
+import swaggerUi from "swagger-ui-express";
 
 import { AppDataSource } from "./data-source";
 import { runAllSeeds } from "./seeds/index";
@@ -10,6 +11,7 @@ import { registerRoutes } from "./routes";
 import helmet from "helmet";
 import { corsMiddleware, notFoundMiddleware, generalLimiter } from "./middlewares";
 import { errorHandler } from "./errors";
+import swaggerSpec from "./docs/swagger";
 
 const app: Application = express();
 const PORT = Number(process.env.PORT ?? 3000);
@@ -19,6 +21,17 @@ app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(corsMiddleware);
+
+// Swagger UI — CSP override needed because helmet blocks inline scripts/styles
+app.use("/api/docs", (_req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+  );
+  next();
+});
+app.use("/api/docs", swaggerUi.serve);
+app.get("/api/docs", swaggerUi.setup(swaggerSpec));
 
 app.get("/", (_req, res) => {
   res.json({ success: true, message: "API en línea 🚀", timestamp: new Date() });
