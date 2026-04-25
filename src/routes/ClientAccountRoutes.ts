@@ -14,7 +14,7 @@ router.get("/citas",               myAppointments);
 router.post("/citas",              validate(createMyAppointmentSchema),    createMyAppointment);
 router.patch("/citas/:id/cancelar", cancelMyAppointment);
 router.get("/servicios",           myServices);
-router.get("/disponibilidad",      appointmentAvailability);
+router.get("/availability",        appointmentAvailability);
 router.delete("/",                 deleteAccount);
 
 export { router as clientAccountRouter };

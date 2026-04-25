@@ -17,7 +17,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  GET /api/auth/disponibilidad?fecha=YYYY-MM-DD
+//  GET /api/auth/availability?fecha=YYYY-MM-DD
 //  Pública — devuelve slots ocupados (solo hora + id_cita, sin datos de cliente)
 // ─────────────────────────────────────────────────────────────────────────────
 export const publicAvailability = async (req: Request, res: Response): Promise<void> => {

@@ -319,7 +319,7 @@ const spec = {
         },
       },
     },
-    "/api/account/disponibilidad": {
+    "/api/account/availability": {
       get: {
         tags: ["Account"],
         summary: "Get booked slots for a date (no client info exposed)",

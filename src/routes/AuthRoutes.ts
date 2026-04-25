@@ -7,7 +7,7 @@ import { guestAppointmentSchema, guestClientSchema, registerSchema, loginSchema,
 const router = Router();
 
 // Todos públicos — rate-limited
-router.get ("/disponibilidad",   publicAvailability);
+router.get ("/availability",     publicAvailability);
 router.post("/guest-appointment",authLimiter,   validate(guestAppointmentSchema), guestAppointment);
 router.post("/register-guest",   authLimiter,   validate(guestClientSchema),      registerGuest);
 router.post("/register",         authLimiter,   validate(registerSchema),         register);

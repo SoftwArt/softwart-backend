@@ -247,7 +247,7 @@ export const myServices = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-// ── GET /api/cuenta/disponibilidad?fecha=YYYY-MM-DD ───────────────────────────
+// ── GET /api/account/availability?fecha=YYYY-MM-DD ───────────────────────────
 // Devuelve los slots ocupados de una fecha para que el cliente vea la disponibilidad
 // SIN exponer datos privados de otros clientes (solo hora + id_cita)
 export const appointmentAvailability = async (req: Request, res: Response): Promise<void> => {
