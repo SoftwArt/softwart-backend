@@ -15,45 +15,27 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/auth/register
-//  Uso exclusivo de la landing page — crea Cliente + Usuario en una sola llamada
-//  Body: { tipoDocumento, documento, nombre, correo, clave, telefono }
+//  POST /api/auth/register-guest
+//  Landing pública — crea solo Cliente (sin Usuario) para clientes ocasionales.
+//  Si ya existe un Cliente con ese correo devuelve 409 con flag `tieneCliente: true`
+//  para que el frontend sugiera hacer login en lugar de registrarse de nuevo.
+//  Body: { tipoDocumento, documento, nombre, correo, telefono? }
 // ─────────────────────────────────────────────────────────────────────────────
-export const register = async (req: Request, res: Response): Promise<void> => {
+export const registerGuest = async (req: Request, res: Response): Promise<void> => {
   try {
-    const usuarioRepo = AppDataSource.getRepository(User);
     const clienteRepo = AppDataSource.getRepository(Client);
-    const rolRepo     = AppDataSource.getRepository(Role);
+    const { tipoDocumento, documento, nombre, correo, telefono } = req.body;
 
-    const { tipoDocumento, documento, nombre, correo, clave, telefono } = req.body;
-
-    // Validar campos requeridos
-    const required = ["tipoDocumento", "documento", "nombre", "correo", "clave", "telefono"];
-    const missing  = required.filter(k => !req.body[k]);
-    if (missing.length) {
-      res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` });
+    const clienteExiste = await clienteRepo.findOne({ where: { correo } });
+    if (clienteExiste) {
+      res.status(409).json({
+        success:      false,
+        tieneCliente: true,
+        message:      "Ya existe un registro con ese correo. Si quieres rastrear tus pedidos, crea una cuenta.",
+      });
       return;
     }
 
-    // Verificar que el correo no exista ni en Usuario ni en Cliente
-    const [usuarioExiste, clienteExiste] = await Promise.all([
-      usuarioRepo.findOne({ where: { correo } }),
-      clienteRepo.findOne({ where: { correo } }),
-    ]);
-
-    if (usuarioExiste || clienteExiste) {
-      res.status(409).json({ success: false, message: "Ya existe una cuenta con ese correo" });
-      return;
-    }
-
-    // Buscar el rol "Cliente" — debe existir en la BD (creado por el admin o seed)
-    const rolCliente = await rolRepo.findOne({ where: { nombre: "Cliente" } });
-    if (!rolCliente) {
-      res.status(500).json({ success: false, message: "Rol 'Cliente' no configurado en el sistema" });
-      return;
-    }
-
-    // Crear Cliente (datos de negocio)
     const cliente = clienteRepo.create({
       tipoDocumento,
       documento,
@@ -64,24 +46,70 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     });
     await clienteRepo.save(cliente);
 
-    // Crear Usuario (seguridad) vinculado por correo
-    const hash    = await bcrypt.hash(clave, 10);
-    const usuario = usuarioRepo.create({
-      correo,
-      clave:  hash,
-      role:   rolCliente,
-      estado: true,
+    res.status(201).json({
+      success: true,
+      message: "¡Listo! Tus datos quedaron registrados. Nos pondremos en contacto contigo pronto.",
+      data: { id_cliente: cliente.id_cliente, nombre: cliente.nombre, correo: cliente.correo },
     });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al registrar datos", error });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/auth/register
+//  Landing página registrar — crea Cliente + Usuario en una sola llamada.
+//  Si ya existe un Cliente con ese correo (fue creado como invitado), solo crea
+//  el Usuario y lo vincula por correo — así se preserva el historial de pedidos.
+//  Body: { tipoDocumento, documento, nombre, correo, clave, telefono }
+// ─────────────────────────────────────────────────────────────────────────────
+export const register = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const usuarioRepo = AppDataSource.getRepository(User);
+    const clienteRepo = AppDataSource.getRepository(Client);
+    const rolRepo     = AppDataSource.getRepository(Role);
+
+    const { tipoDocumento, documento, nombre, correo, clave, telefono } = req.body;
+
+    const [usuarioExiste, clienteExiste] = await Promise.all([
+      usuarioRepo.findOne({ where: { correo } }),
+      clienteRepo.findOne({ where: { correo } }),
+    ]);
+
+    if (usuarioExiste) {
+      res.status(409).json({ success: false, message: "Ya existe una cuenta con ese correo" });
+      return;
+    }
+
+    const rolCliente = await rolRepo.findOne({ where: { nombre: "Cliente" } });
+    if (!rolCliente) {
+      res.status(500).json({ success: false, message: "Rol 'Cliente' no configurado en el sistema" });
+      return;
+    }
+
+    // Si ya existe como invitado, reutiliza el Cliente — solo crea el Usuario
+    let cliente = clienteExiste;
+    if (!cliente) {
+      cliente = clienteRepo.create({
+        tipoDocumento,
+        documento,
+        nombre,
+        correo,
+        telefono: telefono ?? null,
+        estado:   true,
+      });
+      await clienteRepo.save(cliente);
+    }
+
+    const hash    = await bcrypt.hash(clave, 10);
+    const usuario = usuarioRepo.create({ correo, clave: hash, role: rolCliente, estado: true });
     await usuarioRepo.save(usuario);
 
     res.status(201).json({
       success: true,
       message: "Cuenta creada exitosamente",
-      data: {
-        id_cliente: cliente.id_cliente,
-        nombre:     cliente.nombre,
-        correo:     cliente.correo,
-      },
+      data: { id_cliente: cliente.id_cliente, nombre: cliente.nombre, correo: cliente.correo },
     });
 
   } catch (error) {
