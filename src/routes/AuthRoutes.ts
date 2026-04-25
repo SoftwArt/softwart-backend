@@ -1,17 +1,19 @@
 import { Router } from "express";
-import { registerGuest, register, login, recover, resetPassword, resendCode } from "../controllers/AuthController";
+import { publicAvailability, guestAppointment, registerGuest, register, login, recover, resetPassword, resendCode } from "../controllers/AuthController";
 import { authLimiter, resendLimiter } from "../middlewares/rateLimit.middleware";
 import { validate } from "../middlewares/validate.middleware";
-import { guestClientSchema, registerSchema, loginSchema, recoverSchema, resetPasswordSchema, resendCodeSchema } from "../schemas/auth.schemas";
+import { guestAppointmentSchema, guestClientSchema, registerSchema, loginSchema, recoverSchema, resetPasswordSchema, resendCodeSchema } from "../schemas/auth.schemas";
 
 const router = Router();
 
 // Todos públicos — rate-limited
-router.post("/register-guest",  authLimiter,   validate(guestClientSchema),    registerGuest);
-router.post("/register",        authLimiter,   validate(registerSchema),       register);
-router.post("/login",           authLimiter,   validate(loginSchema),          login);
-router.post("/recover",         authLimiter,   validate(recoverSchema),        recover);
-router.post("/reset-password",  authLimiter,   validate(resetPasswordSchema),  resetPassword);
-router.post("/reenviar-codigo", resendLimiter, validate(resendCodeSchema),     resendCode);
+router.get ("/disponibilidad",   publicAvailability);
+router.post("/guest-appointment",authLimiter,   validate(guestAppointmentSchema), guestAppointment);
+router.post("/register-guest",   authLimiter,   validate(guestClientSchema),      registerGuest);
+router.post("/register",         authLimiter,   validate(registerSchema),         register);
+router.post("/login",            authLimiter,   validate(loginSchema),            login);
+router.post("/recover",          authLimiter,   validate(recoverSchema),          recover);
+router.post("/reset-password",   authLimiter,   validate(resetPasswordSchema),    resetPassword);
+router.post("/reenviar-codigo",  resendLimiter, validate(resendCodeSchema),       resendCode);
 
 export { router as authRouter };

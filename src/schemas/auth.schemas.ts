@@ -8,6 +8,17 @@ export const guestClientSchema = z.object({
   telefono:      z.string().optional(),
 });
 
+export const guestAppointmentSchema = z.object({
+  tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
+  documento:     z.string().min(1, "documento es requerido"),
+  nombre:        z.string().min(2).max(100),
+  correo:        z.string().email("Correo inválido"),
+  telefono:      z.string().optional(),
+  fecha:         z.string().min(1, "fecha es requerida"),
+  hora:          z.string().min(1, "hora es requerida"),
+  observacion:   z.string().optional(),
+});
+
 export const registerSchema = z.object({
   tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
   documento:     z.string().min(1, "documento es requerido"),

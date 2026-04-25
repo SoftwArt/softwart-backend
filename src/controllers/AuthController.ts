@@ -1,18 +1,117 @@
 // src/controllers/AuthController.ts
 import { Request, Response } from "express";
 import { AppDataSource }     from "../data-source";
-import { User }           from "../models/User";
-import { Client }           from "../models/Client";
-import { Role }               from "../models/Role";
+import { User }              from "../models/User";
+import { Client }            from "../models/Client";
+import { Role }              from "../models/Role";
+import { Appointment }       from "../models/Appointment";
+import { AppointmentStatus } from "../models/AppointmentStatus";
 import jwt                   from "jsonwebtoken";
 import bcrypt                from "bcrypt";
 import crypto                from "crypto";
 
 const hashToken = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
-import { sendRecoveryEmail } from "../services/email.service";
+import { sendRecoveryEmail, sendCitaConfirmacionEmail } from "../services/email.service";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  GET /api/auth/disponibilidad?fecha=YYYY-MM-DD
+//  Pública — devuelve slots ocupados (solo hora + id_cita, sin datos de cliente)
+// ─────────────────────────────────────────────────────────────────────────────
+export const publicAvailability = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { fecha } = req.query;
+    if (!fecha || typeof fecha !== "string") {
+      res.status(400).json({ success: false, message: "El parámetro 'fecha' es requerido" });
+      return;
+    }
+    const citas = await AppDataSource.getRepository(Appointment)
+      .createQueryBuilder("c")
+      .select(["c.id_cita", "c.hora"])
+      .where("CAST(c.fecha AS DATE) = :fecha", { fecha })
+      .getMany();
+
+    res.json({ success: true, data: citas.map(c => ({ id_cita: c.id_cita, hora: c.hora })) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al consultar disponibilidad", error });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/auth/guest-appointment
+//  Pública — crea o reutiliza Cliente y agenda una cita sin cuenta de usuario.
+//  Body: { tipoDocumento, documento, nombre, correo, telefono?, fecha, hora, observacion? }
+// ─────────────────────────────────────────────────────────────────────────────
+export const guestAppointment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { tipoDocumento, documento, nombre, correo, telefono, fecha, hora, observacion } = req.body;
+
+    // Validar fecha no pasada y rango horario
+    const hoy = new Date().toISOString().slice(0, 10);
+    if (fecha < hoy) {
+      res.status(400).json({ success: false, message: "No puedes agendar en fechas pasadas" });
+      return;
+    }
+    const [h] = hora.split(":").map(Number);
+    if (h < 13 || h >= 18) {
+      res.status(400).json({ success: false, message: "La hora debe estar entre 13:00 y 18:00" });
+      return;
+    }
+
+    const clienteRepo    = AppDataSource.getRepository(Client);
+    const citaRepo       = AppDataSource.getRepository(Appointment);
+    const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus);
+
+    // Verificar que el slot no esté ocupado
+    const slotOcupado = await citaRepo
+      .createQueryBuilder("c")
+      .where("CAST(c.fecha AS DATE) = :fecha AND c.hora = :hora", { fecha, hora })
+      .getOne();
+    if (slotOcupado) {
+      res.status(409).json({ success: false, message: "Ese horario ya está ocupado, elige otro" });
+      return;
+    }
+
+    // Encontrar o crear el Cliente
+    let cliente = await clienteRepo.findOne({ where: { correo } });
+    if (!cliente) {
+      cliente = clienteRepo.create({ tipoDocumento, documento, nombre, correo, telefono: telefono ?? null, estado: true });
+      await clienteRepo.save(cliente);
+    }
+
+    const estadoCita = await estadoCitaRepo.findOneBy({ id_estado_cita: 1 }); // Pendiente
+    if (!estadoCita) {
+      res.status(500).json({ success: false, message: "Estado de cita no configurado" });
+      return;
+    }
+
+    const cita = citaRepo.create();
+    cita.fecha           = fecha;
+    cita.hora            = hora;
+    cita.client          = cliente;
+    cita.appointmentStatus = estadoCita;
+    if (observacion) (cita as any).observacion = observacion;
+    await citaRepo.save(cita);
+
+    sendCitaConfirmacionEmail({
+      correo:        cliente.correo,
+      nombreCliente: cliente.nombre,
+      fecha,
+      hora,
+      id_cita:       cita.id_cita,
+    }).catch(err => console.error("⚠️  Error enviando confirmación de cita:", err));
+
+    res.status(201).json({
+      success: true,
+      message: "¡Cita agendada! Te enviaremos una confirmación al correo.",
+      data: { id_cita: cita.id_cita, fecha, hora },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al agendar cita", error });
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/auth/register-guest
