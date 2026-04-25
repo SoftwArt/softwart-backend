@@ -6,6 +6,7 @@ import { User }           from "../models/User";
 import { Appointment }              from "../models/Appointment";
 import { AppointmentStatus }        from "../models/AppointmentStatus";
 import { Sale }             from "../models/Sale";
+import { SaleDetail }       from "../models/SaleDetail";
 import bcrypt                from "bcrypt";
 import {
   sendCitaConfirmacionEmail,
@@ -222,6 +223,29 @@ export const cancelMyAppointment = async (req: Request, res: Response): Promise<
     res.status(500).json({ success: false, message: 'Error al cancelar la cita', error })
   }
 }
+
+// ── GET /api/cuenta/servicios ─────────────────────────────────────────────────
+// Devuelve todos los SaleDetail del cliente autenticado con nombre de servicio y estado
+export const myServices = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const detalles = await AppDataSource.getRepository(SaleDetail).find({
+      where:     { sale: { client: { id_cliente: req.user!.id_cliente! } } },
+      relations: ["service", "serviceStatus", "sale"],
+      order:     { fecha: "DESC" },
+    });
+    const data = detalles.map(d => ({
+      id_detalle:   d.id_detalle,
+      fecha:        d.fecha,
+      servicio:     d.service?.nombre ?? "—",
+      estado:       d.serviceStatus?.nombre ?? "—",
+      precio:       d.precio,
+      observacion:  d.observacion ?? null,
+    }));
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al obtener servicios", error });
+  }
+};
 
 // ── GET /api/cuenta/disponibilidad?fecha=YYYY-MM-DD ───────────────────────────
 // Devuelve los slots ocupados de una fecha para que el cliente vea la disponibilidad
