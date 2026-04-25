@@ -102,10 +102,13 @@ Converting an appointment into a sale is an **atomic transaction**: it creates `
 
 ```
 POST /api/auth/login
-POST /api/auth/register
+POST /api/auth/register              — also links to an existing guest Client if the email matches
 POST /api/auth/recover
 POST /api/auth/reset-password
 POST /api/auth/reenviar-codigo
+GET  /api/auth/disponibilidad?fecha=YYYY-MM-DD   — public, booked slots only (no private data)
+POST /api/auth/guest-appointment                 — public, creates Client+Appointment atomically (no account needed)
+POST /api/auth/register-guest                    — public, creates Client only (no User)
 ```
 
 ### Client portal (`verifyToken` + `requireCliente`)

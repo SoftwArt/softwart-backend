@@ -102,10 +102,13 @@ La creación de venta desde una cita es una **transacción atómica**: crea `Ven
 
 ```
 POST /api/auth/login
-POST /api/auth/register
+POST /api/auth/register              — también vincula a un Cliente invitado existente si el correo coincide
 POST /api/auth/recover
 POST /api/auth/reset-password
 POST /api/auth/reenviar-codigo
+GET  /api/auth/disponibilidad?fecha=YYYY-MM-DD   — público, solo slots ocupados (sin datos privados)
+POST /api/auth/guest-appointment                 — público, crea Client+Cita atómicamente (sin cuenta)
+POST /api/auth/register-guest                    — público, crea solo Client (sin User)
 ```
 
 ### Portal cliente (`verifyToken` + `requireCliente`)
