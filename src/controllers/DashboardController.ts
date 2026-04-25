@@ -160,37 +160,55 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       []
     )
 
-    // ── Alertas ───────────────────────────────────────────────────────────────
+    // ── Alertas — devuelve ítems con detalle, no solo conteos ────────────────
 
-    const { ventas_sin_pago } = await q<{ ventas_sin_pago: number }>(
-      `SELECT COUNT(*) AS ventas_sin_pago
+    const alertas_ventas_sin_pago = await qAll<{
+      id_venta: number; cliente_nombre: string; fecha: string; total: number
+    }>(
+      `SELECT v.id_venta,
+              COALESCE(cl.nombre, 'Cliente #' || v.id_cliente) AS cliente_nombre,
+              v.fecha::text AS fecha,
+              v.total
        FROM venta v
-       WHERE estado = true
-         AND NOT EXISTS (
-           SELECT 1 FROM pago p WHERE p.id_venta = v.id_venta
-         )`,
-      [], { ventas_sin_pago: 0 }
+       LEFT JOIN cliente cl ON cl.id_cliente = v.id_cliente
+       WHERE v.estado = true
+         AND NOT EXISTS (SELECT 1 FROM pago p WHERE p.id_venta = v.id_venta)
+       ORDER BY v.fecha DESC`,
+      []
     )
 
-    // FIX: FK es id_estado, no id_estado_servicio
-    const { pedidos_atrasados } = await q<{ pedidos_atrasados: number }>(
-      `SELECT COUNT(*) AS pedidos_atrasados
-       FROM detalle_venta dv
-       JOIN estado_servicio es ON es.id_estado = dv.id_estado
-       WHERE es.nombre ILIKE '%pendiente%'`,
-      [], { pedidos_atrasados: 0 }
-    )
-
-    // Citas completadas sin venta asociada (venta.id_cita → cita.id_cita via OneToOne)
-    const { citas_sin_venta } = await q<{ citas_sin_venta: number }>(
-      `SELECT COUNT(*) AS citas_sin_venta
+    const alertas_citas_sin_venta = await qAll<{
+      id_cita: number; cliente_nombre: string; fecha: string; hora: string
+    }>(
+      `SELECT c.id_cita,
+              COALESCE(cl.nombre, 'Cliente #' || c.id_cliente) AS cliente_nombre,
+              c.fecha::text AS fecha,
+              c.hora
        FROM cita c
-       JOIN estado_cita ec ON ec.id_estado_cita = c.id_estado_cita
+       JOIN  estado_cita ec ON ec.id_estado_cita = c.id_estado_cita
+       LEFT JOIN cliente cl ON cl.id_cliente     = c.id_cliente
        WHERE ec.nombre ILIKE '%complet%'
-         AND NOT EXISTS (
-           SELECT 1 FROM venta v WHERE v.id_cita = c.id_cita
-         )`,
-      [], { citas_sin_venta: 0 }
+         AND NOT EXISTS (SELECT 1 FROM venta v WHERE v.id_cita = c.id_cita)
+       ORDER BY c.fecha DESC`,
+      []
+    )
+
+    const alertas_pedidos_atrasados = await qAll<{
+      id_detalle: number; servicio: string; cliente_nombre: string; fecha: string
+    }>(
+      `SELECT dv.id_detalle,
+              s.nombre AS servicio,
+              COALESCE(cl.nombre, 'Cliente #' || v.id_cliente) AS cliente_nombre,
+              dv.fecha::text AS fecha
+       FROM detalle_venta dv
+       JOIN estado_servicio es ON es.id_estado     = dv.id_estado
+       JOIN venta v             ON v.id_venta       = dv.id_venta
+       JOIN servicio s          ON s.id_servicio    = dv.id_servicio
+       LEFT JOIN cliente cl     ON cl.id_cliente    = v.id_cliente
+       WHERE (es.nombre ILIKE '%sin empezar%' OR es.nombre ILIKE '%preparac%')
+         AND dv.fecha <= CURRENT_DATE - INTERVAL '3 days'
+       ORDER BY dv.fecha ASC`,
+      []
     )
 
     res.json({
@@ -212,9 +230,9 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
         ventas_por_semana,
         metodos_pago,
         alertas: {
-          ventas_sin_pago:   Number(ventas_sin_pago),
-          pedidos_atrasados: Number(pedidos_atrasados),
-          citas_sin_venta:   Number(citas_sin_venta),
+          ventas_sin_pago:   alertas_ventas_sin_pago,
+          citas_sin_venta:   alertas_citas_sin_venta,
+          pedidos_atrasados: alertas_pedidos_atrasados,
         },
       },
     })
