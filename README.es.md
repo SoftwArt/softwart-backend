@@ -117,6 +117,7 @@ GET    /api/account/citas
 POST   /api/account/citas
 PATCH  /api/account/citas/:id/cancelar
 GET    /api/account/disponibilidad?fecha=YYYY-MM-DD
+GET    /api/account/servicios          — detalles de servicios con estado actual del cliente autenticado
 DELETE /api/account
 ```
 
