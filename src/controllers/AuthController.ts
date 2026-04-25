@@ -42,13 +42,15 @@ export const publicAvailability = async (req: Request, res: Response): Promise<v
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/auth/guest-appointment
 //  Pública — crea o reutiliza Cliente y agenda una cita sin cuenta de usuario.
+//  El Cliente solo se persiste si la cita también se crea (transacción atómica).
+//  Si el Cliente ya existía por correo o documento se reutiliza sin modificarlo.
 //  Body: { tipoDocumento, documento, nombre, correo, telefono?, fecha, hora, observacion? }
 // ─────────────────────────────────────────────────────────────────────────────
 export const guestAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { tipoDocumento, documento, nombre, correo, telefono, fecha, hora, observacion } = req.body;
 
-    // Validar fecha no pasada y rango horario
+    // Validaciones previas a la transacción
     const hoy = new Date().toISOString().slice(0, 10);
     if (fecha < hoy) {
       res.status(400).json({ success: false, message: "No puedes agendar en fechas pasadas" });
@@ -60,12 +62,14 @@ export const guestAppointment = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const clienteRepo    = AppDataSource.getRepository(Client);
-    const citaRepo       = AppDataSource.getRepository(Appointment);
-    const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus);
+    const estadoCita = await AppDataSource.getRepository(AppointmentStatus).findOneBy({ id_estado_cita: 1 });
+    if (!estadoCita) {
+      res.status(500).json({ success: false, message: "Estado de cita no configurado" });
+      return;
+    }
 
-    // Verificar que el slot no esté ocupado
-    const slotOcupado = await citaRepo
+    // Slot check fuera de la transacción — solo para respuesta rápida al usuario
+    const slotOcupado = await AppDataSource.getRepository(Appointment)
       .createQueryBuilder("c")
       .where("CAST(c.fecha AS DATE) = :fecha AND c.hora = :hora", { fecha, hora })
       .getOne();
@@ -74,41 +78,48 @@ export const guestAppointment = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Encontrar o crear el Cliente
-    let cliente = await clienteRepo.findOne({ where: { correo } });
-    if (!cliente) {
-      cliente = clienteRepo.create({ tipoDocumento, documento, nombre, correo, telefono: telefono ?? null, estado: true });
-      await clienteRepo.save(cliente);
-    }
+    // Transacción: el Cliente solo queda en BD si la cita también se crea
+    const cita = await AppDataSource.transaction(async (manager) => {
+      const clienteRepo = manager.getRepository(Client);
+      const citaRepo    = manager.getRepository(Appointment);
 
-    const estadoCita = await estadoCitaRepo.findOneBy({ id_estado_cita: 1 }); // Pendiente
-    if (!estadoCita) {
-      res.status(500).json({ success: false, message: "Estado de cita no configurado" });
-      return;
-    }
+      // Buscar cliente existente por correo o por documento
+      let cliente = await clienteRepo.findOne({ where: { correo } });
+      if (!cliente) {
+        cliente = await clienteRepo.findOne({ where: { documento } });
+      }
+      const esNuevoCliente = !cliente;
 
-    const cita = citaRepo.create();
-    cita.fecha           = fecha;
-    cita.hora            = hora;
-    cita.client          = cliente;
-    cita.appointmentStatus = estadoCita;
-    if (observacion) (cita as any).observacion = observacion;
-    await citaRepo.save(cita);
+      if (esNuevoCliente) {
+        cliente = clienteRepo.create({ tipoDocumento, documento, nombre, correo, telefono: telefono ?? null, estado: true });
+        await clienteRepo.save(cliente);
+      }
 
-    sendCitaConfirmacionEmail({
-      correo:        cliente.correo,
-      nombreCliente: cliente.nombre,
-      fecha,
-      hora,
-      id_cita:       cita.id_cita,
-    }).catch(err => console.error("⚠️  Error enviando confirmación de cita:", err));
+      const nuevaCita = citaRepo.create();
+      nuevaCita.fecha            = fecha;
+      nuevaCita.hora             = hora;
+      nuevaCita.client           = cliente!;
+      nuevaCita.appointmentStatus = estadoCita;
+      if (observacion) (nuevaCita as any).observacion = observacion;
+      await citaRepo.save(nuevaCita);
+
+      return nuevaCita;
+    });
+
+    sendCitaConfirmacionEmail({ correo, nombreCliente: nombre, fecha, hora, id_cita: cita.id_cita })
+      .catch(err => console.error("⚠️  Error enviando confirmación de cita:", err));
 
     res.status(201).json({
       success: true,
       message: "¡Cita agendada! Te enviaremos una confirmación al correo.",
       data: { id_cita: cita.id_cita, fecha, hora },
     });
-  } catch (error) {
+  } catch (error: any) {
+    // Slot tomado en una race condition entre el check y el insert
+    if (error?.code === "23505" || error?.message?.includes("unique")) {
+      res.status(409).json({ success: false, message: "Ese horario ya está ocupado, elige otro" });
+      return;
+    }
     res.status(500).json({ success: false, message: "Error al agendar cita", error });
   }
 };
