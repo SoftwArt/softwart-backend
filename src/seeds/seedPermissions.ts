@@ -82,9 +82,6 @@ const PERMISOS_BASE = [
   { nombre: "PERMISOS.ELIMINAR",        descripcion: "Eliminar permisos" },
   { nombre: "PERMISOS.ASIGNAR_ROL",     descripcion: "Asignar permisos a roles" },
 
-  // ── Catálogos ─────────────────────────────────────────────────────────────
-  { nombre: "CATALOGOS.VER",            descripcion: "Ver catálogos (estados, métodos)" },
-  { nombre: "CATALOGOS.EDITAR",         descripcion: "Editar catálogos" },
 ];
 
 // Permisos que se asignan al rol Cliente
@@ -104,7 +101,6 @@ const PERMISOS_EMPLEADO = [
   "PAGOS.VER",       "PAGOS.CREAR",      "PAGOS.EDITAR",      "PAGOS.CAMBIAR_ESTADO",  "PAGOS.CAMBIAR_METODO",
   "MARCOS.VER",      "MARCOS.CREAR",     "MARCOS.EDITAR",     "MARCOS.TOGGLE_ESTADO",
   "SERVICIOS.VER",
-  "CATALOGOS.VER",
 ];
 
 async function asignarPermisos(
