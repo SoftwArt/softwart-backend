@@ -13,7 +13,9 @@ export const getAllService = async (req: Request, res: Response): Promise<void> 
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await servicioRepo.findAndCount({ skip, take: limit });
+    const soloActivos = req.query.activos === 'true'
+    const where = soloActivos ? { estado: true } : {}
+    const [items, total] = await servicioRepo.findAndCount({ where, skip, take: limit });
 
     res.json({
       success: true,
