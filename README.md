@@ -106,9 +106,10 @@ POST /api/auth/register              — also links to an existing guest Client 
 POST /api/auth/recover
 POST /api/auth/reset-password
 POST /api/auth/reenviar-codigo
-GET  /api/auth/disponibilidad?fecha=YYYY-MM-DD   — public, booked slots only (no private data)
+GET  /api/auth/availability?fecha=YYYY-MM-DD     — public, booked slots only (no private data)
 POST /api/auth/guest-appointment                 — public, creates Client+Appointment atomically (no account needed)
 POST /api/auth/register-guest                    — public, creates Client only (no User)
+GET  /api/auth/me/permissions        — verifyToken, returns permission names for the current user's role
 ```
 
 ### Client portal (`verifyToken` + `requireCliente`)
@@ -132,6 +133,8 @@ GET   /api/sales/:id/payment-plan
 POST  /api/sales/:id/installment
 PATCH /api/sales/:id/configure-installments
 ```
+
+**Auto no-show**: `GET /api/appointments` runs a side-effect UPDATE before returning results — any appointment with status `Pendiente` whose `fecha + hora + 3h < NOW()` is automatically changed to `No Asistió`. No cron job required.
 
 Full API reference: [softwart-docs](https://github.com/SoftwArt/softwart-docs) (Redoc, GitHub Pages)
 

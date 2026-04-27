@@ -106,9 +106,10 @@ POST /api/auth/register              — también vincula a un Cliente invitado 
 POST /api/auth/recover
 POST /api/auth/reset-password
 POST /api/auth/reenviar-codigo
-GET  /api/auth/disponibilidad?fecha=YYYY-MM-DD   — público, solo slots ocupados (sin datos privados)
+GET  /api/auth/availability?fecha=YYYY-MM-DD     — público, solo slots ocupados (sin datos privados)
 POST /api/auth/guest-appointment                 — público, crea Client+Cita atómicamente (sin cuenta)
 POST /api/auth/register-guest                    — público, crea solo Client (sin User)
+GET  /api/auth/me/permissions        — verifyToken, devuelve nombres de permisos del rol del usuario
 ```
 
 ### Portal cliente (`verifyToken` + `requireCliente`)
@@ -132,6 +133,8 @@ GET   /api/sales/:id/payment-plan
 POST  /api/sales/:id/installment
 PATCH /api/sales/:id/configure-installments
 ```
+
+**Auto "No Asistió"**: `GET /api/appointments` ejecuta un UPDATE antes de devolver resultados — cualquier cita con estado `Pendiente` cuya `fecha + hora + 3h < NOW()` pasa automáticamente a `No Asistió`. Sin cron ni dependencias adicionales.
 
 Referencia completa: [softwart-docs](https://github.com/SoftwArt/softwart-docs) (Redoc, GitHub Pages)
 
