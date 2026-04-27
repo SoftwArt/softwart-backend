@@ -17,6 +17,24 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  GET /api/auth/me/permissions  (requiere JWT)
+//  Devuelve los nombres de permisos asignados al rol del usuario autenticado.
+//  Usado por el sidebar para filtrar items según permisos del empleado.
+// ─────────────────────────────────────────────────────────────────────────────
+export const myPermissions = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id_rol = req.user?.id_rol;
+    const rows: { nombre: string }[] = await AppDataSource.query(
+      `SELECT p.nombre FROM permiso_rol pr INNER JOIN permiso p ON pr.id_permiso = p.id_permiso WHERE pr.id_rol = $1`,
+      [id_rol]
+    );
+    res.json({ success: true, data: rows.map(r => r.nombre) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al obtener permisos", error });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  GET /api/auth/availability?fecha=YYYY-MM-DD
 //  Pública — devuelve slots ocupados (solo hora + id_cita, sin datos de cliente)
 // ─────────────────────────────────────────────────────────────────────────────

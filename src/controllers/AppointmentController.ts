@@ -8,8 +8,21 @@ import { Sale } from "../models/Sale";
 import { AppointmentStatus } from "../models/AppointmentStatus";
 import { Client } from "../models/Client";
 
+// Marca como "No Asistió" (id 3) las citas Pendientes cuyo horario + 3h ya pasó.
+// Se ejecuta antes de devolver el listado para mantener estados coherentes sin cron.
+async function markNoShowIfOverdue(): Promise<void> {
+  await AppDataSource.query(`
+    UPDATE cita
+    SET id_estado_cita = 3
+    WHERE id_estado_cita = 1
+      AND (fecha + hora + INTERVAL '3 hours') < NOW()
+  `);
+}
+
 export const getAllAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
+    await markNoShowIfOverdue();
+
     const citaRepo = AppDataSource.getRepository(Appointment);
     const page  = Math.max(1, Number(req.query.page)  || 1);
     const limit = Math.min(100, Number(req.query.limit) || 10);
