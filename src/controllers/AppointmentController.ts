@@ -165,6 +165,10 @@ export const createSaleFromAppointment = async (req: Request, res: Response): Pr
     });
     if (!cita) { res.status(404).json({ success: false, message: "Cita no encontrada" }); return; }
     if (!cita.client) { res.status(400).json({ success: false, message: "La cita no tiene cliente asociado" }); return; }
+    if (cita.appointmentStatus?.id_estado_cita !== 2) {
+      res.status(409).json({ success: false, message: "Solo se puede crear una venta desde una cita con estado Completada" });
+      return;
+    }
 
     // Verificar que no tenga ya una venta
     const ventaExistente = await queryRunner.manager.findOne(Sale, {
