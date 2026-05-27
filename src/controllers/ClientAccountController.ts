@@ -10,6 +10,7 @@ import { SaleDetail }       from "../models/SaleDetail";
 import bcrypt                from "bcrypt";
 import {
   sendCitaConfirmacionEmail,
+  sendAdminNewAppointmentAlert,
   CitaConfirmacionData,
 } from "../services/email.service";
 
@@ -138,6 +139,15 @@ export const createMyAppointment = async (req: Request, res: Response): Promise<
     sendCitaConfirmacionEmail(emailData).catch(err =>
       console.error("⚠️  Error enviando confirmación de cita:", err)
     );
+
+    sendAdminNewAppointmentAlert({
+      nombreCliente: cliente.nombre,
+      fecha:         fecha as string,
+      hora:          hora as string,
+      id_cita:       cita.id_cita,
+      observacion:   observacion as string | undefined,
+      tipo:          "Cliente registrado",
+    }).catch(err => console.error("⚠️  Error enviando alerta admin:", err));
 
     res.status(201).json({ success: true, message: "Cita agendada exitosamente", data: cita });
   } catch (error) {
