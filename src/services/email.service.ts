@@ -1,13 +1,18 @@
 // src/services/email.service.ts
 import nodemailer from "nodemailer";
+import SMTPTransport from "nodemailer/lib/smtp-transport";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
+const transportOptions: SMTPTransport.Options = {
+  host:   "smtp.gmail.com",
+  port:   587,
+  secure: false,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-});
+};
+
+const transporter = nodemailer.createTransport(transportOptions);
 
 const SITE_URL = "https://softwart.online";
 const YEAR = new Date().getFullYear();
