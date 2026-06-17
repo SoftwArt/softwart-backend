@@ -22,7 +22,7 @@ SoftwArt reemplaza todo eso. Cubre el ciclo completo del negocio desde el regist
 | Validación | Zod — middleware `validate(schema)`, 422 en fallo |
 | Headers de seguridad | Helmet |
 | Rate limiting | express-rate-limit |
-| Email | nodemailer (Gmail SMTP) |
+| Email | Resend (dominio softwart.online) |
 | API docs | OpenAPI 3.0 + Swagger UI (dev) / Redoc (prod) |
 | Tests | Vitest + supertest (24 tests) |
 | Deploy | Render |
@@ -219,8 +219,8 @@ npm run test:coverage    # con reporte de cobertura
 # Producción (Render)
 DATABASE_URL=        # Connection string de Supabase
 JWT_SECRET=          # Clave para firmar tokens (mín. 64 chars)
-SMTP_USER=           # Gmail para envío de correos
-SMTP_PASS=           # App password de Gmail
+RESEND_API_KEY=      # API key de Resend (resend.com/api-keys)
+EMAIL_FROM=          # Remitente, ej. "Arte Café <no-reply@softwart.online>"
 FRONTEND_URL=        # https://softwart.online (CORS)
 
 # Desarrollo (local)

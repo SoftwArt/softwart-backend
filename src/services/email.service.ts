@@ -1,18 +1,10 @@
 // src/services/email.service.ts
-import nodemailer from "nodemailer";
-import SMTPTransport from "nodemailer/lib/smtp-transport";
+import { Resend } from "resend";
 
-const transportOptions: SMTPTransport.Options = {
-  host:   "smtp.gmail.com",
-  port:   587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-};
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-const transporter = nodemailer.createTransport(transportOptions);
+// Remitente: requiere dominio verificado en Resend (softwart.online)
+const EMAIL_FROM = process.env.EMAIL_FROM ?? "Arte Café <no-reply@softwart.online>";
 
 const SITE_URL = "https://softwart.online";
 const YEAR = new Date().getFullYear();
@@ -54,8 +46,8 @@ export const sendRecoveryEmail = async (
   correo: string,
   token: string
 ): Promise<void> => {
-  const info = await transporter.sendMail({
-    from: `"Arte Café" <${process.env.SMTP_USER}>`,
+  const { data, error } = await resend.emails.send({
+    from: EMAIL_FROM,
     to: correo,
     subject: "Recuperación de contraseña — Arte Café",
     html: `
@@ -95,7 +87,8 @@ export const sendRecoveryEmail = async (
       </div>
     `,
   });
-  console.log("✅ Email enviado:", info.messageId);
+  if (error) throw new Error(`Resend error (recovery): ${error.message}`);
+  console.log("✅ Email enviado:", data?.id);
 };
 
 // ── Confirmación de cita agendada ─────────────────────────────────────────────
@@ -125,8 +118,8 @@ function formatFecha(fecha: string): string {
 export const sendCitaConfirmacionEmail = async (
   data: CitaConfirmacionData
 ): Promise<void> => {
-  const info = await transporter.sendMail({
-    from: `"Arte Café" <${process.env.SMTP_USER}>`,
+  const { data: sent, error } = await resend.emails.send({
+    from: EMAIL_FROM,
     to: data.correo,
     subject: `Cita confirmada #${data.id_cita} — Arte Café`,
     html: `
@@ -185,7 +178,8 @@ export const sendCitaConfirmacionEmail = async (
       </div>
     `,
   });
-  console.log(`✅ Confirmación cita #${data.id_cita} enviada:`, info.messageId);
+  if (error) throw new Error(`Resend error (cita #${data.id_cita}): ${error.message}`);
+  console.log(`✅ Confirmación cita #${data.id_cita} enviada:`, sent?.id);
 };
 
 // ── Alerta de nueva cita al admin ─────────────────────────────────────────────
@@ -204,8 +198,8 @@ export const sendAdminNewAppointmentAlert = async (
   const adminEmail = process.env.ADMIN_EMAIL
   if (!adminEmail) return
 
-  await transporter.sendMail({
-    from:    `"Arte Café" <${process.env.SMTP_USER}>`,
+  const { error } = await resend.emails.send({
+    from:    EMAIL_FROM,
     to:      adminEmail,
     subject: `Nueva cita #${data.id_cita} — ${data.nombreCliente}`,
     html: `
@@ -260,5 +254,6 @@ export const sendAdminNewAppointmentAlert = async (
       </div>
     `,
   });
+  if (error) throw new Error(`Resend error (alerta admin cita #${data.id_cita}): ${error.message}`);
   console.log(`✅ Alerta admin cita #${data.id_cita} enviada a: ${adminEmail}`);
 };
