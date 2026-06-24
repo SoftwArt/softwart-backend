@@ -251,8 +251,8 @@ Todas las respuestas: `{ success: boolean, data?, message?, meta? }`
 
 ## Repositorios relacionados
 
-- [frontend-softwart-2](https://github.com/SoftwArt/frontend-softwart-2) — React + TypeScript + Vite + Tailwind
-- [mobile-softwart](https://github.com/SoftwArt/mobile-softwart) — Flutter + Clean Architecture
+- [softwart-frontend](https://github.com/SoftwArt/softwart-mobile) — React + TypeScript + Vite + Tailwind
+- [softwart-mobile](https://github.com/SoftwArt/softwart-mobile) — Flutter + Clean Architecture
 - [softwart-docs](https://github.com/SoftwArt/softwart-docs) — Docs API (Redoc), diagramas C4, MHU, documentación SCRUM
 
 ---
