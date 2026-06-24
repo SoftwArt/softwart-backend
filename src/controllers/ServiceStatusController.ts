@@ -70,8 +70,15 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
   try {
     const detalleVentaRepo   = AppDataSource.getRepository(SaleDetail);
     const estadoServicioRepo = AppDataSource.getRepository(ServiceStatus);
-    const target = await detalleVentaRepo.findOneBy({ id_detalle: Number(req.params.id_detalle) });
+    const target = await detalleVentaRepo.findOne({
+      where: { id_detalle: Number(req.params.id_detalle) },
+      relations: ["serviceStatus"],
+    });
     if (!target) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
+    // Estado terminal: un servicio cancelado no puede cambiar de estado.
+    if (target.serviceStatus?.nombre?.toLowerCase().includes("cancelado")) {
+      res.status(409).json({ success: false, message: "No se puede cambiar el estado de un servicio cancelado" }); return;
+    }
     const nuevoEstado = await estadoServicioRepo.findOneBy({ id_estado: Number(req.body.id_estado) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
     target.serviceStatus = nuevoEstado;

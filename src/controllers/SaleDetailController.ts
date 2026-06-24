@@ -92,6 +92,10 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
       relations: ["sale", "service", "serviceStatus", "frame"],
     });
     if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
+    // Estado terminal: un servicio cancelado no puede modificarse.
+    if (item.serviceStatus?.nombre?.toLowerCase().includes("cancelado")) {
+      res.status(409).json({ success: false, message: "No se puede modificar un servicio cancelado" }); return;
+    }
     if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
     if (req.body.observacion !== undefined) item.observacion = req.body.observacion;
     if (req.body.precio      !== undefined) item.precio      = req.body.precio;
@@ -137,8 +141,14 @@ export const deleteSaleDetail = async (req: Request, res: Response): Promise<voi
 export const toggleSaleDetailStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
-    const item = await detalleVentaRepo.findOneBy({ id_detalle: Number(req.params.id) });
+    const item = await detalleVentaRepo.findOne({
+      where: { id_detalle: Number(req.params.id) },
+      relations: ["serviceStatus"],
+    });
     if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
+    if (item.serviceStatus?.nombre?.toLowerCase().includes("cancelado")) {
+      res.status(409).json({ success: false, message: "No se puede modificar un servicio cancelado" }); return;
+    }
     item.estado = !item.estado;
     await detalleVentaRepo.save(item);
     res.json({ success: true, message: `DetalleVenta ${item.estado ? "activado" : "inactivado"}`, data: { estado: item.estado } });
