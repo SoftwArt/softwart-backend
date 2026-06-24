@@ -71,12 +71,15 @@ export const deleteRole = async (req: Request, res: Response): Promise<void> => 
     const rolRepo        = AppDataSource.getRepository(Role);
     const permisoRolRepo = AppDataSource.getRepository(RolePermission);
     const usuarioRepo    = AppDataSource.getRepository(User);
+    const item = await rolRepo.findOneBy({ id_rol: Number(req.params.id) });
+    if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
+    if (item.nombre?.toLowerCase() === "admin") {
+      res.status(403).json({ success: false, message: "El rol Admin no puede eliminarse" }); return;
+    }
     const countPermisoRol = await permisoRolRepo.count({ where: { role: { id_rol: Number(req.params.id) } } });
     if (countPermisoRol > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen PermisoRol asociados (${countPermisoRol})` }); return; }
     const countUsuario = await usuarioRepo.count({ where: { role: { id_rol: Number(req.params.id) } } });
     if (countUsuario > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Usuario asociados (${countUsuario})` }); return; }
-    const item = await rolRepo.findOneBy({ id_rol: Number(req.params.id) });
-    if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
     await rolRepo.remove(item);
     res.json({ success: true, message: "Rol eliminado correctamente" });
   } catch (error) {
@@ -89,6 +92,9 @@ export const toggleRoleStatus = async (req: Request, res: Response): Promise<voi
     const rolRepo = AppDataSource.getRepository(Role);
     const item = await rolRepo.findOneBy({ id_rol: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
+    if (item.nombre?.toLowerCase() === "admin") {
+      res.status(403).json({ success: false, message: "El rol Admin no puede desactivarse" }); return;
+    }
     item.estado = !item.estado;
     await rolRepo.save(item);
     res.json({ success: true, message: `Rol ${item.estado ? "activado" : "inactivado"}`, data: { estado: item.estado } });

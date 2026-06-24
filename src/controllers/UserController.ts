@@ -7,6 +7,9 @@ import { User } from "../models/User";
 import { Role } from "../models/Role";
 import bcrypt from "bcrypt";
 
+// Correo del administrador base (del seed / .env) — cuenta protegida
+const ADMIN_BASE = process.env.ADMIN_EMAIL ?? "admin@softwart.com";
+
 // Helper: elimina la clave del objeto antes de enviarlo
 const sinClave = ({ clave, ...rest }: User) => rest;
 
@@ -25,7 +28,7 @@ export const getAllUser = async (req: Request, res: Response): Promise<void> => 
 
     res.json({
       success: true,
-      data: items.map(sinClave),
+      data: items.map(u => ({ ...sinClave(u), es_admin_base: u.correo === ADMIN_BASE })),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
@@ -90,8 +93,6 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     res.status(500).json({ success: false, message: "Error al actualizar Usuario", error });
   }
 };
-
-const ADMIN_BASE = process.env.ADMIN_EMAIL ?? "admin@softwart.com";
 
 export const deleteUser = async (req: Request, res: Response): Promise<void> => {
   try {
