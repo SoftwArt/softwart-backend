@@ -8,6 +8,8 @@ import { SaleDetail } from "../models/SaleDetail";
 import { Payment } from "../models/Payment";
 import { Appointment } from "../models/Appointment";
 import { Client } from "../models/Client";
+import { ServiceStatus } from "../models/ServiceStatus";
+import { PaymentStatus } from "../models/PaymentStatus";
 
 export const getAllSale = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -120,14 +122,78 @@ export const deleteSale = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+// PATCH /api/sales/:id/estado
+// Reactivar: toggle simple. Anular: bloquea si hay pagos validados (implican
+// devolución, no anulación) y, si no, cancela en cascada los servicios no
+// finalizados y anula los abonos pendientes — todo en una transacción.
 export const toggleSaleStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const ventaRepo = AppDataSource.getRepository(Sale);
-    const item = await ventaRepo.findOneBy({ id_venta: Number(req.params.id) });
+    const item = await ventaRepo.findOne({
+      where: { id_venta: Number(req.params.id) },
+      relations: ["saleDetails", "saleDetails.serviceStatus", "payments", "payments.paymentStatus"],
+    });
     if (!item) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
-    item.estado = !item.estado;
-    await ventaRepo.save(item);
-    res.json({ success: true, message: `Venta ${item.estado ? "activado" : "inactivado"}`, data: { estado: item.estado } });
+
+    // Reactivar — toggle simple, sin cascada
+    if (!item.estado) {
+      item.estado = true;
+      await ventaRepo.save(item);
+      res.json({ success: true, message: "Venta activada", data: { estado: true } });
+      return;
+    }
+
+    // Anular — bloquear si hay pagos validados (dinero real recibido → devolución)
+    const tieneValidados = (item.payments ?? []).some(
+      p => p.paymentStatus?.nombre?.toLowerCase().includes("validado")
+    );
+    if (tieneValidados) {
+      res.status(409).json({
+        success: false,
+        message: "No se puede anular: la venta tiene pagos validados. Registra la devolución antes de anularla.",
+      });
+      return;
+    }
+
+    const estadoCancelado = await AppDataSource.getRepository(ServiceStatus).findOneBy({ nombre: "Cancelado" });
+    const estadoAnulado   = await AppDataSource.getRepository(PaymentStatus).findOneBy({ nombre: "Anulado" });
+
+    let serviciosCancelados = 0;
+    let abonosAnulados = 0;
+
+    await AppDataSource.transaction(async (manager) => {
+      item.estado = false;
+      await manager.save(item);
+
+      // Cancelar servicios que no estén finalizados ni ya cancelados
+      if (estadoCancelado) {
+        for (const d of item.saleDetails ?? []) {
+          const nombre = d.serviceStatus?.nombre?.toLowerCase() ?? "";
+          if (!nombre.includes("finaliz") && !nombre.includes("cancel")) {
+            d.serviceStatus = estadoCancelado;
+            await manager.save(d);
+            serviciosCancelados++;
+          }
+        }
+      }
+
+      // Anular abonos pendientes (los validados ya bloquearon arriba)
+      if (estadoAnulado) {
+        for (const p of item.payments ?? []) {
+          if (p.paymentStatus?.nombre?.toLowerCase().includes("pendiente")) {
+            p.paymentStatus = estadoAnulado;
+            await manager.save(p);
+            abonosAnulados++;
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Venta anulada (servicios cancelados: ${serviciosCancelados}, abonos anulados: ${abonosAnulados})`,
+      data: { estado: false, serviciosCancelados, abonosAnulados },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al cambiar estado de Venta", error });
   }
