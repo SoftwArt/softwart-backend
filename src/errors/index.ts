@@ -17,4 +17,4 @@ export { ConflictError }    from "./ConflictError";
 export { ValidationError }  from "./ValidationError";
 export { UnauthorizedError } from "./UnauthorizedError";
 export { ForbiddenError }   from "./ForbiddenError";
-export { errorHandler }     from "./errorHandler";
+export { HandlerError }     from "./HandlerError";

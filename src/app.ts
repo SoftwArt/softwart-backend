@@ -8,7 +8,7 @@ import swaggerUi from "swagger-ui-express";
 import { registerRoutes } from "./routes";
 import helmet from "helmet";
 import { corsMiddleware, notFoundMiddleware, generalLimiter } from "./middlewares";
-import { errorHandler } from "./errors";
+import { HandlerError } from "./errors";
 import swaggerSpec from "./docs/swagger";
 
 const app: Application = express();
@@ -41,6 +41,6 @@ app.use("/api", generalLimiter);
 registerRoutes(app);
 
 app.use(notFoundMiddleware);
-app.use(errorHandler);
+app.use(HandlerError);
 
 export default app;

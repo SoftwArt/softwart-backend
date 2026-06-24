@@ -9,7 +9,7 @@ import { Request, Response, NextFunction } from "express";
 import { AppError } from "./AppError";
 import { ValidationError } from "./ValidationError";
 
-export function errorHandler(
+export function HandlerError(
   err: Error,
   _req: Request,
   res: Response,
