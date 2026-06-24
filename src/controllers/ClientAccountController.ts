@@ -8,6 +8,7 @@ import { AppointmentStatus }        from "../models/AppointmentStatus";
 import { Sale }             from "../models/Sale";
 import { SaleDetail }       from "../models/SaleDetail";
 import bcrypt                from "bcrypt";
+import { claveSchema }       from "../schemas/auth.schemas";
 import {
   sendCitaConfirmacionEmail,
   sendAdminNewAppointmentAlert,
@@ -46,7 +47,10 @@ export const editProfile = async (req: Request, res: Response): Promise<void> =>
       }
       const claveValida = await bcrypt.compare(clave_actual, usuario.clave);
       if (!claveValida) { res.status(401).json({ success: false, message: "La contraseña actual es incorrecta" }); return; }
-      if (clave.length < 6) { res.status(400).json({ success: false, message: "La nueva contraseña debe tener al menos 6 caracteres" }); return; }
+      const claveCheck = claveSchema.safeParse(clave);
+      if (!claveCheck.success) {
+        res.status(422).json({ success: false, message: claveCheck.error.issues[0].message }); return;
+      }
       usuario.clave = await bcrypt.hash(clave, 10);
       await usuarioRepo.save(usuario);
       res.json({ success: true, message: "Contraseña actualizada correctamente" });

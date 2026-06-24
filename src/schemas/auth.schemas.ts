@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+// ── Política de contraseña (estándar comercial) ───────────────────────────────
+// Reutilizable en registro, reset de clave y cambio de clave desde la cuenta.
+export const claveSchema = z
+  .string()
+  .min(8,  "La contraseña debe tener al menos 8 caracteres")
+  .max(64, "La contraseña no puede superar los 64 caracteres")
+  .regex(/[A-Z]/,        "La contraseña debe incluir al menos una letra mayúscula")
+  .regex(/[a-z]/,        "La contraseña debe incluir al menos una letra minúscula")
+  .regex(/[0-9]/,        "La contraseña debe incluir al menos un número")
+  .regex(/[^A-Za-z0-9]/, "La contraseña debe incluir al menos un carácter especial");
+
 export const guestClientSchema = z.object({
   tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
   documento:     z.string().min(1, "documento es requerido"),
@@ -24,7 +35,7 @@ export const registerSchema = z.object({
   documento:     z.string().min(1, "documento es requerido"),
   nombre:        z.string().min(2).max(100),
   correo:        z.string().email("Correo inválido"),
-  clave:         z.string().min(6, "La clave debe tener al menos 6 caracteres"),
+  clave:         claveSchema,
   telefono:      z.string().optional(),
 });
 
@@ -39,7 +50,7 @@ export const recoverSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   token:       z.string().min(1, "El token es requerido"),
-  nueva_clave: z.string().min(6, "La nueva clave debe tener al menos 6 caracteres"),
+  nueva_clave: claveSchema,
 });
 
 export const resendCodeSchema = z.object({
