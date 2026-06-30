@@ -12,6 +12,7 @@ import crypto                from "crypto";
 
 const hashToken = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
 import { sendRecoveryEmail, sendCitaConfirmacionEmail, sendAdminNewAppointmentAlert } from "../services/email.service";
+import { notifyNewAppointment } from "../services/push.service";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
@@ -129,6 +130,9 @@ export const guestAppointment = async (req: Request, res: Response): Promise<voi
 
     sendAdminNewAppointmentAlert({ nombreCliente: nombre, fecha, hora, id_cita: cita.id_cita, observacion, tipo: "Invitado" })
       .catch(err => console.error("⚠️  Error enviando alerta admin:", err));
+
+    notifyNewAppointment({ nombreCliente: nombre, fecha, hora, id_cita: cita.id_cita })
+      .catch(err => console.error("⚠️  Error enviando push admin:", err));
 
     res.status(201).json({
       success: true,

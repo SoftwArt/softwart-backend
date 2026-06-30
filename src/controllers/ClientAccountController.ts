@@ -14,6 +14,7 @@ import {
   sendAdminNewAppointmentAlert,
   CitaConfirmacionData,
 } from "../services/email.service";
+import { notifyNewAppointment } from "../services/push.service";
 
 // ── GET /api/cuenta/perfil ────────────────────────────────────────────────────
 export const viewProfile = async (req: Request, res: Response): Promise<void> => {
@@ -152,6 +153,13 @@ export const createMyAppointment = async (req: Request, res: Response): Promise<
       observacion:   observacion as string | undefined,
       tipo:          "Cliente registrado",
     }).catch(err => console.error("⚠️  Error enviando alerta admin:", err));
+
+    notifyNewAppointment({
+      nombreCliente: cliente.nombre,
+      fecha:         fecha as string,
+      hora:          hora as string,
+      id_cita:       cita.id_cita,
+    }).catch(err => console.error("⚠️  Error enviando push admin:", err));
 
     res.status(201).json({ success: true, message: "Cita agendada exitosamente", data: cita });
   } catch (error) {
