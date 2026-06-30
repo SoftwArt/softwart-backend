@@ -17,7 +17,7 @@ export const getAllSaleDetail = async (req: Request, res: Response): Promise<voi
     const skip  = (page - 1) * limit;
 
     const [items, total] = await detalleVentaRepo.findAndCount({
-      relations: ["sale", "service", "serviceStatus", "frame"],
+      relations: ["sale", "sale.client", "service", "serviceStatus", "frame"],
       skip,
       take: limit,
     });
@@ -37,7 +37,7 @@ export const getSaleDetailById = async (req: Request, res: Response): Promise<vo
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const item = await detalleVentaRepo.findOne({
       where: { id_detalle: Number(req.params.id) },
-      relations: ["sale", "service", "serviceStatus", "frame"],
+      relations: ["sale", "sale.client", "service", "serviceStatus", "frame"],
     });
     if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -89,7 +89,7 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const item = await detalleVentaRepo.findOne({
       where: { id_detalle: Number(req.params.id) },
-      relations: ["sale", "service", "serviceStatus", "frame"],
+      relations: ["sale", "sale.client", "service", "serviceStatus", "frame"],
     });
     if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
     // Estado terminal: un servicio cancelado no puede modificarse.
