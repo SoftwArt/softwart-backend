@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { claveSchema } from "./auth.schemas";
 
 // ── Catálogos de nombre único ──────────────────────────────────────────────
 const nombre    = z.object({ nombre: z.string().min(1, "nombre es requerido") });
@@ -96,11 +97,11 @@ export const updateServiceSchema = createServiceSchema.partial();
 // ── User ──────────────────────────────────────────────────────────────────
 export const createUserSchema = z.object({
   correo: z.string().email("Correo inválido"),
-  clave:  z.string().min(6, "La clave debe tener al menos 6 caracteres"),
+  clave:  claveSchema,
   id_rol: z.number().int().positive().optional(),
 });
 export const updateUserSchema = z.object({
   correo: z.string().email("Correo inválido").optional(),
-  clave:  z.string().min(6, "La clave debe tener al menos 6 caracteres").optional(),
+  clave:  claveSchema.optional(),
   id_rol: z.number().int().positive().optional(),
 });
