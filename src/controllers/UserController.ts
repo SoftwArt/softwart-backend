@@ -7,8 +7,8 @@ import { User } from "../models/User";
 import { Role } from "../models/Role";
 import bcrypt from "bcrypt";
 
-// Correo del administrador base (del seed / .env) — cuenta protegida
-const ADMIN_BASE = process.env.ADMIN_EMAIL ?? "admin@softwart.com";
+// El administrador base es el usuario sembrado (id_usuario = 1) — cuenta protegida
+const SEED_ADMIN_ID = 1;
 
 // Helper: elimina la clave del objeto antes de enviarlo
 const sinClave = ({ clave, ...rest }: User) => rest;
@@ -28,7 +28,7 @@ export const getAllUser = async (req: Request, res: Response): Promise<void> => 
 
     res.json({
       success: true,
-      data: items.map(u => ({ ...sinClave(u), es_admin_base: u.correo === ADMIN_BASE })),
+      data: items.map(u => ({ ...sinClave(u), es_admin_base: u.id_usuario === SEED_ADMIN_ID })),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
@@ -99,7 +99,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
     const usuarioRepo = AppDataSource.getRepository(User);
     const item = await usuarioRepo.findOneBy({ id_usuario: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Usuario no encontrado" }); return; }
-    if (item.correo === ADMIN_BASE) {
+    if (item.id_usuario === SEED_ADMIN_ID) {
       res.status(403).json({ success: false, message: "El usuario administrador base no puede eliminarse" });
       return;
     }
@@ -115,7 +115,7 @@ export const toggleUserStatus = async (req: Request, res: Response): Promise<voi
     const usuarioRepo = AppDataSource.getRepository(User);
     const item = await usuarioRepo.findOneBy({ id_usuario: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Usuario no encontrado" }); return; }
-    if (item.correo === ADMIN_BASE) {
+    if (item.id_usuario === SEED_ADMIN_ID) {
       res.status(403).json({ success: false, message: "El usuario administrador base no puede desactivarse" });
       return;
     }
