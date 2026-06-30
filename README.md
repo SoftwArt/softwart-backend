@@ -23,6 +23,7 @@ SoftwArt replaces all of that. It covers the full business cycle from client reg
 | Security headers | Helmet |
 | Rate limiting | express-rate-limit |
 | Email | Resend (softwart.online domain) |
+| Push notifications | Firebase Cloud Messaging (FCM) — `staff` topic, fail-soft |
 | API docs | OpenAPI 3.0 + Swagger UI (dev) / Redoc (prod) |
 | Tests | Vitest + supertest (24 tests) |
 | Deploy | Render |
@@ -39,10 +40,10 @@ src/
 ├── models/        — TypeORM entities (15 total)
 ├── routes/        — per-module route registration
 ├── middlewares/   — auth, cors, rate limiting, validate, 404 handler
-├── schemas/       — Zod schemas by domain (auth, account, appointment, sale)
+├── schemas/       — Zod schemas by domain (auth, account, appointment, sale, admin)
 ├── errors/        — custom error hierarchy (AppError → subtypes)
 ├── helpers/       — reusable business logic (installment calculation)
-├── services/      — email service (fire & forget)
+├── services/      — email (Resend, fire & forget) + push (FCM, fail-soft)
 ├── seeds/         — initial system data
 ├── migrations/    — TypeORM migrations (synchronize: false in prod)
 ├── docs/          — swagger.ts (OpenAPI 3.0 spec)
@@ -74,6 +75,10 @@ Converting an appointment into a sale is an **atomic transaction**: it creates `
 - Plan configuration is locked once any payment has been registered
 - Sale is automatically marked as paid when all installments are completed
 
+### Voiding a sale & terminal states
+
+Voiding a sale runs a transaction that **blocks with 409** if the sale has any `Validado` payment (those imply a refund, not a void). Otherwise it cascades: non-finished `DetalleVenta` → `Cancelado`, pending installments → `Anulado`. `Cancelado` (service) and `Anulado` (payment) are **terminal** — guarded with 409 against any further change.
+
 ---
 
 ## Entities (15)
@@ -93,6 +98,8 @@ Converting an appointment into a sale is an **atomic transaction**: it creates `
 | CORS | `localhost:3000` and `softwart.online` only |
 | bcrypt | Salt rounds = 10 |
 | RBAC | `requireRol()`, `requireCliente()`, `requirePermission()` |
+| Password policy | min 8 + upper/lower/number/special, max 64 (`claveSchema`) — incl. admin user creation |
+| Zod on admin CRUD | `admin.schemas.ts` covers every admin write endpoint |
 
 ---
 
@@ -120,7 +127,7 @@ PUT    /api/account/perfil
 GET    /api/account/citas
 POST   /api/account/citas
 PATCH  /api/account/citas/:id/cancelar
-GET    /api/account/disponibilidad?fecha=YYYY-MM-DD
+GET    /api/account/availability?fecha=YYYY-MM-DD
 GET    /api/account/servicios          — service details with live status for the authenticated client
 DELETE /api/account
 ```
@@ -140,13 +147,19 @@ Full API reference: [softwart-docs](https://github.com/SoftwArt/softwart-docs) (
 
 ---
 
+## Push notifications (FCM)
+
+When an appointment is booked (guest or registered client), the backend sends a push to the **`staff` topic** via `firebase-admin` (`push.service.ts → notifyNewAppointment`), alongside the existing email. The mobile app subscribes to the topic on Admin/Employee login. **Fail-soft**: if `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` are not set, sending is a no-op and never breaks the appointment flow.
+
+---
+
 ## Running locally
 
 ```bash
 git clone https://github.com/SoftwArt/softwart-backend
 cd softwart-backend
 npm install
-cp .env.example .env   # fill in DB_*, JWT_SECRET, SMTP_*, FRONTEND_URL
+cp .env.example .env   # fill in DB_*, JWT_SECRET, RESEND_API_KEY, EMAIL_FROM, FRONTEND_URL
 npm run seed
 npm run dev            # → http://localhost:3001
 ```
@@ -223,6 +236,11 @@ RESEND_API_KEY=      # Resend API key (resend.com/api-keys)
 EMAIL_FROM=          # Sender, e.g. "Arte Café <no-reply@softwart.online>"
 FRONTEND_URL=        # https://softwart.online (CORS)
 
+# Push notifications (FCM) — optional, fail-soft if missing
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=    # escaped newlines (\n)
+
 # Development (local)
 DB_HOST=
 DB_PORT=
@@ -252,7 +270,7 @@ All responses: `{ success: boolean, data?, message?, meta? }`
 ## Related repositories
 
 - [softwart-frontend](https://github.com/SoftwArt/softwart-frontend) — React + TypeScript + Vite + Tailwind
-- [softwart-mobile](https://github.com/SoftwArt/softwart-mobiel) — Flutter + Clean Architecture
+- [softwart-mobile](https://github.com/SoftwArt/softwart-mobile) — Flutter + Clean Architecture
 - [softwart-docs](https://github.com/SoftwArt/softwart-docs) — API docs (Redoc), C4 diagrams, MHU, SCRUM documentation
 
 ---

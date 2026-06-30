@@ -23,6 +23,7 @@ SoftwArt reemplaza todo eso. Cubre el ciclo completo del negocio desde el regist
 | Headers de seguridad | Helmet |
 | Rate limiting | express-rate-limit |
 | Email | Resend (dominio softwart.online) |
+| Notificaciones push | Firebase Cloud Messaging (FCM) — topic `staff`, fail-soft |
 | API docs | OpenAPI 3.0 + Swagger UI (dev) / Redoc (prod) |
 | Tests | Vitest + supertest (24 tests) |
 | Deploy | Render |
@@ -39,10 +40,10 @@ src/
 ├── models/        — entidades TypeORM (15 entidades)
 ├── routes/        — registro de rutas por módulo
 ├── middlewares/   — auth, cors, rate limit, validate, notFound
-├── schemas/       — schemas Zod por dominio (auth, account, appointment, sale)
+├── schemas/       — schemas Zod por dominio (auth, account, appointment, sale, admin)
 ├── errors/        — jerarquía de errores custom (AppError → subtypes)
 ├── helpers/       — lógica de negocio reutilizable (cálculo de abonos)
-├── services/      — email service (fire & forget)
+├── services/      — email (Resend, fire & forget) + push (FCM, fail-soft)
 ├── seeds/         — datos iniciales del sistema
 ├── migrations/    — migraciones TypeORM (synchronize: false en prod)
 ├── docs/          — swagger.ts (spec OpenAPI 3.0)
@@ -74,6 +75,10 @@ La creación de venta desde una cita es una **transacción atómica**: crea `Ven
 - La configuración se bloquea una vez que hay pagos registrados
 - Al completar todos los abonos, la venta se marca como pagada automáticamente
 
+### Anular una venta y estados terminales
+
+Anular una venta corre una transacción que **bloquea con 409** si la venta tiene algún pago `Validado` (implican devolución, no anulación). Si no, cae en cascada: los `DetalleVenta` no finalizados → `Cancelado` y los abonos pendientes → `Anulado`. `Cancelado` (servicio) y `Anulado` (pago) son **terminales** — protegidos con 409 ante cualquier cambio posterior.
+
 ---
 
 ## Entidades (15)
@@ -93,6 +98,8 @@ La creación de venta desde una cita es una **transacción atómica**: crea `Ven
 | CORS | Solo `localhost:3000` y `softwart.online` |
 | bcrypt | Salt rounds = 10 |
 | RBAC | `requireRol()`, `requireCliente()`, `requirePermission()` |
+| Política de contraseña | min 8 + mayús/minús/número/especial, max 64 (`claveSchema`) — incl. creación de usuarios admin |
+| Zod en CRUD admin | `admin.schemas.ts` cubre todos los endpoints de escritura admin |
 
 ---
 
@@ -120,7 +127,7 @@ PUT    /api/account/perfil
 GET    /api/account/citas
 POST   /api/account/citas
 PATCH  /api/account/citas/:id/cancelar
-GET    /api/account/disponibilidad?fecha=YYYY-MM-DD
+GET    /api/account/availability?fecha=YYYY-MM-DD
 GET    /api/account/servicios          — detalles de servicios con estado actual del cliente autenticado
 DELETE /api/account
 ```
@@ -140,13 +147,19 @@ Referencia completa: [softwart-docs](https://github.com/SoftwArt/softwart-docs) 
 
 ---
 
+## Notificaciones push (FCM)
+
+Al agendarse una cita (invitado o cliente registrado), el backend envía un push al **topic `staff`** vía `firebase-admin` (`push.service.ts → notifyNewAppointment`), junto al email que ya se enviaba. La app móvil se suscribe al topic al iniciar sesión un Admin/Empleado. **Fail-soft**: si no están `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY`, el envío es no-op y nunca rompe el flujo de cita.
+
+---
+
 ## Correr localmente
 
 ```bash
 git clone https://github.com/SoftwArt/softwart-backend
 cd softwart-backend
 npm install
-cp .env.example .env   # completar DB_*, JWT_SECRET, SMTP_*, FRONTEND_URL
+cp .env.example .env   # completar DB_*, JWT_SECRET, RESEND_API_KEY, EMAIL_FROM, FRONTEND_URL
 npm run seed
 npm run dev            # → http://localhost:3001
 ```
@@ -223,6 +236,11 @@ RESEND_API_KEY=      # API key de Resend (resend.com/api-keys)
 EMAIL_FROM=          # Remitente, ej. "Arte Café <no-reply@softwart.online>"
 FRONTEND_URL=        # https://softwart.online (CORS)
 
+# Notificaciones push (FCM) — opcionales, fail-soft si faltan
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=    # saltos de línea escapados (\n)
+
 # Desarrollo (local)
 DB_HOST=
 DB_PORT=
@@ -251,7 +269,7 @@ Todas las respuestas: `{ success: boolean, data?, message?, meta? }`
 
 ## Repositorios relacionados
 
-- [softwart-frontend](https://github.com/SoftwArt/softwart-mobile) — React + TypeScript + Vite + Tailwind
+- [softwart-frontend](https://github.com/SoftwArt/softwart-frontend) — React + TypeScript + Vite + Tailwind
 - [softwart-mobile](https://github.com/SoftwArt/softwart-mobile) — Flutter + Clean Architecture
 - [softwart-docs](https://github.com/SoftwArt/softwart-docs) — Docs API (Redoc), diagramas C4, MHU, documentación SCRUM
 
