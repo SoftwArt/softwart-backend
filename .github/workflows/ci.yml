@@ -31,6 +31,12 @@ jobs:
       - name: TypeScript type check
         run: npx tsc --noEmit
 
+      # Lint (ESLint) — complementa al type-check: variables sin usar, código
+      # sospechoso y malas prácticas. Falla solo con errores; los warnings
+      # (any pragmáticos) quedan visibles pero no bloquean.
+      - name: Lint
+        run: npm run lint
+
       # A06 (OWASP) — falla el build si una dependencia de PRODUCCIÓN tiene
       # una vulnerabilidad high o critical conocida. --omit=dev ignora el ruido
       # de herramientas de desarrollo (ts-node-dev, vitest…) que nunca se despliegan.
