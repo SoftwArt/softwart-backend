@@ -354,25 +354,26 @@ export const recover = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    console.log("1️⃣ Usuario encontrado, generando token...");
+    logger.info({ correo }, "solicitud de recuperación — generando token");
 
-    const token  = Math.floor(100000 + Math.random() * 900000).toString();
+    // A02 — token de alta entropía (256 bits): al hashearlo con SHA-256 es
+    // imposible de revertir si se filtra la BD. Reemplaza al código de 6 dígitos
+    // (baja entropía, brute-forceable desde el hash). Viaja en el link del email.
+    const token  = crypto.randomBytes(32).toString("hex");
     const expira = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
 
     usuario.token_recuperacion = hashToken(token);
     usuario.token_expira       = expira;
     await usuarioRepo.save(usuario);
 
-    console.log("2️⃣ Token guardado en BD (hash SHA-256), enviando email...");
+    logger.info({ correo }, "token de recuperación guardado (hash SHA-256), enviando email");
 
     await sendRecoveryEmail(correo, token);
-
-    console.log("3️⃣ Email enviado, respondiendo...");
 
     res.json({ success: true, message: "Si el correo existe, recibirás un enlace de recuperación" });
 
   } catch (error) {
-    console.error("❌ Error en recover:", error);
+    logger.error({ err: error }, "error en recover");
     res.status(500).json({ success: false, message: "Error al procesar solicitud", error });
   }
 };
@@ -403,7 +404,7 @@ export const resendCode = async (req: Request, res: Response): Promise<void> => 
     }
 
     // Siempre generamos nuevo token: no podemos recuperar el plaintext desde el hash almacenado
-    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    const token = crypto.randomBytes(32).toString("hex");
     usuario.token_recuperacion = hashToken(token);
     usuario.token_expira       = new Date(Date.now() + 15 * 60 * 1000);
     await usuarioRepo.save(usuario);
@@ -413,7 +414,7 @@ export const resendCode = async (req: Request, res: Response): Promise<void> => 
     res.json(okResponse);
 
   } catch (error) {
-    console.error("❌ Error en resendCode:", error);
+    logger.error({ err: error }, "error en resendCode");
     res.status(500).json({ success: false, message: "Error al reenviar código", error });
   }
 };

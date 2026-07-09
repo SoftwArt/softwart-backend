@@ -7,6 +7,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "Arte Café <no-reply@softwart.online>";
 
 const SITE_URL = "https://softwart.online";
+// Base del frontend para construir links (en dev apunta a localhost:3000)
+const FRONTEND_URL = process.env.FRONTEND_URL ?? SITE_URL;
 const YEAR = new Date().getFullYear();
 
 // Bloque de header compartido
@@ -46,6 +48,9 @@ export const sendRecoveryEmail = async (
   correo: string,
   token: string
 ): Promise<void> => {
+  // Link de reset con el token de alta entropía en el query param. La página
+  // /reset del frontend lo lee de la URL — el usuario no teclea nada.
+  const resetUrl = `${FRONTEND_URL}/reset?token=${token}`;
   const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: correo,
@@ -57,25 +62,29 @@ export const sendRecoveryEmail = async (
 
         <!-- Body -->
         <div style="background: #fff; padding: 32px; border: 1px solid #e5e5e5; border-top: none;">
-          <p style="margin: 0 0 16px; font-size: 15px; color: #444;">
+          <p style="margin: 0 0 24px; font-size: 15px; color: #444;">
             Hemos recibido una solicitud para restablecer tu contraseña.
-            Tu código de verificación es:
+            Haz clic en el botón para crear una nueva:
           </p>
 
-          <!-- Código OTP -->
-          <div style="
-            background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px;
-            padding: 24px; text-align: center; margin: 0 0 24px;
-          ">
-            <span style="
-              font-size: 36px; font-weight: 700; letter-spacing: 10px;
-              color: #7c4a2d;
-            ">${token}</span>
+          <!-- Botón con el link de reset -->
+          <div style="text-align: center; margin: 0 0 24px;">
+            <a href="${resetUrl}" style="
+              display: inline-block; background: #7c4a2d; color: #fff;
+              text-decoration: none; font-size: 15px; font-weight: 600;
+              padding: 14px 32px; border-radius: 8px;
+            ">Restablecer contraseña</a>
           </div>
 
+          <p style="margin: 0 0 8px; font-size: 13px; color: #777;">
+            O copia y pega este enlace en tu navegador:
+          </p>
+          <p style="margin: 0 0 24px; font-size: 12px; color: #7c4a2d; word-break: break-all;">
+            ${resetUrl}
+          </p>
+
           <p style="margin: 0 0 8px; font-size: 14px; color: #555;">
-            Ingresa este código en la pantalla de recuperación.
-            Expira en <strong>15 minutos</strong>.
+            El enlace expira en <strong>15 minutos</strong> y solo puede usarse una vez.
           </p>
           <p style="margin: 0; font-size: 13px; color: #999;">
             Si no solicitaste esto, ignora este correo. Tu cuenta está segura.
@@ -88,7 +97,7 @@ export const sendRecoveryEmail = async (
     `,
   });
   if (error) throw new Error(`Resend error (recovery): ${error.message}`);
-  console.log("✅ Email enviado:", data?.id);
+  console.log("✅ Email de recuperación enviado:", data?.id);
 };
 
 // ── Confirmación de cita agendada ─────────────────────────────────────────────
