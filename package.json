@@ -1,6 +1,6 @@
 {
   "name": "backend-softwart-mvc",
-  "version": "1.0.0",
+  "version": "2.4.0",
   "description": "Backend SoftwArt — Sistema de gestión para marquetería",
   "main": "dist/server.js",
   "scripts": {
