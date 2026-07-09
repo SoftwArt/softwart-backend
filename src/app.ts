@@ -15,8 +15,11 @@ const app: Application = express();
 
 app.set("trust proxy", 1);
 app.use(helmet());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// A05 (OWASP) — límite de payload: ningún body legítimo del proyecto pasa de unos
+// KB, así que un tope de 100kb rechaza payloads gigantes (413) antes de que ocupen
+// RAM. Mitiga DoS de una sola fuente (no DDoS — eso es a nivel de infraestructura).
+app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use(corsMiddleware);
 
 if (process.env.NODE_ENV !== "production") {
