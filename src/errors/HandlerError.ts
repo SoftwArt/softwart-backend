@@ -8,6 +8,7 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "./AppError";
 import { ValidationError } from "./ValidationError";
+import { logger } from "../config/logger";
 
 export function HandlerError(
   err: Error,
@@ -54,7 +55,7 @@ export function HandlerError(
   }
 
   // ── Error no controlado (500) ─────────────────────────────────────────────
-  console.error("❌ Error no controlado:", err);
+  logger.error({ err, ruta: _req.originalUrl, metodo: _req.method }, "error no controlado");
   res.status(500).json({
     success: false,
     message: "Error interno del servidor",

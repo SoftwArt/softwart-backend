@@ -13,6 +13,7 @@ import crypto                from "crypto";
 const hashToken = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
 import { sendRecoveryEmail, sendCitaConfirmacionEmail, sendAdminNewAppointmentAlert } from "../services/email.service";
 import { notifyNewAppointment } from "../services/push.service";
+import { logger } from "../config/logger";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
@@ -279,17 +280,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
 
     if (!usuario) {
+      logger.warn({ correo, ip: req.ip, motivo: "usuario inexistente" }, "login fallido");
       res.status(401).json({ success: false, message: "Credenciales inválidas" });
       return;
     }
 
     if (!usuario.estado) {
+      logger.warn({ correo, ip: req.ip, motivo: "cuenta inactiva" }, "login rechazado");
       res.status(403).json({ success: false, message: "Cuenta inactiva" });
       return;
     }
 
     const claveValida = await bcrypt.compare(clave, usuario.clave);
     if (!claveValida) {
+      logger.warn({ correo, ip: req.ip, motivo: "clave incorrecta" }, "login fallido");
       res.status(401).json({ success: false, message: "Credenciales inválidas" });
       return;
     }

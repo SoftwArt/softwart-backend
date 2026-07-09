@@ -5,10 +5,13 @@ import "reflect-metadata";
 import express, { Application, Request, Response, NextFunction } from "express";
 import swaggerUi from "swagger-ui-express";
 
+import pinoHttp from "pino-http";
+
 import { registerRoutes } from "./routes";
 import helmet from "helmet";
 import { corsMiddleware, notFoundMiddleware, generalLimiter } from "./middlewares";
 import { HandlerError } from "./errors";
+import { logger } from "./config/logger";
 import swaggerSpec from "./docs/swagger";
 
 const app: Application = express();
@@ -20,6 +23,11 @@ app.use(helmet());
 // RAM. Mitiga DoS de una sola fuente (no DDoS — eso es a nivel de infraestructura).
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
+
+// A09 (OWASP) — loguea cada request (método, url, status, latencia) en JSON
+// estructurado. Va temprano para capturar toda la cadena.
+app.use(pinoHttp({ logger }));
+
 app.use(corsMiddleware);
 
 if (process.env.NODE_ENV !== "production") {

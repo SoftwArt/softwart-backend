@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import { AppDataSource } from "../data-source";
 import { RolePermission } from "../models/RolePermission";
+import { logger } from "../config/logger";
 
 export const requirePermission = (nombrePermiso: string): RequestHandler => {
   return async (req, res, next) => {
@@ -20,6 +21,10 @@ export const requirePermission = (nombrePermiso: string): RequestHandler => {
         .getOne();
 
       if (!tienePermiso) {
+        logger.warn(
+          { id_usuario: req.user.id_usuario, rol: req.user.rol, permiso: nombrePermiso, ruta: req.originalUrl },
+          "acceso denegado (permiso faltante)",
+        );
         return res.status(403).json({ error: "Forbidden: permiso requerido" });
       }
 
