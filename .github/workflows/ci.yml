@@ -31,6 +31,12 @@ jobs:
       - name: TypeScript type check
         run: npx tsc --noEmit
 
+      # A06 (OWASP) — falla el build si una dependencia de PRODUCCIÓN tiene
+      # una vulnerabilidad high o critical conocida. --omit=dev ignora el ruido
+      # de herramientas de desarrollo (ts-node-dev, vitest…) que nunca se despliegan.
+      - name: Security audit (prod deps)
+        run: npm audit --omit=dev --audit-level=high
+
   deploy:
     name: Deploy to Render
     runs-on: ubuntu-latest
