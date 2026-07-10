@@ -9,8 +9,26 @@ on:
 
 jobs:
   build:
-    name: Type check & lint
+    name: Type check, lint & tests
     runs-on: ubuntu-latest
+
+    # PostgreSQL efímero para las pruebas de integración. `setup.ts` se conecta a
+    # la BD "softwart-db" y desde ahí crea "softwart_test" (que se recrea limpia
+    # en cada corrida por `dropSchema: true` en modo test).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: softwart
+          POSTGRES_PASSWORD: softwart
+          POSTGRES_DB: softwart-db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -39,6 +57,23 @@ jobs:
       # de herramientas de desarrollo (ts-node-dev, vitest…) que nunca se despliegan.
       - name: Security audit (prod deps)
         run: npm audit --omit=dev --audit-level=high
+
+      # Pruebas dinámicas: unitarias + integración (Vitest + supertest).
+      # Vitest descubre solo cualquier archivo *.test.ts, así que las pruebas
+      # futuras se incluyen sin tocar este workflow.
+      # ADMIN_EMAIL/ADMIN_PASSWORD se omiten a propósito: el seed usa sus valores
+      # por defecto (admin@softwart.com / Admin1234!), que son los que esperan las pruebas.
+      - name: Run tests (unit + integration)
+        run: npm test
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: softwart
+          DB_PASSWORD: softwart
+          DB_NAME: softwart_test
+          JWT_SECRET: test-secret-key-for-ci-minimum-32-characters-ok
+          FRONTEND_URL: http://localhost:3000
 
   deploy:
     name: Deploy to Render
