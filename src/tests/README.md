@@ -1,6 +1,9 @@
 # Pruebas — SoftwArt Backend
 
-Suite de pruebas con **Vitest** + **supertest**. Actualmente **24 pruebas** (11 unitarias + 13 de integración).
+Suite de pruebas con **Vitest** + **supertest**. Actualmente **25 pruebas** (11 unitarias + 14 de integración).
+
+> ✅ **Se ejecutan en el CI** en cada push y PR (con un PostgreSQL efímero como *service container*).
+> Una prueba fallida **bloquea el despliegue**.
 
 ---
 
@@ -27,7 +30,7 @@ src/tests/
 │   └── installments.helper.test.ts    ← 11 pruebas unitarias
 └── integration/
     ├── auth.test.ts                   ← 8 pruebas de integración
-    └── create-sale.test.ts            ← 5 pruebas de integración
+    └── create-sale.test.ts            ← 6 pruebas de integración
 ```
 
 ### Archivos de soporte (no contienen pruebas)
@@ -106,19 +109,23 @@ PostgreSQL. Por eso verifican que las piezas funcionan **juntas**.
 > que la #5 haya creado el usuario). Vitest ejecuta los tests de un archivo secuencialmente, así que
 > funciona. Lo "puro" sería que cada prueba fuese independiente.
 
-### `integration/create-sale.test.ts` (5)
+### `integration/create-sale.test.ts` (6)
 
 `beforeAll` prepara el escenario: se autentica como admin (obtiene el JWT), crea un cliente de prueba
-y dos citas, y toma un servicio sembrado.
+y **tres citas** (dos `Completada`, una `Pendiente`), y toma un servicio sembrado.
+
+> **Regla de negocio:** solo se puede facturar una cita que **ya ocurrió** (`Completada`, `id = 2`).
+> El controlador rechaza con `409` cualquier otra (`AppointmentController.createSaleFromAppointment`).
 
 **`POST /api/appointments/:id/create-sale`**
-1. `201` crea la venta + sus detalles, y la cita pasa a **Completada** (`id_estado_cita = 2`).
-   **Además consulta la BD** para comprobar los efectos: que la cita cambió de estado y que la venta
-   existe con el total correcto → demuestra que la **transacción atómica** funcionó.
-2. `409` cuando la cita ya tiene una venta asociada.
-3. `404` cuando la cita no existe.
-4. `401` sin token de autenticación.
-5. `422` cuando el arreglo `servicios` viene vacío (validación Zod).
+1. `201` crea la venta + sus detalles desde una cita `Completada`.
+   **Además consulta la BD** para comprobar los efectos: la cita sigue `Completada` y la venta existe
+   con el total correcto → demuestra que la **transacción atómica** funcionó.
+2. `409` cuando la cita **no está Completada** (cubre el guard de la regla de negocio).
+3. `409` cuando la cita ya tiene una venta asociada.
+4. `404` cuando la cita no existe.
+5. `401` sin token de autenticación.
+6. `422` cuando el arreglo `servicios` viene vacío (validación Zod).
 
 **Autenticación en pruebas:**
 ```typescript
@@ -134,8 +141,8 @@ adminToken = (await request(app).post("/api/auth/login").send({...})).body.token
 | Tipo | Estado | Dónde |
 |---|---|---|
 | **Estáticas** (análisis estático) | ✅ | CI: `tsc --noEmit`, ESLint, `npm audit` |
-| **Unitarias** | ✅ | `unit/installments.helper.test.ts` |
-| **Integración** | ✅ | `integration/auth.test.ts`, `integration/create-sale.test.ts` |
+| **Unitarias** | ✅ | `unit/installments.helper.test.ts` (11) |
+| **Integración** | ✅ | `integration/auth.test.ts` (8), `integration/create-sale.test.ts` (6) |
 | **No funcionales** (rendimiento, carga) | ❌ pendiente | — |
 
 > Las **pruebas estáticas** (type-check, lint, auditoría) analizan el código **sin ejecutarlo**;
@@ -143,11 +150,28 @@ adminToken = (await request(app).post("/api/auth/login").send({...})).body.token
 
 ---
 
+## Ejecución en el CI ✅
+
+`.github/workflows/ci.yml` levanta un **PostgreSQL 16 efímero** (*service container*) y ejecuta
+`npm test` después del type-check, el lint y la auditoría. Vitest descubre solo cualquier
+`*.test.ts`, así que **las pruebas futuras se incluyen sin tocar el workflow**.
+
+Variables inyectadas en el CI: `NODE_ENV=test`, `DB_*`, `JWT_SECRET`, `FRONTEND_URL` y un
+`RESEND_API_KEY` ficticio (**necesario**: `new Resend(undefined)` lanza al importar `email.service`;
+las pruebas no envían correos). `ADMIN_EMAIL`/`ADMIN_PASSWORD` se omiten a propósito para que el seed
+use sus valores por defecto, que son los que esperan las pruebas.
+
+### Dos hallazgos al integrar las pruebas al CI
+1. **Dependencia oculta del entorno:** los tests pasaban en local porque `dotenv` cargaba el `.env` de
+   desarrollo (con `RESEND_API_KEY`). En el CI no existe ese archivo y el fallo salió a la luz.
+2. **Prueba obsoleta:** `create-sale` llevaba meses fallando en silencio. Se añadió el guard
+   "solo se factura una cita Completada" **después** de escribir la prueba, y nadie la actualizó
+   porque las pruebas **solo corrían localmente**. Ahora está corregida y el guard tiene su propia prueba.
+
+---
+
 ## Pendientes / mejoras de alto valor
 
-- [ ] **Ejecutar las pruebas en el CI.** Hoy el workflow solo hace type-check, lint y audit — **`npm test`
-      no se ejecuta**, por lo que una prueba rota **no bloquea el despliegue**. Requiere un *service
-      container* de PostgreSQL en GitHub Actions.
 - [ ] **Prueba de IDOR:** que un cliente no pueda cancelar la cita de otro (valida el control A01).
 - [ ] **Prueba de anular venta en cascada:** `409` si hay pagos `Validado`; si no, cancela detalles y
       anula abonos pendientes.
