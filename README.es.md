@@ -25,7 +25,7 @@ SoftwArt reemplaza todo eso. Cubre el ciclo completo del negocio desde el regist
 | Email | Resend (dominio softwart.online) |
 | Notificaciones push | Firebase Cloud Messaging (FCM) — topic `staff`, fail-soft |
 | API docs | OpenAPI 3.0 + Swagger UI (dev) / Redoc (prod) |
-| Tests | Vitest + supertest (25 tests) |
+| Tests | Vitest + supertest (36 tests) |
 | Deploy | Render |
 
 ---
@@ -49,7 +49,7 @@ src/
 ├── docs/          — swagger.ts (spec OpenAPI 3.0)
 ├── tests/
 │   ├── unit/        — installments.helper.test.ts
-│   └── integration/ — auth.test.ts, create-sale.test.ts
+│   └── integration/ — auth, create-sale, account-idor, void-sale
 ├── app.ts         — setup de Express (exporta `app`)
 └── server.ts      — bootstrap: init BD, seeds, listen
 ```
@@ -189,18 +189,20 @@ npm run docs:export   # genera swagger.json → copiar al repo softwart-docs
 
 ## Tests
 
-**Vitest + supertest — 25 tests en total**
+**Vitest + supertest — 36 tests en total**
 
 | Suite | Tests | Requiere BD |
 |---|---|---|
 | `unit/installments.helper.test.ts` | 11 | No |
 | `integration/auth.test.ts` | 8 | Sí |
-| `integration/create-sale.test.ts` | 5 | Sí |
+| `integration/create-sale.test.ts` | 6 | Sí |
+| `integration/account-idor.test.ts` | 6 | Sí |
+| `integration/void-sale.test.ts` | 5 | Sí |
 
-Los tests de integración usan una BD separada `softwart_test` con `dropSchema: true` — tablas limpias en cada ejecución.
+Los tests de integración usan una BD separada `softwart_test` con `dropSchema: true` — tablas limpias en cada ejecución. `account-idor` cubre el control de acceso (RBAC + IDOR) y `void-sale` la cascada transaccional al anular. Detalle completo en [`src/tests/README.md`](./src/tests/README.md).
 
 ```bash
-npm test                 # correr los 25 tests
+npm test                 # correr los 36 tests
 npm run test:watch       # modo watch
 npm run test:coverage    # con reporte de cobertura
 ```
@@ -215,7 +217,7 @@ npm run test:coverage    # con reporte de cobertura
 | `npm run build` | Compila TypeScript a `dist/` |
 | `npm run start` | Corre el build compilado (producción) |
 | `npm run seed` | Carga datos iniciales de catálogo |
-| `npm test` | Corre los 25 tests |
+| `npm test` | Corre los 36 tests |
 | `npm run test:coverage` | Tests con reporte de cobertura |
 | `npm run docs:export` | Exporta `swagger.json` para softwart-docs |
 | `npm run backup` | Exporta la BD a `backups/` |

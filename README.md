@@ -25,7 +25,7 @@ SoftwArt replaces all of that. It covers the full business cycle from client reg
 | Email | Resend (softwart.online domain) |
 | Push notifications | Firebase Cloud Messaging (FCM) — `staff` topic, fail-soft |
 | API docs | OpenAPI 3.0 + Swagger UI (dev) / Redoc (prod) |
-| Tests | Vitest + supertest (25 tests) |
+| Tests | Vitest + supertest (36 tests) |
 | Deploy | Render |
 
 ---
@@ -49,7 +49,7 @@ src/
 ├── docs/          — swagger.ts (OpenAPI 3.0 spec)
 ├── tests/
 │   ├── unit/        — installments.helper.test.ts
-│   └── integration/ — auth.test.ts, create-sale.test.ts
+│   └── integration/ — auth, create-sale, account-idor, void-sale
 ├── app.ts         — Express app setup (exports `app`)
 └── server.ts      — bootstrap: DB init, seeds, listen
 ```
@@ -189,18 +189,20 @@ npm run docs:export   # generates swagger.json → copy to softwart-docs repo
 
 ## Tests
 
-**Vitest + supertest — 25 tests total**
+**Vitest + supertest — 36 tests total**
 
 | Suite | Tests | Requires DB |
 |---|---|---|
 | `unit/installments.helper.test.ts` | 11 | No |
 | `integration/auth.test.ts` | 8 | Yes |
-| `integration/create-sale.test.ts` | 5 | Yes |
+| `integration/create-sale.test.ts` | 6 | Yes |
+| `integration/account-idor.test.ts` | 6 | Yes |
+| `integration/void-sale.test.ts` | 5 | Yes |
 
-Integration tests use a separate `softwart_test` database with `dropSchema: true` for a clean slate on every run.
+Integration tests use a separate `softwart_test` database with `dropSchema: true` for a clean slate on every run. `account-idor` covers access control (RBAC + IDOR) and `void-sale` the transactional cascade on void. Full breakdown in [`src/tests/README.md`](./src/tests/README.md).
 
 ```bash
-npm test                 # run all 25 tests
+npm test                 # run all 36 tests
 npm run test:watch       # watch mode
 npm run test:coverage    # with coverage report
 ```
@@ -215,7 +217,7 @@ npm run test:coverage    # with coverage report
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm run start` | Run compiled build (production) |
 | `npm run seed` | Seed initial catalog data |
-| `npm test` | Run all tests (24 total) |
+| `npm test` | Run all tests (36 total) |
 | `npm run test:coverage` | Tests with coverage report |
 | `npm run docs:export` | Export `swagger.json` for softwart-docs |
 | `npm run backup` | Dump database to `backups/` |

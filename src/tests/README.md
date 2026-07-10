@@ -1,6 +1,6 @@
 # Pruebas — SoftwArt Backend
 
-Suite de pruebas con **Vitest** + **supertest**. Actualmente **25 pruebas** (11 unitarias + 14 de integración).
+Suite de pruebas con **Vitest** + **supertest**. Actualmente **36 pruebas** (11 unitarias + 25 de integración).
 
 > ✅ **Se ejecutan en el CI** en cada push y PR (con un PostgreSQL efímero como *service container*).
 > Una prueba fallida **bloquea el despliegue**.
@@ -10,7 +10,7 @@ Suite de pruebas con **Vitest** + **supertest**. Actualmente **25 pruebas** (11 
 ## Cómo ejecutarlas
 
 ```bash
-npm test              # las 25 pruebas
+npm test              # las 36 pruebas
 npm run test:watch    # modo watch (re-ejecuta al guardar)
 npm run test:coverage # con reporte de cobertura
 ```
@@ -30,7 +30,9 @@ src/tests/
 │   └── installments.helper.test.ts    ← 11 pruebas unitarias
 └── integration/
     ├── auth.test.ts                   ← 8 pruebas de integración
-    └── create-sale.test.ts            ← 6 pruebas de integración
+    ├── create-sale.test.ts            ← 6 pruebas de integración
+    ├── account-idor.test.ts           ← 6 pruebas de integración (control de acceso)
+    └── void-sale.test.ts              ← 5 pruebas de integración (cascada transaccional)
 ```
 
 ### Archivos de soporte (no contienen pruebas)
@@ -85,7 +87,7 @@ redondeo, último abono exacto).
 
 ---
 
-## Pruebas de integración (14)
+## Pruebas de integración (25)
 
 Usan **supertest**, que inyecta la app de Express (sin levantar un servidor) y lanza peticiones HTTP
 reales a través de **toda la cadena**: Helmet → CORS → rate limit → Zod → controlador → TypeORM →
@@ -134,6 +136,58 @@ adminToken = (await request(app).post("/api/auth/login").send({...})).body.token
 .set("Authorization", `Bearer ${adminToken}`)
 ```
 
+### `integration/account-idor.test.ts` (6)
+
+Evidencia ejecutable del control **OWASP A01 — Broken Access Control**, variante **IDOR**
+(*Insecure Direct Object Reference*).
+
+`beforeAll` registra **dos clientes reales** (A y B) vía `POST /api/auth/register`, inicia sesión con
+cada uno y crea tres citas de **A** directamente en la BD.
+
+> **El riesgo:** el `:id` de la cita lo escribe el atacante en la URL. Si el backend confía en él,
+> el cliente B puede cancelar las citas de A. El guard compara `cita.client.id_cliente` contra el
+> `id_cliente` del **JWT**, no contra la URL.
+
+**`PATCH /api/account/citas/:id/cancelar`**
+1. `403` cuando el cliente **B** intenta cancelar una cita del cliente **A** (IDOR).
+   **Además consulta la BD** para comprobar que la cita sigue `Pendiente` → el guard no solo responde
+   403, tampoco produce efectos.
+2. `403` para un **admin** (su token trae `id_cliente: null` → lo frena `requireCliente`).
+3. `401` sin token de autenticación.
+4. `404` cuando la cita no existe.
+5. `400` cuando la cita no está `Pendiente` (no se cancela una `Completada`).
+6. `200` el **dueño** sí cancela su cita → en BD queda `Cancelada` (`id = 4`).
+
+> **Verificado por mutación:** se desactivó temporalmente el guard de propiedad y la prueba #1 falló
+> con `expected 200 to be 403` — es decir, sin el control el ataque **funciona**. Una prueba que pasa
+> igual con y sin la protección no prueba nada; esta sí la detecta.
+
+**Diferencia entre los dos 403** (#1 y #2) — se prueban por separado a propósito:
+
+| | Control | Pregunta que responde |
+|---|---|---|
+| #2 | **RBAC** (vertical) | ¿*Este rol* puede usar este endpoint? |
+| #1 | **IDOR** (horizontal) | ¿Este usuario es *dueño de este recurso*? |
+
+### `integration/void-sale.test.ts` (5)
+
+Cubre la **transacción en cascada** al anular una venta. `beforeAll` siembra dos ventas activas:
+una con un servicio `Sin empezar` + uno `Finalizado` y un abono `Pendiente`; otra con un pago `Validado`.
+
+**`PATCH /api/sales/:id/estado`**
+1. `409` cuando la venta tiene un pago `Validado` (hubo dinero real → corresponde una **devolución**,
+   no una anulación). Verifica en BD que **nada** cambió: ni la venta, ni el detalle, ni el pago.
+2. `200` anula y **cae en cascada**: el detalle `Sin empezar` → `Cancelado`, el abono `Pendiente` →
+   `Anulado`, y el detalle `Finalizado` **queda intacto**. Comprueba también los contadores de la
+   respuesta (`serviciosCancelados: 1`, `abonosAnulados: 1`).
+3. `200` reactivar es un **toggle simple**: la venta vuelve a `Activo` pero la cascada **no se deshace**
+   (los estados terminales `Cancelado`/`Anulado` se conservan por trazabilidad).
+4. `404` cuando la venta no existe.
+5. `401` sin token de autenticación.
+
+> Las pruebas #2 y #3 **dependen del orden** (la #3 reactiva la venta que anuló la #2). Vitest ejecuta
+> los tests de un archivo secuencialmente.
+
 ---
 
 ## Tipos de prueba cubiertos
@@ -142,7 +196,8 @@ adminToken = (await request(app).post("/api/auth/login").send({...})).body.token
 |---|---|---|
 | **Estáticas** (análisis estático) | ✅ | CI: `tsc --noEmit`, ESLint, `npm audit` |
 | **Unitarias** | ✅ | `unit/installments.helper.test.ts` (11) |
-| **Integración** | ✅ | `integration/auth.test.ts` (8), `integration/create-sale.test.ts` (6) |
+| **Integración** | ✅ | `auth` (8), `create-sale` (6), `account-idor` (6), `void-sale` (5) |
+| **Seguridad** (control de acceso) | ✅ | `integration/account-idor.test.ts` — RBAC + IDOR (OWASP A01) |
 | **No funcionales** (rendimiento, carga) | ❌ pendiente | — |
 
 > Las **pruebas estáticas** (type-check, lint, auditoría) analizan el código **sin ejecutarlo**;
@@ -172,8 +227,11 @@ use sus valores por defecto, que son los que esperan las pruebas.
 
 ## Pendientes / mejoras de alto valor
 
-- [ ] **Prueba de IDOR:** que un cliente no pueda cancelar la cita de otro (valida el control A01).
-- [ ] **Prueba de anular venta en cascada:** `409` si hay pagos `Validado`; si no, cancela detalles y
+- [x] **Prueba de IDOR:** que un cliente no pueda cancelar la cita de otro (valida el control A01).
+- [x] **Prueba de anular venta en cascada:** `409` si hay pagos `Validado`; si no, cancela detalles y
       anula abonos pendientes.
-- [ ] Limpiar `.env.test`: aún tiene `SMTP_USER` / `SMTP_PASS`, restos de la época de Nodemailer
-      (hoy se usa Resend). No se leen en ninguna parte.
+- [x] Limpiar `.env.test` (restos de `SMTP_*` de la época de Nodemailer) y añadirle un
+      `RESEND_API_KEY` ficticio, para que **local espeje al CI** y las pruebas no dependan de que
+      exista un `.env` de desarrollo.
+- [ ] **Pruebas no funcionales / de rendimiento** (p. ej. `autocannon` o `k6` contra los endpoints
+      de listado) — el único tipo de prueba que aún no está cubierto.
