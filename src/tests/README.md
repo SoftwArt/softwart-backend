@@ -10,7 +10,7 @@ Suite de pruebas con **Vitest** + **supertest**. Actualmente **25 pruebas** (11 
 ## Cómo ejecutarlas
 
 ```bash
-npm test              # las 24 pruebas
+npm test              # las 25 pruebas
 npm run test:watch    # modo watch (re-ejecuta al guardar)
 npm run test:coverage # con reporte de cobertura
 ```
@@ -85,7 +85,7 @@ redondeo, último abono exacto).
 
 ---
 
-## Pruebas de integración (13)
+## Pruebas de integración (14)
 
 Usan **supertest**, que inyecta la app de Express (sin levantar un servidor) y lanza peticiones HTTP
 reales a través de **toda la cadena**: Helmet → CORS → rate limit → Zod → controlador → TypeORM →

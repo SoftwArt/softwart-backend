@@ -25,7 +25,7 @@ SoftwArt reemplaza todo eso. Cubre el ciclo completo del negocio desde el regist
 | Email | Resend (dominio softwart.online) |
 | Notificaciones push | Firebase Cloud Messaging (FCM) — topic `staff`, fail-soft |
 | API docs | OpenAPI 3.0 + Swagger UI (dev) / Redoc (prod) |
-| Tests | Vitest + supertest (24 tests) |
+| Tests | Vitest + supertest (25 tests) |
 | Deploy | Render |
 
 ---
@@ -94,7 +94,7 @@ Anular una venta corre una transacción que **bloquea con 409** si la venta tien
 | Helmet.js | Headers HTTP de seguridad (CSP, X-Frame-Options, HSTS) |
 | JWT fail-fast | El servidor no arranca si `JWT_SECRET` no está definida |
 | Validación Zod | 422 en todos los endpoints con body vía `validate(schema)` |
-| Rate limiting | 100 req/15min general · 10 req/15min rutas auth |
+| Rate limiting | Prod: 200 req/15min general · 15 req/15min rutas auth (solo fallidos) · 5 req/15min resend |
 | CORS | Solo `localhost:3000` y `softwart.online` |
 | bcrypt | Salt rounds = 10 |
 | RBAC | `requireRol()`, `requireCliente()`, `requirePermission()` |
@@ -189,7 +189,7 @@ npm run docs:export   # genera swagger.json → copiar al repo softwart-docs
 
 ## Tests
 
-**Vitest + supertest — 24 tests en total**
+**Vitest + supertest — 25 tests en total**
 
 | Suite | Tests | Requiere BD |
 |---|---|---|
@@ -200,7 +200,7 @@ npm run docs:export   # genera swagger.json → copiar al repo softwart-docs
 Los tests de integración usan una BD separada `softwart_test` con `dropSchema: true` — tablas limpias en cada ejecución.
 
 ```bash
-npm test                 # correr los 24 tests
+npm test                 # correr los 25 tests
 npm run test:watch       # modo watch
 npm run test:coverage    # con reporte de cobertura
 ```
@@ -215,7 +215,7 @@ npm run test:coverage    # con reporte de cobertura
 | `npm run build` | Compila TypeScript a `dist/` |
 | `npm run start` | Corre el build compilado (producción) |
 | `npm run seed` | Carga datos iniciales de catálogo |
-| `npm test` | Corre los 24 tests |
+| `npm test` | Corre los 25 tests |
 | `npm run test:coverage` | Tests con reporte de cobertura |
 | `npm run docs:export` | Exporta `swagger.json` para softwart-docs |
 | `npm run backup` | Exporta la BD a `backups/` |

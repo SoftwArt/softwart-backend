@@ -25,7 +25,7 @@ SoftwArt replaces all of that. It covers the full business cycle from client reg
 | Email | Resend (softwart.online domain) |
 | Push notifications | Firebase Cloud Messaging (FCM) — `staff` topic, fail-soft |
 | API docs | OpenAPI 3.0 + Swagger UI (dev) / Redoc (prod) |
-| Tests | Vitest + supertest (24 tests) |
+| Tests | Vitest + supertest (25 tests) |
 | Deploy | Render |
 
 ---
@@ -94,7 +94,7 @@ Voiding a sale runs a transaction that **blocks with 409** if the sale has any `
 | Helmet.js | HTTP security headers (CSP, X-Frame-Options, HSTS) |
 | JWT fail-fast | Server refuses to start if `JWT_SECRET` is not defined |
 | Zod validation | 422 on all body-receiving endpoints via `validate(schema)` |
-| Rate limiting | 100 req/15min general · 10 req/15min auth routes |
+| Rate limiting | Prod: 200 req/15min general · 15 req/15min auth (failed only) · 5 req/15min resend |
 | CORS | `localhost:3000` and `softwart.online` only |
 | bcrypt | Salt rounds = 10 |
 | RBAC | `requireRol()`, `requireCliente()`, `requirePermission()` |
@@ -189,7 +189,7 @@ npm run docs:export   # generates swagger.json → copy to softwart-docs repo
 
 ## Tests
 
-**Vitest + supertest — 24 tests total**
+**Vitest + supertest — 25 tests total**
 
 | Suite | Tests | Requires DB |
 |---|---|---|
@@ -200,7 +200,7 @@ npm run docs:export   # generates swagger.json → copy to softwart-docs repo
 Integration tests use a separate `softwart_test` database with `dropSchema: true` for a clean slate on every run.
 
 ```bash
-npm test                 # run all 24 tests
+npm test                 # run all 25 tests
 npm run test:watch       # watch mode
 npm run test:coverage    # with coverage report
 ```
