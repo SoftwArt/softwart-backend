@@ -74,6 +74,9 @@ jobs:
           DB_NAME: softwart_test
           JWT_SECRET: test-secret-key-for-ci-minimum-32-characters-ok
           FRONTEND_URL: http://localhost:3000
+          # `new Resend(undefined)` lanza al importar email.service. Las pruebas no
+          # envían correos: solo hace falta un valor no vacío para construir el cliente.
+          RESEND_API_KEY: re_dummy_key_for_ci_no_emails_are_sent
 
   deploy:
     name: Deploy to Render
