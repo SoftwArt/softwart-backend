@@ -38,7 +38,7 @@
     "resend": "^6.17.2",
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.28",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
