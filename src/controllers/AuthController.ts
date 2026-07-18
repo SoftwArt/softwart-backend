@@ -47,10 +47,14 @@ export const publicAvailability = async (req: Request, res: Response): Promise<v
       res.status(400).json({ success: false, message: "El parámetro 'fecha' es requerido" });
       return;
     }
+    // Cancelada/No Asistió liberan el slot — solo Pendiente/Confirmada/Completada
+    // siguen "ocupando" esa hora.
     const citas = await AppDataSource.getRepository(Appointment)
       .createQueryBuilder("c")
+      .innerJoin("c.appointmentStatus", "es")
       .select(["c.id_cita", "c.hora"])
       .where("CAST(c.fecha AS DATE) = :fecha", { fecha })
+      .andWhere("LOWER(es.nombre) NOT IN ('cancelada', 'no asistió')")
       .getMany();
 
     res.json({ success: true, data: citas.map(c => ({ id_cita: c.id_cita, hora: c.hora })) });
