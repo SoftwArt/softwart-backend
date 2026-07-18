@@ -36,6 +36,6 @@ export class SaleDetail {
 
   @ManyToOne(() => Frame, (x) => x.saleDetails, { nullable: true })
   @JoinColumn({ name: "id_marco"})
-  frame?: Frame;
+  frame?: Frame | null;
 
 }

@@ -82,7 +82,7 @@ export const createSaleDetailSchema = z.object({
   id_venta:    z.number().int().positive().optional(),
   id_servicio: z.number().int().positive().optional(),
   id_estado:   z.number().int().positive().optional(),
-  id_marco:    z.number().int().positive().optional(),
+  id_marco:    z.number().int().positive().nullable().optional(),
 });
 export const updateSaleDetailSchema = createSaleDetailSchema.partial();
 

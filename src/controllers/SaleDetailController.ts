@@ -77,9 +77,13 @@ export const createSaleDetail = async (req: Request, res: Response): Promise<voi
       obj.serviceStatus = rel;
     }
     if (req.body.id_marco !== undefined) {
-      const rel = await AppDataSource.getRepository(Frame).findOneBy({ id_marco: Number(req.body.id_marco) });
-      if (!rel) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
-      obj.frame = rel;
+      if (req.body.id_marco === null) {
+        obj.frame = null;
+      } else {
+        const rel = await AppDataSource.getRepository(Frame).findOneBy({ id_marco: Number(req.body.id_marco) });
+        if (!rel) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
+        obj.frame = rel;
+      }
     }
     await detalleVentaRepo.save(obj);
     if (obj.serviceStatus) await logServiceStatusChange(AppDataSource.manager, obj, obj.serviceStatus);
@@ -121,9 +125,13 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
       item.serviceStatus = nuevoEstado;
     }
     if (req.body.id_marco !== undefined) {
-      const rel = await AppDataSource.getRepository(Frame).findOneBy({ id_marco: Number(req.body.id_marco) });
-      if (!rel) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
-      item.frame = rel;
+      if (req.body.id_marco === null) {
+        item.frame = null;
+      } else {
+        const rel = await AppDataSource.getRepository(Frame).findOneBy({ id_marco: Number(req.body.id_marco) });
+        if (!rel) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
+        item.frame = rel;
+      }
     }
     await detalleVentaRepo.save(item);
     if (nuevoEstado) await logServiceStatusChange(AppDataSource.manager, item, nuevoEstado);
