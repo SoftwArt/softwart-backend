@@ -232,6 +232,20 @@ export const cancelMyAppointment = async (req: Request, res: Response): Promise<
       }); return
     }
 
+    // Ventana mínima de 6h antes de la hora de la cita — evita que se libere
+    // un horario (ej. 17:00, la última del día) tan tarde que nadie más
+    // alcance a agendarlo antes de que empiece la atención (13:00).
+    const [{ muy_tarde }] = await AppDataSource.query(
+      `SELECT (fecha + hora) <= (NOW() + INTERVAL '6 hours') AS muy_tarde FROM cita WHERE id_cita = $1`,
+      [id_cita]
+    )
+    if (muy_tarde) {
+      res.status(400).json({
+        success: false,
+        message: 'No se puede cancelar: faltan menos de 6 horas para la cita. Contáctanos directamente si necesitas cancelarla.',
+      }); return
+    }
+
     const estadoCancelada = await estadoCitaRepo.findOneBy({ id_estado_cita: 4 })
     if (!estadoCancelada) {
       res.status(500).json({ success: false, message: 'Estado "Cancelada" no encontrado' }); return
