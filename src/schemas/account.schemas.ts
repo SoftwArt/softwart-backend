@@ -11,6 +11,10 @@ export const editProfileSchema = z.object({
   { message: "Se requiere al menos un campo para actualizar" }
 );
 
+export const cancelMyAppointmentSchema = z.object({
+  motivo: z.string().max(500, "El motivo no puede superar los 500 caracteres").optional(),
+});
+
 export const createMyAppointmentSchema = z.object({
   fecha:         z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe tener formato YYYY-MM-DD"),
   hora:          z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "hora debe tener formato HH:MM"),

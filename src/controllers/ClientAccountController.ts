@@ -253,6 +253,7 @@ export const cancelMyAppointment = async (req: Request, res: Response): Promise<
     }
 
     cita.appointmentStatus = estadoCancelada
+    if (req.body.motivo) cita.motivo_cancelacion = req.body.motivo
     await citaRepo.save(cita)
 
     res.json({ success: true, message: 'Cita cancelada correctamente' })

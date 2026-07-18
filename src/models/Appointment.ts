@@ -18,6 +18,12 @@ export class Appointment {
   @Column({ nullable: true })
   observacion?: string;
 
+  // Motivo que da el cliente al cancelar desde el portal — deliberadamente
+  // separado de `observacion` (esa es la nota original al agendar la cita,
+  // no se debe pisar al cancelar).
+  @Column({ nullable: true })
+  motivo_cancelacion?: string;
+
   @ManyToOne(() => AppointmentStatus, (x) => x.appointments)
   @JoinColumn({ name: "id_estado_cita" })
   appointmentStatus!: AppointmentStatus;
