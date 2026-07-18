@@ -130,11 +130,11 @@ export const sendCitaConfirmacionEmail = async (
   const { data: sent, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: data.correo,
-    subject: `Cita confirmada #${data.id_cita} — Arte Café`,
+    subject: `Cita #${data.id_cita} agendada (por confirmar) — Arte Café`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
 
-        ${emailHeader("Confirmación de cita")}
+        ${emailHeader("Pendiente de confirmación")}
 
         <!-- Body -->
         <div style="background: #fff; padding: 32px; border: 1px solid #e5e5e5; border-top: none;">
@@ -175,7 +175,7 @@ export const sendCitaConfirmacionEmail = async (
           </div>
 
           <p style="margin: 24px 0 0; font-size: 14px; color: #555;">
-            Nos pondremos en contacto contigo para confirmar la cita.
+            Tu cita dentro de poco se confirmará, se te avisará de su confirmación por este mismo medio.
             Si necesitas cancelarla, puedes hacerlo desde
             <a href="${SITE_URL}" style="color: #7c4a2d; text-decoration: none;">tu cuenta</a>
             antes de la fecha.
@@ -189,6 +189,146 @@ export const sendCitaConfirmacionEmail = async (
   });
   if (error) throw new Error(`Resend error (cita #${data.id_cita}): ${error.message}`);
   console.log(`✅ Confirmación cita #${data.id_cita} enviada:`, sent?.id);
+};
+
+// ── Cambio de estado de cita (Confirmada / Cancelada) ─────────────────────────
+export type CitaEstadoData = {
+  correo:        string
+  nombreCliente: string
+  fecha:         string   // "2025-03-15"
+  hora:          string   // "14:00"
+  id_cita:       number
+}
+
+export const sendCitaConfirmadaEmail = async (
+  data: CitaEstadoData
+): Promise<void> => {
+  const { data: sent, error } = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: data.correo,
+    subject: `Cita #${data.id_cita} confirmada — Arte Café`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
+
+        ${emailHeader("Confirmación de cita")}
+
+        <!-- Body -->
+        <div style="background: #fff; padding: 32px; border: 1px solid #e5e5e5; border-top: none;">
+          <p style="margin: 0 0 16px; font-size: 15px;">
+            Hola, <strong>${data.nombreCliente}</strong> 👋
+          </p>
+          <p style="margin: 0 0 24px; font-size: 15px; color: #444;">
+            Tu cita ya fue confirmada por nuestro equipo. Te esperamos:
+          </p>
+
+          <!-- Tarjeta de cita -->
+          <div style="background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px; padding: 20px 24px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px; width: 40%;">Número de cita</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">#${data.id_cita}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600; text-transform: capitalize;">
+                  ${formatFecha(data.fecha)}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Hora</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">${to12h(data.hora)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Estado</td>
+                <td style="padding: 8px 0;">
+                  <span style="
+                    display: inline-block; padding: 2px 10px; border-radius: 99px;
+                    background: #dcfce7; color: #166534; font-size: 12px; font-weight: 600;
+                  ">Confirmada</span>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <p style="margin: 24px 0 0; font-size: 14px; color: #555;">
+            Si necesitas cancelarla, puedes hacerlo desde
+            <a href="${SITE_URL}" style="color: #7c4a2d; text-decoration: none;">tu cuenta</a>
+            antes de la fecha.
+          </p>
+        </div>
+
+        ${emailFooter()}
+
+      </div>
+    `,
+  });
+  if (error) throw new Error(`Resend error (cita confirmada #${data.id_cita}): ${error.message}`);
+  console.log(`✅ Confirmación de estado (Confirmada) cita #${data.id_cita} enviada:`, sent?.id);
+};
+
+export const sendCitaCanceladaEmail = async (
+  data: CitaEstadoData
+): Promise<void> => {
+  const { data: sent, error } = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: data.correo,
+    subject: `Cita #${data.id_cita} cancelada — Arte Café`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
+
+        ${emailHeader("Cita cancelada")}
+
+        <!-- Body -->
+        <div style="background: #fff; padding: 32px; border: 1px solid #e5e5e5; border-top: none;">
+          <p style="margin: 0 0 16px; font-size: 15px;">
+            Hola, <strong>${data.nombreCliente}</strong>
+          </p>
+          <p style="margin: 0 0 24px; font-size: 15px; color: #444;">
+            Tu cita fue cancelada. Estos eran los detalles:
+          </p>
+
+          <!-- Tarjeta de cita -->
+          <div style="background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px; padding: 20px 24px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px; width: 40%;">Número de cita</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">#${data.id_cita}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600; text-transform: capitalize;">
+                  ${formatFecha(data.fecha)}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Hora</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">${to12h(data.hora)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Estado</td>
+                <td style="padding: 8px 0;">
+                  <span style="
+                    display: inline-block; padding: 2px 10px; border-radius: 99px;
+                    background: #fee2e2; color: #991b1b; font-size: 12px; font-weight: 600;
+                  ">Cancelada</span>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <p style="margin: 24px 0 0; font-size: 14px; color: #555;">
+            Si fue un error o quieres agendar una nueva cita, puedes hacerlo desde
+            <a href="${SITE_URL}" style="color: #7c4a2d; text-decoration: none;">tu cuenta</a>.
+          </p>
+        </div>
+
+        ${emailFooter()}
+
+      </div>
+    `,
+  });
+  if (error) throw new Error(`Resend error (cita cancelada #${data.id_cita}): ${error.message}`);
+  console.log(`✅ Confirmación de estado (Cancelada) cita #${data.id_cita} enviada:`, sent?.id);
 };
 
 // ── Alerta de nueva cita al admin ─────────────────────────────────────────────

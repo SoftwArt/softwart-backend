@@ -5,6 +5,9 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { ServiceStatus } from "../models/ServiceStatus";
 import { SaleDetail } from "../models/SaleDetail";
+import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
+
+const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
 export const getAllServiceStatus = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -72,7 +75,7 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
     const estadoServicioRepo = AppDataSource.getRepository(ServiceStatus);
     const target = await detalleVentaRepo.findOne({
       where: { id_detalle: Number(req.params.id_detalle) },
-      relations: ["serviceStatus"],
+      relations: ["serviceStatus", ...SALE_RELATIONS],
     });
     if (!target) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
     // Estado terminal: un servicio cancelado no puede cambiar de estado.
@@ -81,6 +84,33 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
     }
     const nuevoEstado = await estadoServicioRepo.findOneBy({ id_estado: Number(req.body.id_estado) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
+
+    // Cancelar el último servicio activo de la venta cascadea hacia arriba: la
+    // venta se anula también (misma regla que anular Venta directamente).
+    if (nuevoEstado.nombre.toLowerCase().includes("cancelado") && target.sale && isLastActiveDetail(target.sale, target.id_detalle)) {
+      if (saleHasValidatedPayments(target.sale)) {
+        res.status(409).json({
+          success: false,
+          message: `No se puede cancelar: es el único servicio activo de la Venta #${target.sale.id_venta} y tiene pagos validados. Registra la devolución antes de cancelarlo.`,
+        });
+        return;
+      }
+
+      let cascada = { serviciosCancelados: 0, abonosAnulados: 0 };
+      await AppDataSource.transaction(async (manager) => {
+        target.serviceStatus = nuevoEstado;
+        await manager.save(target);
+        cascada = await voidSaleCascade(manager, target.sale!);
+      });
+
+      res.json({
+        success: true,
+        message: `Servicio cancelado — al ser el último activo, la Venta #${target.sale.id_venta} también se anuló en cascada (abonos anulados: ${cascada.abonosAnulados})`,
+        data: { ...target, ...cascada },
+      });
+      return;
+    }
+
     target.serviceStatus = nuevoEstado;
     await detalleVentaRepo.save(target);
     res.json({ success: true, message: "Estado de DetalleVenta actualizado", data: target });

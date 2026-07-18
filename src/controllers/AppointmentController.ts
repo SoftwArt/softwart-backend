@@ -7,6 +7,29 @@ import { Appointment } from "../models/Appointment";
 import { Sale } from "../models/Sale";
 import { AppointmentStatus } from "../models/AppointmentStatus";
 import { Client } from "../models/Client";
+import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
+import { sendCitaConfirmadaEmail, sendCitaCanceladaEmail } from "../services/email.service";
+
+const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
+
+// Reenvía correo al cliente cuando el nuevo estado es Confirmada/Cancelada.
+// Fire-and-forget: no debe bloquear ni fallar la respuesta HTTP.
+function notifyAppointmentStatusChange(item: Appointment, nuevoEstadoNombre: string): void {
+  if (!item.client?.correo) return;
+  const data = {
+    correo:        item.client.correo,
+    nombreCliente: item.client.nombre,
+    fecha:         new Date(item.fecha).toISOString().slice(0, 10),
+    hora:          item.hora,
+    id_cita:       item.id_cita,
+  };
+  const nombre = nuevoEstadoNombre.toLowerCase();
+  if (nombre.includes("confirmada")) {
+    sendCitaConfirmadaEmail(data).catch(err => console.error("⚠️  Error enviando correo de cita confirmada:", err));
+  } else if (nombre.includes("cancelada")) {
+    sendCitaCanceladaEmail(data).catch(err => console.error("⚠️  Error enviando correo de cita cancelada:", err));
+  }
+}
 
 // Marca como "No Asistió" (id 3) las citas Pendientes cuyo horario + 3h ya pasó.
 // Se ejecuta antes de devolver el listado para mantener estados coherentes sin cron.
@@ -49,7 +72,7 @@ export const getAppointmentById = async (req: Request, res: Response): Promise<v
     const citaRepo = AppDataSource.getRepository(Appointment);
     const item = await citaRepo.findOne({
       where: { id_cita: Number(req.params.id) },
-      relations: ["appointmentStatus", "client"],
+      relations: ["appointmentStatus", "client", ...SALE_RELATIONS],
     });
     if (!item) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -91,17 +114,58 @@ export const updateAppointment = async (req: Request, res: Response): Promise<vo
     const citaRepo = AppDataSource.getRepository(Appointment);
     const item = await citaRepo.findOne({
       where: { id_cita: Number(req.params.id) },
-      relations: ["appointmentStatus", "client"],
+      relations: ["appointmentStatus", "client", ...SALE_RELATIONS],
     });
     if (!item) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
+    // Estado terminal: una cita cancelada no puede modificarse.
+    if (item.appointmentStatus?.nombre?.toLowerCase().includes("cancelada")) {
+      res.status(409).json({ success: false, message: "No se puede modificar una cita cancelada" }); return;
+    }
+
+    let nuevoEstado: AppointmentStatus | null = null;
+    if (req.body.id_estado_cita !== undefined) {
+      nuevoEstado = await AppDataSource.getRepository(AppointmentStatus).findOneBy({ id_estado_cita: Number(req.body.id_estado_cita) });
+      if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
+    }
+
+    // Cancelar una cita que ya tiene Venta cascadea la misma anulación que
+    // toggleSaleStatus (ver AppointmentStatusController.changeAppointmentStatus).
+    if (nuevoEstado?.nombre.toLowerCase().includes("cancelada") && item.sale) {
+      if (saleHasValidatedPayments(item.sale)) {
+        res.status(409).json({
+          success: false,
+          message: "No se puede cancelar: la venta asociada tiene pagos validados. Registra la devolución antes de cancelar la cita.",
+        });
+        return;
+      }
+
+      if (req.body.fecha !== undefined) item.fecha = req.body.fecha;
+      if (req.body.hora  !== undefined) item.hora  = req.body.hora;
+      item.appointmentStatus = nuevoEstado;
+      if (req.body.id_cliente !== undefined) {
+        const rel = await AppDataSource.getRepository(Client).findOneBy({ id_cliente: Number(req.body.id_cliente) });
+        if (!rel) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
+        item.client = rel;
+      }
+
+      let cascada = { serviciosCancelados: 0, abonosAnulados: 0 };
+      await AppDataSource.transaction(async (manager) => {
+        await manager.save(item);
+        cascada = await voidSaleCascade(manager, item.sale!);
+      });
+
+      notifyAppointmentStatusChange(item, nuevoEstado.nombre);
+      res.json({
+        success: true,
+        message: `Cita cancelada — venta anulada en cascada (servicios cancelados: ${cascada.serviciosCancelados}, abonos anulados: ${cascada.abonosAnulados})`,
+        data: { ...item, ...cascada },
+      });
+      return;
+    }
+
     if (req.body.fecha !== undefined) item.fecha = req.body.fecha;
     if (req.body.hora  !== undefined) item.hora  = req.body.hora;
-    if (req.body.id_estado_cita !== undefined) {
-      const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus);
-      const rel = await estadoCitaRepo.findOneBy({ id_estado_cita: Number(req.body.id_estado_cita) });
-      if (!rel) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
-      item.appointmentStatus = rel;
-    }
+    if (nuevoEstado) item.appointmentStatus = nuevoEstado;
     if (req.body.id_cliente !== undefined) {
       const clienteRepo = AppDataSource.getRepository(Client);
       const rel = await clienteRepo.findOneBy({ id_cliente: Number(req.body.id_cliente) });
@@ -109,6 +173,7 @@ export const updateAppointment = async (req: Request, res: Response): Promise<vo
       item.client = rel;
     }
     await citaRepo.save(item);
+    if (nuevoEstado) notifyAppointmentStatusChange(item, nuevoEstado.nombre);
     res.json({ success: true, message: "Cita actualizado", data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al actualizar Cita", error });
