@@ -11,6 +11,14 @@ export const claveSchema = z
   .regex(/[0-9]/,        "La contraseña debe incluir al menos un número")
   .regex(/[^A-Za-z0-9]/, "La contraseña debe incluir al menos un carácter especial");
 
+// ── Teléfono (mínimo 10 dígitos numéricos) ────────────────────────────────────
+// Cadena vacía se trata como "no provisto" (el campo sigue siendo opcional en
+// los formularios que lo usan) — solo valida el formato cuando sí se escribe algo.
+export const TELEFONO_MENSAJE = "El teléfono debe tener al menos 10 dígitos numéricos";
+export const telefonoSchema = z
+  .string()
+  .refine((v) => v === "" || /^\d{10,15}$/.test(v), TELEFONO_MENSAJE);
+
 export const guestClientSchema = z.object({
   tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
   documento:     z.string().min(1, "documento es requerido"),
@@ -36,7 +44,7 @@ export const registerSchema = z.object({
   nombre:        z.string().min(2).max(100),
   correo:        z.string().email("Correo inválido"),
   clave:         claveSchema,
-  telefono:      z.string().optional(),
+  telefono:      telefonoSchema.optional(),
 });
 
 export const loginSchema = z.object({

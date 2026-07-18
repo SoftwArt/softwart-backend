@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { telefonoSchema } from "./auth.schemas";
 
 export const editProfileSchema = z.object({
   nombre:       z.string().min(2).max(100).optional(),
-  telefono:     z.string().nullable().optional(),
+  telefono:     telefonoSchema.nullable().optional(),
   correo:       z.string().email("Correo inválido").optional(),
   clave_actual: z.string().optional(),
   clave:        z.string().min(6, "La nueva clave debe tener al menos 6 caracteres").optional(),
