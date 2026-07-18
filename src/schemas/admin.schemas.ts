@@ -29,6 +29,9 @@ const clientShape = z.object({
   nombre:        nombreSchema,
   correo:        z.string().email("Correo inválido"),
   telefono:      telefonoSchema.optional(),
+  // Solo aplica en creación: crea el Usuario (rol Cliente) atómicamente y
+  // envía el correo de invitación para que configure su propia contraseña.
+  crearAccesoPortal: z.boolean().optional(),
 });
 
 export const createClientSchema = clientShape.superRefine((data, ctx) => {

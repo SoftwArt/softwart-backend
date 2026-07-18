@@ -10,7 +10,7 @@ import jwt                   from "jsonwebtoken";
 import bcrypt                from "bcrypt";
 import crypto                from "crypto";
 
-const hashToken = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
+import { hashToken } from "../helpers/inviteToken.helper";
 import { sendRecoveryEmail, sendCitaConfirmacionEmail, sendAdminNewAppointmentAlert } from "../services/email.service";
 import { notifyNewAppointment } from "../services/push.service";
 import { logger } from "../config/logger";
@@ -420,6 +420,38 @@ export const resendCode = async (req: Request, res: Response): Promise<void> => 
   } catch (error) {
     logger.error({ err: error }, "error en resendCode");
     res.status(500).json({ success: false, message: "Error al reenviar código", error });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  GET /api/auth/validate-reset-token?token=...
+//  Chequeo de solo-lectura (no consume el token) para que ResetPasswordPage
+//  avise de inmediato si el link ya expiró, en vez de que el usuario lo
+//  descubra recién al llenar el formulario y darle submit.
+// ─────────────────────────────────────────────────────────────────────────────
+export const validateResetToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const token = typeof req.query.token === "string" ? req.query.token : "";
+    if (!token) {
+      res.json({ success: true, data: { valid: false, expired: false } });
+      return;
+    }
+
+    const usuarioRepo = AppDataSource.getRepository(User);
+    const usuario = await usuarioRepo.findOne({
+      where: { token_recuperacion: hashToken(token) },
+    });
+
+    if (!usuario || !usuario.token_expira) {
+      res.json({ success: true, data: { valid: false, expired: false } });
+      return;
+    }
+
+    const expired = usuario.token_expira < new Date();
+    res.json({ success: true, data: { valid: !expired, expired } });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al validar el enlace", error });
   }
 };
 

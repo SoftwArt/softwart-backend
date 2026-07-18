@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { publicAvailability, guestAppointment, registerGuest, register, login, recover, resetPassword, resendCode, myPermissions } from "../controllers/AuthController";
+import { publicAvailability, guestAppointment, registerGuest, register, login, recover, resetPassword, resendCode, myPermissions, validateResetToken } from "../controllers/AuthController";
 import { authLimiter, resendLimiter } from "../middlewares/rateLimit.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { guestAppointmentSchema, guestClientSchema, registerSchema, loginSchema, recoverSchema, resetPasswordSchema, resendCodeSchema } from "../schemas/auth.schemas";
@@ -16,6 +16,7 @@ router.post("/register-guest",   authLimiter,   validate(guestClientSchema),    
 router.post("/register",         authLimiter,   validate(registerSchema),         register);
 router.post("/login",            authLimiter,   validate(loginSchema),            login);
 router.post("/recover",          authLimiter,   validate(recoverSchema),          recover);
+router.get ("/validate-reset-token", authLimiter, validateResetToken);
 router.post("/reset-password",   authLimiter,   validate(resetPasswordSchema),    resetPassword);
 router.post("/reenviar-codigo",  resendLimiter, validate(resendCodeSchema),       resendCode);
 
