@@ -42,11 +42,16 @@ beforeAll(async () => {
   const pendiente = await statusRepo.findOneBy({ id_estado_cita: 1 });
   const completada = await statusRepo.findOneBy({ id_estado_cita: 2 });
 
+  // Fechas relativas a "ahora" (no hardcoded): cancelMyAppointment bloquea con
+  // 400 si faltan <6h para la cita, así que el fixture debe quedar siempre en
+  // el futuro sin importar cuándo corra la suite.
+  const enDias = (d: number) => new Date(Date.now() + d * 24 * 60 * 60 * 1000);
+
   const apptRepo = AppDataSource.getRepository(Appointment);
   const [a1, a2, a3] = await apptRepo.save([
-    apptRepo.create({ fecha: new Date("2026-01-10"), hora: "14:00:00", client: clientA!, appointmentStatus: pendiente! }),
-    apptRepo.create({ fecha: new Date("2026-01-11"), hora: "15:00:00", client: clientA!, appointmentStatus: pendiente! }),
-    apptRepo.create({ fecha: new Date("2026-01-12"), hora: "16:00:00", client: clientA!, appointmentStatus: completada! }),
+    apptRepo.create({ fecha: enDias(10), hora: "14:00:00", client: clientA!, appointmentStatus: pendiente! }),
+    apptRepo.create({ fecha: enDias(11), hora: "15:00:00", client: clientA!, appointmentStatus: pendiente! }),
+    apptRepo.create({ fecha: enDias(12), hora: "16:00:00", client: clientA!, appointmentStatus: completada! }),
   ]);
   apptIdorId = a1.id_cita;
   apptOwnId = a2.id_cita;
