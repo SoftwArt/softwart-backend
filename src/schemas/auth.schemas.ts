@@ -19,10 +19,21 @@ export const telefonoSchema = z
   .string()
   .refine((v) => v === "" || /^\d{10,15}$/.test(v), TELEFONO_MENSAJE);
 
+// ── Nombre (mínimo 2 caracteres, sin dígitos) ─────────────────────────────────
+// Mensajes custom para no dejar pasar el genérico de Zod ("String must
+// contain at least 2 character(s)") hasta el usuario final.
+export const NOMBRE_MIN_MENSAJE     = "El nombre debe tener al menos 2 caracteres";
+export const NOMBRE_NUMEROS_MENSAJE = "El nombre no puede contener números";
+export const nombreSchema = z
+  .string()
+  .min(2, NOMBRE_MIN_MENSAJE)
+  .max(100, "El nombre no puede superar los 100 caracteres")
+  .regex(/^[^0-9]*$/, NOMBRE_NUMEROS_MENSAJE);
+
 export const guestClientSchema = z.object({
   tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
   documento:     z.string().min(1, "documento es requerido"),
-  nombre:        z.string().min(2).max(100),
+  nombre:        nombreSchema,
   correo:        z.string().email("Correo inválido"),
   telefono:      z.string().optional(),
 });
@@ -30,7 +41,7 @@ export const guestClientSchema = z.object({
 export const guestAppointmentSchema = z.object({
   tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
   documento:     z.string().min(1, "documento es requerido"),
-  nombre:        z.string().min(2).max(100),
+  nombre:        nombreSchema,
   correo:        z.string().email("Correo inválido"),
   telefono:      z.string().optional(),
   fecha:         z.string().min(1, "fecha es requerida"),
@@ -41,7 +52,7 @@ export const guestAppointmentSchema = z.object({
 export const registerSchema = z.object({
   tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
   documento:     z.string().min(1, "documento es requerido"),
-  nombre:        z.string().min(2).max(100),
+  nombre:        nombreSchema,
   correo:        z.string().email("Correo inválido"),
   clave:         claveSchema,
   telefono:      telefonoSchema.optional(),

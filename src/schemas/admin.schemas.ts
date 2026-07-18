@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { claveSchema, telefonoSchema } from "./auth.schemas";
+import { claveSchema, telefonoSchema, nombreSchema } from "./auth.schemas";
 
 // ── Catálogos de nombre único ──────────────────────────────────────────────
 const nombre    = z.object({ nombre: z.string().min(1, "nombre es requerido") });
@@ -26,7 +26,7 @@ export const changeAppointmentStatusSchema = z.object({ id_estado_cita: z.number
 export const createClientSchema = z.object({
   tipoDocumento: z.string().min(1),
   documento:     z.string().min(1),
-  nombre:        z.string().min(2).max(100),
+  nombre:        nombreSchema,
   correo:        z.string().email("Correo inválido"),
   telefono:      telefonoSchema.optional(),
 });

@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { telefonoSchema } from "./auth.schemas";
+import { telefonoSchema, nombreSchema } from "./auth.schemas";
 
 export const editProfileSchema = z.object({
-  nombre:       z.string().min(2).max(100).optional(),
+  nombre:       nombreSchema.optional(),
   telefono:     telefonoSchema.nullable().optional(),
   correo:       z.string().email("Correo inválido").optional(),
   clave_actual: z.string().optional(),
