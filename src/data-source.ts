@@ -24,6 +24,7 @@ import { Appointment }       from "./models/Appointment";
 import { Frame }             from "./models/Frame";
 import { Sale }              from "./models/Sale";
 import { SaleDetail }        from "./models/SaleDetail";
+import { ServiceStatusHistory } from "./models/ServiceStatusHistory";
 import { Payment }           from "./models/Payment";
 
 const isProd = process.env.NODE_ENV === "production";
@@ -33,7 +34,7 @@ const entities = [
   Permission, Role, RolePermission, User,
   Client,
   Service, AppointmentStatus, ServiceStatus, PaymentMethod, PaymentStatus,
-  Appointment, Frame, Sale, SaleDetail,
+  Appointment, Frame, Sale, SaleDetail, ServiceStatusHistory,
   Payment,
 ];
 

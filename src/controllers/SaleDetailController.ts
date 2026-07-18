@@ -4,11 +4,12 @@
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { SaleDetail } from "../models/SaleDetail";
+import { ServiceStatusHistory } from "../models/ServiceStatusHistory";
 import { Sale } from "../models/Sale";
 import { Service } from "../models/Service";
 import { ServiceStatus } from "../models/ServiceStatus";
 import { Frame } from "../models/Frame";
-import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
+import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 
 const SALE_RELATIONS = ["sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
@@ -81,6 +82,7 @@ export const createSaleDetail = async (req: Request, res: Response): Promise<voi
       obj.frame = rel;
     }
     await detalleVentaRepo.save(obj);
+    if (obj.serviceStatus) await logServiceStatusChange(AppDataSource.manager, obj, obj.serviceStatus);
     res.status(201).json({ success: true, message: "DetalleVenta creado exitosamente", data: obj });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al crear DetalleVenta", error });
@@ -112,10 +114,11 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
       if (!rel) { res.status(404).json({ success: false, message: "Servicio no encontrado" }); return; }
       item.service = rel;
     }
-    if (req.body.id_estado !== undefined) {
-      const rel = await AppDataSource.getRepository(ServiceStatus).findOneBy({ id_estado: Number(req.body.id_estado) });
-      if (!rel) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
-      item.serviceStatus = rel;
+    let nuevoEstado: ServiceStatus | null = null;
+    if (req.body.id_estado !== undefined && Number(req.body.id_estado) !== item.serviceStatus?.id_estado) {
+      nuevoEstado = await AppDataSource.getRepository(ServiceStatus).findOneBy({ id_estado: Number(req.body.id_estado) });
+      if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
+      item.serviceStatus = nuevoEstado;
     }
     if (req.body.id_marco !== undefined) {
       const rel = await AppDataSource.getRepository(Frame).findOneBy({ id_marco: Number(req.body.id_marco) });
@@ -123,6 +126,7 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
       item.frame = rel;
     }
     await detalleVentaRepo.save(item);
+    if (nuevoEstado) await logServiceStatusChange(AppDataSource.manager, item, nuevoEstado);
     res.json({ success: true, message: "DetalleVenta actualizado", data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al actualizar DetalleVenta", error });
@@ -145,5 +149,26 @@ export const toggleSaleDetailStatus = async (req: Request, res: Response): Promi
     res.json({ success: true, message: `DetalleVenta ${item.estado ? "activado" : "inactivado"}`, data: { estado: item.estado } });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al cambiar estado de DetalleVenta", error });
+  }
+};
+
+// GET /api/sale-details/:id/historial — línea de tiempo de cambios de estado
+export const getSaleDetailHistorial = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const historial = await AppDataSource.getRepository(ServiceStatusHistory).find({
+      where:     { saleDetail: { id_detalle: Number(req.params.id) } },
+      relations: ["serviceStatus"],
+      order:     { fecha: "ASC" },
+    });
+    res.json({
+      success: true,
+      data: historial.map(h => ({
+        id_historial: h.id_historial,
+        estado:       h.serviceStatus?.nombre ?? "—",
+        fecha:        h.fecha,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al obtener historial de DetalleVenta", error });
   }
 };

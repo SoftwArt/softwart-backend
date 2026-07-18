@@ -3,6 +3,7 @@ import { EntityManager } from "typeorm";
 import { Sale } from "../models/Sale";
 import { ServiceStatus } from "../models/ServiceStatus";
 import { PaymentStatus } from "../models/PaymentStatus";
+import { logServiceStatusChange } from "./serviceStatusHistory.helper";
 
 // Requiere sale.payments + sale.payments.paymentStatus cargados.
 export function saleHasValidatedPayments(sale: Sale): boolean {
@@ -53,6 +54,7 @@ export async function voidSaleCascade(
       if (!nombre.includes("finaliz") && !nombre.includes("cancel")) {
         d.serviceStatus = estadoCancelado;
         await manager.save(d);
+        await logServiceStatusChange(manager, d, estadoCancelado);
         serviciosCancelados++;
       }
     }

@@ -6,6 +6,7 @@ import { AppDataSource } from "../data-source";
 import { ServiceStatus } from "../models/ServiceStatus";
 import { SaleDetail } from "../models/SaleDetail";
 import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
+import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 
 const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
@@ -96,10 +97,15 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
         return;
       }
 
+      // target viene de una relación cargada aparte de target.sale.saleDetails
+      // (no es el mismo objeto JS aunque comparta id_detalle) — sin este alias,
+      // voidSaleCascade vería la copia con el estado viejo y lo "cancelaría"
+      // dos veces (doble conteo, doble entrada de historial).
+      const idx = target.sale.saleDetails?.findIndex(d => d.id_detalle === target.id_detalle) ?? -1;
+      if (idx >= 0 && target.sale.saleDetails) target.sale.saleDetails[idx] = target;
+
       let cascada = { serviciosCancelados: 0, abonosAnulados: 0 };
       await AppDataSource.transaction(async (manager) => {
-        target.serviceStatus = nuevoEstado;
-        await manager.save(target);
         cascada = await voidSaleCascade(manager, target.sale!);
       });
 
@@ -113,6 +119,7 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
 
     target.serviceStatus = nuevoEstado;
     await detalleVentaRepo.save(target);
+    await logServiceStatusChange(AppDataSource.manager, target, nuevoEstado);
     res.json({ success: true, message: "Estado de DetalleVenta actualizado", data: target });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error en changeSaleDetailStatus", error });

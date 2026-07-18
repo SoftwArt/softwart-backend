@@ -1,6 +1,6 @@
 // src/routes/CuentaClienteRoutes.ts
 import { Router }                                                          from "express";
-import { viewProfile, editProfile, myAppointments, createMyAppointment, cancelMyAppointment, deleteAccount, appointmentAvailability, myServices } from "../controllers/ClientAccountController";
+import { viewProfile, editProfile, myAppointments, createMyAppointment, cancelMyAppointment, deleteAccount, appointmentAvailability, myServices, myServiceHistorial } from "../controllers/ClientAccountController";
 import { verifyToken, requireCliente }                                     from "../middlewares/auth.middleware";
 import { validate }                                                        from "../middlewares/validate.middleware";
 import { editProfileSchema, createMyAppointmentSchema }                    from "../schemas/account.schemas";
@@ -14,6 +14,7 @@ router.get("/citas",               myAppointments);
 router.post("/citas",              validate(createMyAppointmentSchema),    createMyAppointment);
 router.patch("/citas/:id/cancelar", cancelMyAppointment);
 router.get("/servicios",           myServices);
+router.get("/servicios/:id/historial", myServiceHistorial);
 router.get("/availability",        appointmentAvailability);
 router.delete("/",                 deleteAccount);
 

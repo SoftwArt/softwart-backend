@@ -8,6 +8,7 @@ import { Sale } from "../models/Sale";
 import { AppointmentStatus } from "../models/AppointmentStatus";
 import { Client } from "../models/Client";
 import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
+import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 import { sendCitaConfirmadaEmail, sendCitaCanceladaEmail } from "../services/email.service";
 
 const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
@@ -287,6 +288,7 @@ export const createSaleFromAppointment = async (req: Request, res: Response): Pr
       }
 
       await queryRunner.manager.save(detalle);
+      if (detalle.serviceStatus) await logServiceStatusChange(queryRunner.manager, detalle, detalle.serviceStatus);
     }
 
     // Marcar cita como Completada (id 2)

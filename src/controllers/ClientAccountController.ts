@@ -7,6 +7,7 @@ import { Appointment }              from "../models/Appointment";
 import { AppointmentStatus }        from "../models/AppointmentStatus";
 import { Sale }             from "../models/Sale";
 import { SaleDetail }       from "../models/SaleDetail";
+import { ServiceStatusHistory } from "../models/ServiceStatusHistory";
 import bcrypt                from "bcrypt";
 import { claveSchema }       from "../schemas/auth.schemas";
 import {
@@ -280,6 +281,39 @@ export const myServices = async (req: Request, res: Response): Promise<void> => 
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener servicios", error });
+  }
+};
+
+// ── GET /api/cuenta/servicios/:id/historial ───────────────────────────────────
+// Línea de tiempo de cambios de estado de UN servicio propio. Verifica
+// propiedad contra el id_cliente del JWT antes de devolver nada (mismo
+// patrón que cancelMyAppointment) — evita IDOR sobre id_detalle ajenos.
+export const myServiceHistorial = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id_detalle = Number(req.params.id);
+    const detalle = await AppDataSource.getRepository(SaleDetail).findOne({
+      where:     { id_detalle },
+      relations: ["sale", "sale.client"],
+    });
+    if (!detalle || detalle.sale?.client?.id_cliente !== req.user!.id_cliente) {
+      res.status(404).json({ success: false, message: "Servicio no encontrado" });
+      return;
+    }
+    const historial = await AppDataSource.getRepository(ServiceStatusHistory).find({
+      where:     { saleDetail: { id_detalle } },
+      relations: ["serviceStatus"],
+      order:     { fecha: "ASC" },
+    });
+    res.json({
+      success: true,
+      data: historial.map(h => ({
+        id_historial: h.id_historial,
+        estado:       h.serviceStatus?.nombre ?? "—",
+        fecha:        h.fecha,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al obtener historial del servicio", error });
   }
 };
 
