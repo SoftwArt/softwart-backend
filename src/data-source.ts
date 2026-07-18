@@ -26,6 +26,7 @@ import { Sale }              from "./models/Sale";
 import { SaleDetail }        from "./models/SaleDetail";
 import { ServiceStatusHistory } from "./models/ServiceStatusHistory";
 import { Payment }           from "./models/Payment";
+import { LegalAcceptance }   from "./models/LegalAcceptance";
 
 const isProd = process.env.NODE_ENV === "production";
 const isTest = process.env.NODE_ENV === "test";
@@ -35,7 +36,7 @@ const entities = [
   Client,
   Service, AppointmentStatus, ServiceStatus, PaymentMethod, PaymentStatus,
   Appointment, Frame, Sale, SaleDetail, ServiceStatusHistory,
-  Payment,
+  Payment, LegalAcceptance,
 ];
 
 const migrations = isTest ? [] : [__dirname + "/migrations/*.{ts,js}"];
