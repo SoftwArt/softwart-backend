@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { claveSchema, telefonoSchema, nombreSchema } from "./auth.schemas";
+import { claveSchema, telefonoSchema, nombreSchema, validarDocumentoPorTipo } from "./auth.schemas";
 
 // ── Catálogos de nombre único ──────────────────────────────────────────────
 const nombre    = z.object({ nombre: z.string().min(1, "nombre es requerido") });
@@ -23,14 +23,27 @@ export const changeSaleDetailStatusSchema = z.object({ id_estado:       z.number
 export const changeAppointmentStatusSchema = z.object({ id_estado_cita: z.number().int().positive() });
 
 // ── Client ────────────────────────────────────────────────────────────────
-export const createClientSchema = z.object({
+const clientShape = z.object({
   tipoDocumento: z.string().min(1),
   documento:     z.string().min(1),
   nombre:        nombreSchema,
   correo:        z.string().email("Correo inválido"),
   telefono:      telefonoSchema.optional(),
 });
-export const updateClientSchema = createClientSchema.partial();
+
+export const createClientSchema = clientShape.superRefine((data, ctx) => {
+  const msg = validarDocumentoPorTipo(data.tipoDocumento, data.documento);
+  if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg, path: ["documento"] });
+});
+
+// .partial(): en edición solo se valida el documento si vinieron AMBOS
+// campos juntos (el CRUD siempre los manda juntos; otros consumidores de la
+// API podrían mandar solo uno para actualizar el otro campo aparte).
+export const updateClientSchema = clientShape.partial().superRefine((data, ctx) => {
+  if (data.tipoDocumento === undefined || data.documento === undefined) return;
+  const msg = validarDocumentoPorTipo(data.tipoDocumento, data.documento);
+  if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg, path: ["documento"] });
+});
 
 // ── Frame ─────────────────────────────────────────────────────────────────
 export const createFrameSchema = z.object({

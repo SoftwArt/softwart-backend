@@ -30,15 +30,56 @@ export const nombreSchema = z
   .max(100, "El nombre no puede superar los 100 caracteres")
   .regex(/^[^0-9]*$/, NOMBRE_NUMEROS_MENSAJE);
 
-export const guestClientSchema = z.object({
+// ── Número de documento (regla depende del tipo) ──────────────────────────────
+// Estándar colombiano (Anexo Técnico Resolución 2011/2388 Min. Salud, Circular
+// Única Registraduría, ICAO Doc 9303 para pasaportes):
+//   CC — numérico, 6, 7, 8 o 10 dígitos (nunca 9)
+//   TI — numérico, 10 u 11 dígitos
+//   CE — alfanumérico, sin longitud fija en la norma; se usa 6-10 caracteres
+//   PP — alfanumérico, hasta 9 caracteres (ICAO 9303, campo de MRZ)
+export type DocumentoRegla = { min: number; max: number; soloNumerico: boolean; label: string };
+
+export const DOCUMENTO_REGLAS: Record<string, DocumentoRegla> = {
+  CC: { min: 6,  max: 10, soloNumerico: true,  label: "La Cédula de Ciudadanía" },
+  TI: { min: 10, max: 11, soloNumerico: true,  label: "La Tarjeta de Identidad" },
+  CE: { min: 6,  max: 10, soloNumerico: false, label: "La Cédula de Extranjería" },
+  PP: { min: 6,  max: 9,  soloNumerico: false, label: "El Pasaporte" },
+};
+
+// null = válido (o tipoDocumento desconocido — lo cubre el propio campo aparte)
+export function validarDocumentoPorTipo(tipoDocumento: string, documento: string): string | null {
+  const regla = DOCUMENTO_REGLAS[tipoDocumento];
+  if (!regla || !documento) return null;
+  if (regla.soloNumerico && !/^\d+$/.test(documento)) {
+    return `${regla.label} solo debe contener números`;
+  }
+  if (documento.length < regla.min || documento.length > regla.max) {
+    const unidad = regla.soloNumerico ? "dígitos" : "caracteres";
+    return regla.min === regla.max
+      ? `${regla.label} debe tener ${regla.min} ${unidad}`
+      : `${regla.label} debe tener entre ${regla.min} y ${regla.max} ${unidad}`;
+  }
+  return null;
+}
+
+function conValidacionDeDocumento<T extends z.ZodObject<{ tipoDocumento: z.ZodTypeAny; documento: z.ZodTypeAny }>>(
+  shape: T,
+) {
+  return shape.superRefine((data, ctx) => {
+    const msg = validarDocumentoPorTipo(data.tipoDocumento as string, data.documento as string);
+    if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg, path: ["documento"] });
+  });
+}
+
+export const guestClientSchema = conValidacionDeDocumento(z.object({
   tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
   documento:     z.string().min(1, "documento es requerido"),
   nombre:        nombreSchema,
   correo:        z.string().email("Correo inválido"),
   telefono:      z.string().optional(),
-});
+}));
 
-export const guestAppointmentSchema = z.object({
+export const guestAppointmentSchema = conValidacionDeDocumento(z.object({
   tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
   documento:     z.string().min(1, "documento es requerido"),
   nombre:        nombreSchema,
@@ -47,16 +88,16 @@ export const guestAppointmentSchema = z.object({
   fecha:         z.string().min(1, "fecha es requerida"),
   hora:          z.string().min(1, "hora es requerida"),
   observacion:   z.string().optional(),
-});
+}));
 
-export const registerSchema = z.object({
+export const registerSchema = conValidacionDeDocumento(z.object({
   tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
   documento:     z.string().min(1, "documento es requerido"),
   nombre:        nombreSchema,
   correo:        z.string().email("Correo inválido"),
   clave:         claveSchema,
   telefono:      telefonoSchema.optional(),
-});
+}));
 
 export const loginSchema = z.object({
   correo: z.string().email("Correo inválido"),
