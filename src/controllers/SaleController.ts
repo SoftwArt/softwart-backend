@@ -4,12 +4,11 @@
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { Sale } from "../models/Sale";
-import { SaleDetail } from "../models/SaleDetail";
-import { Payment } from "../models/Payment";
 import { Appointment } from "../models/Appointment";
 import { Client } from "../models/Client";
-import { ServiceStatus } from "../models/ServiceStatus";
-import { PaymentStatus } from "../models/PaymentStatus";
+import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
+
+const CASCADE_RELATIONS = ["saleDetails", "saleDetails.serviceStatus", "payments", "payments.paymentStatus"];
 
 export const getAllSale = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -39,7 +38,7 @@ export const getSaleById = async (req: Request, res: Response): Promise<void> =>
     const ventaRepo = AppDataSource.getRepository(Sale);
     const item = await ventaRepo.findOne({
       where: { id_venta: Number(req.params.id) },
-      relations: ["appointment", "client"],
+      relations: ["appointment", "client", ...CASCADE_RELATIONS],
     });
     if (!item) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -104,24 +103,6 @@ export const updateSale = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const deleteSale = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const ventaRepo        = AppDataSource.getRepository(Sale);
-    const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
-    const pagoRepo         = AppDataSource.getRepository(Payment);
-    const countDetalle = await detalleVentaRepo.count({ where: { sale: { id_venta: Number(req.params.id) } } });
-    if (countDetalle > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${countDetalle})` }); return; }
-    const countPago = await pagoRepo.count({ where: { sale: { id_venta: Number(req.params.id) } } });
-    if (countPago > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Pago asociados (${countPago})` }); return; }
-    const item = await ventaRepo.findOneBy({ id_venta: Number(req.params.id) });
-    if (!item) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
-    await ventaRepo.remove(item);
-    res.json({ success: true, message: "Venta eliminado correctamente" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error al eliminar Venta", error });
-  }
-};
-
 // PATCH /api/sales/:id/estado
 // Reactivar: toggle simple. Anular: bloquea si hay pagos validados (implican
 // devolución, no anulación) y, si no, cancela en cascada los servicios no
@@ -144,10 +125,7 @@ export const toggleSaleStatus = async (req: Request, res: Response): Promise<voi
     }
 
     // Anular — bloquear si hay pagos validados (dinero real recibido → devolución)
-    const tieneValidados = (item.payments ?? []).some(
-      p => p.paymentStatus?.nombre?.toLowerCase().includes("validado")
-    );
-    if (tieneValidados) {
+    if (saleHasValidatedPayments(item)) {
       res.status(409).json({
         success: false,
         message: "No se puede anular: la venta tiene pagos validados. Registra la devolución antes de anularla.",
@@ -155,44 +133,15 @@ export const toggleSaleStatus = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const estadoCancelado = await AppDataSource.getRepository(ServiceStatus).findOneBy({ nombre: "Cancelado" });
-    const estadoAnulado   = await AppDataSource.getRepository(PaymentStatus).findOneBy({ nombre: "Anulado" });
-
-    let serviciosCancelados = 0;
-    let abonosAnulados = 0;
-
+    let cascada: { serviciosCancelados: number; abonosAnulados: number } = { serviciosCancelados: 0, abonosAnulados: 0 };
     await AppDataSource.transaction(async (manager) => {
-      item.estado = false;
-      await manager.save(item);
-
-      // Cancelar servicios que no estén finalizados ni ya cancelados
-      if (estadoCancelado) {
-        for (const d of item.saleDetails ?? []) {
-          const nombre = d.serviceStatus?.nombre?.toLowerCase() ?? "";
-          if (!nombre.includes("finaliz") && !nombre.includes("cancel")) {
-            d.serviceStatus = estadoCancelado;
-            await manager.save(d);
-            serviciosCancelados++;
-          }
-        }
-      }
-
-      // Anular abonos pendientes (los validados ya bloquearon arriba)
-      if (estadoAnulado) {
-        for (const p of item.payments ?? []) {
-          if (p.paymentStatus?.nombre?.toLowerCase().includes("pendiente")) {
-            p.paymentStatus = estadoAnulado;
-            await manager.save(p);
-            abonosAnulados++;
-          }
-        }
-      }
+      cascada = await voidSaleCascade(manager, item);
     });
 
     res.json({
       success: true,
-      message: `Venta anulada (servicios cancelados: ${serviciosCancelados}, abonos anulados: ${abonosAnulados})`,
-      data: { estado: false, serviciosCancelados, abonosAnulados },
+      message: `Venta anulada (servicios cancelados: ${cascada.serviciosCancelados}, abonos anulados: ${cascada.abonosAnulados})`,
+      data: { estado: false, ...cascada },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al cambiar estado de Venta", error });

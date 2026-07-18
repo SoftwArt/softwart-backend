@@ -110,14 +110,3 @@ export const updatePayment = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-export const deletePayment = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const pagoRepo = AppDataSource.getRepository(Payment);
-    const item = await pagoRepo.findOneBy({ id_pago: Number(req.params.id) });
-    if (!item) { res.status(404).json({ success: false, message: "Pago no encontrado" }); return; }
-    await pagoRepo.remove(item);
-    res.json({ success: true, message: "Pago eliminado correctamente" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error al eliminar Pago", error });
-  }
-};

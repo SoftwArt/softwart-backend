@@ -1,6 +1,6 @@
 ﻿import { Router } from "express";
 import { getAllPayment, getPaymentById, createPayment,
-         updatePayment, deletePayment } from "../controllers/PaymentController";
+         updatePayment } from "../controllers/PaymentController";
 import { verifyToken, requireRol } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import { createPaymentSchema, updatePaymentSchema } from "../schemas/admin.schemas";
@@ -13,6 +13,5 @@ router.get("/",       getAllPayment);
 router.get("/:id",    getPaymentById);
 router.post("/",      validate(createPaymentSchema), createPayment);
 router.put("/:id",    validate(updatePaymentSchema), updatePayment);
-router.delete("/:id", deletePayment);
 
 export { router as paymentRouter };

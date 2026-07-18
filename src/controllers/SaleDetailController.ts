@@ -8,6 +8,9 @@ import { Sale } from "../models/Sale";
 import { Service } from "../models/Service";
 import { ServiceStatus } from "../models/ServiceStatus";
 import { Frame } from "../models/Frame";
+import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
+
+const SALE_RELATIONS = ["sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
 export const getAllSaleDetail = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -37,7 +40,7 @@ export const getSaleDetailById = async (req: Request, res: Response): Promise<vo
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const item = await detalleVentaRepo.findOne({
       where: { id_detalle: Number(req.params.id) },
-      relations: ["sale", "sale.client", "service", "serviceStatus", "frame"],
+      relations: ["sale", "sale.client", "service", "serviceStatus", "frame", ...SALE_RELATIONS],
     });
     if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
     res.json({ success: true, data: item });
@@ -123,18 +126,6 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
     res.json({ success: true, message: "DetalleVenta actualizado", data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al actualizar DetalleVenta", error });
-  }
-};
-
-export const deleteSaleDetail = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
-    const item = await detalleVentaRepo.findOneBy({ id_detalle: Number(req.params.id) });
-    if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
-    await detalleVentaRepo.remove(item);
-    res.json({ success: true, message: "DetalleVenta eliminado correctamente" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error al eliminar DetalleVenta", error });
   }
 };
 
