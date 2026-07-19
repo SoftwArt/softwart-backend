@@ -21,6 +21,7 @@ import { paymentRouter }           from "./PaymentRoutes";
 import { authRouter }              from "./AuthRoutes";
 import { clientAccountRouter }     from "./ClientAccountRoutes";
 import { dashboardRouter }         from "./dashboard.routes";
+import { legalRouter }             from "./LegalRoutes";
 
 export function registerRoutes(app: Application): void {
   // ── Security ──────────────────────────────────────────────
@@ -53,4 +54,7 @@ export function registerRoutes(app: Application): void {
 
   // ── Dashboard ─────────────────────────────────────────────
   app.use("/api/dashboard", dashboardRouter);
+
+  // ── Legal (público) ───────────────────────────────────────
+  app.use("/api/legal", legalRouter);
 }
