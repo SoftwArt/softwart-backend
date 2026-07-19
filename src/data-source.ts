@@ -67,7 +67,11 @@ export const AppDataSource = isProd
       username:    process.env.DB_USER     ?? "root",
       password:    process.env.DB_PASSWORD ?? "",
       database:    process.env.DB_NAME     ?? "mi_base_de_datos",
-      synchronize: true,
+      // Test sigue con synchronize (dropSchema + sync = esquema fresco por
+      // corrida, sin depender de disciplina de migraciones). Dev real ahora
+      // corre migrationsRun para eliminar la carrera sync-vs-migración.
+      synchronize: isTest,
+      migrationsRun: !isTest,
       dropSchema:  isTest,
       logging:     !isTest,
       entities,
