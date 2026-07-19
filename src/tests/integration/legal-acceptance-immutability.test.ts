@@ -229,6 +229,29 @@ describe("aceptacion_legal — garantías de inmutabilidad (ADR-007)", () => {
     expect(fila.documento_titular).toBe("1000000001");  // el titular sigue identificable
   });
 
+  it("no permite modificar otras columnas aprovechando la exención de SET NULL", async () => {
+    // Contraparte del test anterior: la exención del trigger para el UPDATE
+    // interno de ON DELETE SET NULL debe exigir que id_cliente sea el ÚNICO
+    // cambio. Si solo mirara "NEW.id_cliente IS NULL", esta sentencia colaría
+    // un cambio de `version` disfrazado de SET NULL — la excepción se
+    // volvería la puerta que el trigger existe para cerrar.
+    const [cliente] = await qr.query(
+      `INSERT INTO cliente ("tipoDocumento", documento, nombre, correo, telefono, estado)
+       VALUES ('CC', '1000000004', 'Titular Escape', 'escape@example.com', '3000000002', true)
+       RETURNING id_cliente`,
+    );
+
+    const id = await insertarAceptacion({ id_cliente: cliente.id_cliente });
+
+    await expect(
+      qr.query(
+        `UPDATE aceptacion_legal SET id_cliente = NULL, version = '9.9'
+          WHERE id_aceptacion = $1`,
+        [id],
+      ),
+    ).rejects.toThrow(/auditoria inmutable/i);
+  });
+
   // -------------------------------------------------------------------------
   // Objetos de esquema presentes
   //
