@@ -56,7 +56,7 @@ export class LegalAcceptance {
   @Column({ type: "enum", enum: TipoDocumentoLegal, enumName: "tipo_documento_legal" })
   tipo_documento!: TipoDocumentoLegal;
 
-  @Column({ type: "varchar", length: 10 })
+  @Column({ type: "varchar", length: 30 })
   version!: string;
 
   // SHA-256 hex del texto exacto renderizado al titular — no solo la versión.

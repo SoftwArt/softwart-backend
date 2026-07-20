@@ -14,6 +14,8 @@ import { hashToken } from "../helpers/inviteToken.helper";
 import { sendRecoveryEmail, sendCitaConfirmacionEmail, sendAdminNewAppointmentAlert } from "../services/email.service";
 import { notifyNewAppointment } from "../services/push.service";
 import { logger } from "../config/logger";
+import { insertarAceptacionesLegales } from "../helpers/legalAcceptance.helper";
+import { ContextoAceptacion } from "../models/LegalAcceptance";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
@@ -228,10 +230,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Si ya existe como invitado, reutiliza el Cliente — solo crea el Usuario
-    let cliente = clienteExiste;
-    if (!cliente) {
-      cliente = clienteRepo.create({
+    // Cliente + Usuario + las 2 filas de aceptación legal (ToS y PyP) nacen
+    // en la misma transacción — ADR-007 §6: "Un cliente sin constancia de
+    // autorización es un estado inválido del sistema".
+    let cliente!: Client;
+    await AppDataSource.transaction(async (manager) => {
+      // Si ya existe como invitado, reutiliza el Cliente — solo crea el Usuario
+      const clienteRepoTx = manager.getRepository(Client);
+      cliente = clienteExiste ?? clienteRepoTx.create({
         tipoDocumento,
         documento,
         nombre,
@@ -239,12 +245,21 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         telefono: telefono ?? null,
         estado:   true,
       });
-      await clienteRepo.save(cliente);
-    }
+      if (!clienteExiste) await clienteRepoTx.save(cliente);
 
-    const hash    = await bcrypt.hash(clave, 10);
-    const usuario = usuarioRepo.create({ correo, clave: hash, role: rolCliente, estado: true });
-    await usuarioRepo.save(usuario);
+      const hash    = await bcrypt.hash(clave, 10);
+      const usuario = manager.getRepository(User).create({ correo, clave: hash, role: rolCliente, estado: true });
+      await manager.getRepository(User).save(usuario);
+
+      await insertarAceptacionesLegales(manager, {
+        id_cliente:        cliente.id_cliente,
+        documento_titular: cliente.documento,
+        correo_titular:    cliente.correo,
+        contexto:          ContextoAceptacion.REGISTRO,
+        ip:                req.ip ?? null,
+        user_agent:        req.headers["user-agent"] ?? null,
+      });
+    });
 
     res.status(201).json({
       success: true,

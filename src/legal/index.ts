@@ -13,6 +13,11 @@ import {
   POLITICA_PRIVACIDAD_FECHA,
   POLITICA_PRIVACIDAD_SECCIONES,
 } from "./politicaPrivacidad";
+import {
+  TERMINOS_SERVICIO_VERSION,
+  TERMINOS_SERVICIO_FECHA,
+  TERMINOS_SERVICIO_SECCIONES,
+} from "./terminosServicio";
 
 export interface DocumentoLegal {
   tipo:     TipoDocumentoLegal;
@@ -30,9 +35,22 @@ const politicaPrivacidad: DocumentoLegal = {
   secciones: POLITICA_PRIVACIDAD_SECCIONES,
 };
 
-// TERMINOS_SERVICIO se agrega aquí cuando se redacte (ver ADR-007 §6: "Un
-// registro produce dos filas, una por cada tipo_documento" — el wiring de
-// aceptación en register/createClient no puede completarse hasta que exista).
+// ⚠️ terminosServicio.ts sigue en ESTADO: BORRADOR (varios [[PENDIENTE]] sin
+// resolver con Silvana — ver PENDIENTES_TOS en ese archivo). Se conecta igual
+// por decisión explícita para poder avanzar el wiring de aceptación; el hash
+// que queda registrado en cada fila de aceptacion_legal seguirá siendo válido
+// como prueba de "qué texto exacto se mostró", pero ese texto cambiará en
+// cuanto se resuelvan los pendientes — la versión pasará de '1.0-BORRADOR' a
+// '1.0' y se forzará re-aceptación (ADR-007, regla de versionado).
+const terminosServicio: DocumentoLegal = {
+  tipo:      TipoDocumentoLegal.TERMINOS_SERVICIO,
+  version:   TERMINOS_SERVICIO_VERSION,
+  fecha:     TERMINOS_SERVICIO_FECHA,
+  hash:      hashDocumentoLegal(TERMINOS_SERVICIO_SECCIONES),
+  secciones: TERMINOS_SERVICIO_SECCIONES,
+};
+
 export const DOCUMENTOS_LEGALES: Partial<Record<TipoDocumentoLegal, DocumentoLegal>> = {
   [TipoDocumentoLegal.POLITICA_PRIVACIDAD]: politicaPrivacidad,
+  [TipoDocumentoLegal.TERMINOS_SERVICIO]:   terminosServicio,
 };

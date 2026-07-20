@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import app from "../../app";
+import { AppDataSource } from "../../data-source";
 import "../setup";
 
 const ADMIN = { correo: "admin@softwart.com", clave: "Admin1234!" };
@@ -11,6 +12,7 @@ const NEW_USER = {
   correo: "testauth@test.com",
   clave: "Test1234!",
   telefono: "3001234567",
+  acceptTerms: true,
 };
 
 describe("POST /api/auth/login", () => {
@@ -56,6 +58,26 @@ describe("POST /api/auth/register", () => {
     expect(res.body.data.correo).toBe(NEW_USER.correo);
   });
 
+  it("registers the acceptance of both legal documents atomically (ADR-007)", async () => {
+    const correo = "aceptacion@test.com";
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ ...NEW_USER, correo, documento: "99999999" });
+    expect(res.status).toBe(201);
+
+    const filas = await AppDataSource.query(
+      `SELECT tipo_documento, evento, version FROM aceptacion_legal WHERE correo_titular = $1`,
+      [correo],
+    );
+    expect(filas).toHaveLength(2);
+    const tipos = filas.map((f: { tipo_documento: string }) => f.tipo_documento).sort();
+    expect(tipos).toEqual(["POLITICA_PRIVACIDAD", "TERMINOS_SERVICIO"]);
+    for (const fila of filas) {
+      expect(fila.evento).toBe("ACEPTACION");
+      expect(fila.version).toBeTruthy();
+    }
+  });
+
   it("returns 409 when email is already registered", async () => {
     const res = await request(app).post("/api/auth/register").send(NEW_USER);
     expect(res.status).toBe(409);
@@ -66,6 +88,14 @@ describe("POST /api/auth/register", () => {
     const res = await request(app)
       .post("/api/auth/register")
       .send({ correo: "incomplete@test.com" });
+    expect(res.status).toBe(422);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("returns 422 when acceptTerms is false or missing", async () => {
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ ...NEW_USER, correo: "sinaceptar@test.com", acceptTerms: false });
     expect(res.status).toBe(422);
     expect(res.body.success).toBe(false);
   });

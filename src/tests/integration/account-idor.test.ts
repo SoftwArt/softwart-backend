@@ -22,7 +22,7 @@ let apptCompletedId: number; // de A — estado Completada, no cancelable
 const registerAndLogin = async (correo: string, documento: string, nombre: string) => {
   await request(app).post("/api/auth/register").send({
     tipoDocumento: "CC", documento, nombre, correo,
-    clave: "Cliente1234!", telefono: "3001112233",
+    clave: "Cliente1234!", telefono: "3001112233", acceptTerms: true,
   });
   const login = await request(app).post("/api/auth/login").send({ correo, clave: "Cliente1234!" });
   return login.body.token as string;

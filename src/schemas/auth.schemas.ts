@@ -97,6 +97,10 @@ export const registerSchema = conValidacionDeDocumento(z.object({
   correo:        z.string().email("Correo inválido"),
   clave:         claveSchema,
   telefono:      telefonoSchema.optional(),
+  // El backend no confía en que el checkbox del frontend haya estado
+  // marcado — lo re-valida acá. z.literal(true) rechaza tanto `false` como
+  // la ausencia del campo.
+  acceptTerms:   z.literal(true, { message: "Debes aceptar los Términos de Servicio y la Política de Privacidad" }),
 }));
 
 export const loginSchema = z.object({
