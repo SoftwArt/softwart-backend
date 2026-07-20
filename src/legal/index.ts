@@ -1,7 +1,7 @@
 // src/legal/index.ts
 // Punto único de acceso a los documentos legales — LegalController y el
-// wiring de aceptación (register / createClient con crearAccesoPortal) deben
-// importar desde acá, nunca leer politicaPrivacidad.ts directamente.
+// wiring de aceptación (register, la única vía de alta de Cliente con cuenta)
+// deben importar desde acá, nunca leer politicaPrivacidad.ts directamente.
 //
 // El hash se calcula al importarse este módulo por primera vez (Node cachea
 // el módulo, así que solo corre una vez por proceso — "al arranque del

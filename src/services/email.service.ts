@@ -100,65 +100,6 @@ export const sendRecoveryEmail = async (
   console.log("✅ Email de recuperación enviado:", data?.id);
 };
 
-// ── Invitación al portal (Cliente creado desde el admin) ──────────────────────
-export const sendClientInviteEmail = async (
-  correo: string,
-  token: string,
-  nombre: string
-): Promise<void> => {
-  // Mismo link/página que la recuperación de contraseña (/reset?token=...) —
-  // resetPassword no distingue "invitación" de "reset", solo valida el token.
-  const resetUrl = `${FRONTEND_URL}/reset?token=${token}`;
-  const { data, error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to: correo,
-    subject: "Bienvenido a Arte Café — Configura tu contraseña",
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
-
-        ${emailHeader("Acceso al portal de clientes")}
-
-        <!-- Body -->
-        <div style="background: #fff; padding: 32px; border: 1px solid #e5e5e5; border-top: none;">
-          <p style="margin: 0 0 16px; font-size: 15px;">
-            Hola, <strong>${nombre}</strong> 👋
-          </p>
-          <p style="margin: 0 0 24px; font-size: 15px; color: #444;">
-            Se creó tu cuenta en el portal de Arte Café. Configura tu contraseña para
-            empezar a usarla y hacer seguimiento a tus citas y pedidos:
-          </p>
-
-          <!-- Botón con el link de configuración -->
-          <div style="text-align: center; margin: 0 0 24px;">
-            <a href="${resetUrl}" style="
-              display: inline-block; background: #7c4a2d; color: #fff;
-              text-decoration: none; font-size: 15px; font-weight: 600;
-              padding: 14px 32px; border-radius: 8px;
-            ">Configurar contraseña</a>
-          </div>
-
-          <p style="margin: 0 0 8px; font-size: 13px; color: #777;">
-            O copia y pega este enlace en tu navegador:
-          </p>
-          <p style="margin: 0 0 24px; font-size: 12px; color: #7c4a2d; word-break: break-all;">
-            ${resetUrl}
-          </p>
-
-          <p style="margin: 0 0 8px; font-size: 14px; color: #555;">
-            El enlace expira en <strong>24 horas</strong> y solo puede usarse una vez. Si expira,
-            puedes pedir uno nuevo desde la misma página con "¿No recibiste el enlace?".
-          </p>
-        </div>
-
-        ${emailFooter()}
-
-      </div>
-    `,
-  });
-  if (error) throw new Error(`Resend error (invite): ${error.message}`);
-  console.log("✅ Email de invitación enviado:", data?.id);
-};
-
 // ── Confirmación de cita agendada ─────────────────────────────────────────────
 export type CitaConfirmacionData = {
   correo:       string

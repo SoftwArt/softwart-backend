@@ -77,10 +77,7 @@ export const TERMINOS_SERVICIO_SECCIONES = [
   {
     titulo: '3. Cuentas de usuario',
     parrafos: [
-      'Para usar el portal de clientes necesitas una cuenta. Puedes crearla tú desde el sitio web, o ' +
-      'Arte Café puede crearla a tu nombre cuando te atiende presencialmente; en ese caso recibirás un ' +
-      'correo de invitación para definir tu contraseña, válido por veinticuatro (24) horas. Si vence, ' +
-      'puedes solicitar una nueva invitación o usar la opción de recuperación de contraseña.',
+      'Para usar el portal de clientes necesitas una cuenta. Puedes crearla tú desde el sitio web.',
 
       'Te comprometes a suministrar información veraz y a mantenerla actualizada. Los datos que ' +
       'registras se usan para identificarte, contactarte y asociar correctamente tus servicios y pagos.',

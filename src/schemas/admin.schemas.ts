@@ -23,15 +23,16 @@ export const changeSaleDetailStatusSchema = z.object({ id_estado:       z.number
 export const changeAppointmentStatusSchema = z.object({ id_estado_cita: z.number().int().positive() });
 
 // ── Client ────────────────────────────────────────────────────────────────
+// La única forma de que un Cliente tenga cuenta de Usuario es el autorregistro
+// público (POST /api/auth/register) — ahí sí queda la aceptación digital de
+// ToS/PyP del propio titular. El panel admin solo administra la ficha del
+// Cliente (sin cuenta), nunca crea acceso al portal en su nombre.
 const clientShape = z.object({
   tipoDocumento: z.string().min(1),
   documento:     z.string().min(1),
   nombre:        nombreSchema,
   correo:        z.string().email("Correo inválido"),
   telefono:      telefonoSchema.optional(),
-  // Solo aplica en creación: crea el Usuario (rol Cliente) atómicamente y
-  // envía el correo de invitación para que configure su propia contraseña.
-  crearAccesoPortal: z.boolean().optional(),
 });
 
 export const createClientSchema = clientShape.superRefine((data, ctx) => {

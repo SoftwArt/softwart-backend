@@ -1,7 +1,7 @@
 // src/controllers/AuthController.ts
 import { Request, Response } from "express";
 import { AppDataSource }     from "../data-source";
-import { User }              from "../models/User";
+import { User }               from "../models/User";
 import { Client }            from "../models/Client";
 import { Role }              from "../models/Role";
 import { Appointment }       from "../models/Appointment";
