@@ -52,8 +52,12 @@ export const getAllAppointment = async (req: Request, res: Response): Promise<vo
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
+    // "sale" (sin sub-relaciones) para que el frontend pueda mostrar, sin
+    // pedir nada extra, qué citas ya completaron el flujo de venta —
+    // id_estado_cita=Completada no es un proxy confiable (se puede marcar
+    // manualmente sin pasar por create-sale), así que se expone la Venta real.
     const [items, total] = await citaRepo.findAndCount({
-      relations: ["appointmentStatus", "client"],
+      relations: ["appointmentStatus", "client", "sale"],
       skip,
       take: limit,
     });
@@ -121,6 +125,13 @@ export const updateAppointment = async (req: Request, res: Response): Promise<vo
     // Estado terminal: una cita cancelada no puede modificarse.
     if (item.appointmentStatus?.nombre?.toLowerCase().includes("cancelada")) {
       res.status(409).json({ success: false, message: "No se puede modificar una cita cancelada" }); return;
+    }
+    // Una cita Completada ya ocurrió (y pudo generar una Venta) — permitir
+    // reagendar su fecha/hora después del hecho corrompería el registro
+    // histórico. El único cambio permitido a partir de acá es de estado
+    // (ej. cancelarla), manejado más abajo, no edición de fecha/hora.
+    if (item.appointmentStatus?.nombre?.toLowerCase().includes("completada") && (req.body.fecha !== undefined || req.body.hora !== undefined)) {
+      res.status(409).json({ success: false, message: "No se puede modificar la fecha/hora de una cita Completada" }); return;
     }
 
     let nuevoEstado: AppointmentStatus | null = null;
