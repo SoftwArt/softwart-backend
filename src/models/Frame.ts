@@ -10,8 +10,10 @@ export class Frame {
   @Column({ unique: true })
   codigo!: string;
 
-  @Column()
-  colilla!: string;
+  // Ancho de la colilla en mm — se suma a (largo + ancho) × 2 en la fórmula
+  // de la calculadora (CalculatorPage), nunca fue un dato textual.
+  @Column({ type: "int" })
+  colilla!: number;
 
   @Column({ type: "decimal", precision: 10, scale: 2 })
   precio_ensamblado!: number;

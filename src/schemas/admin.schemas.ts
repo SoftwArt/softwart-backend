@@ -52,7 +52,7 @@ export const updateClientSchema = clientShape.partial().superRefine((data, ctx) 
 // ── Frame ─────────────────────────────────────────────────────────────────
 export const createFrameSchema = z.object({
   codigo:            z.string().min(1),
-  colilla:           z.string().min(1),
+  colilla:           z.number().int().positive(),
   precio_ensamblado: z.number().positive(),
 });
 export const updateFrameSchema = createFrameSchema.partial();
