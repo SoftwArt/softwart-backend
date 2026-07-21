@@ -11,10 +11,10 @@ const router = Router();
 router.get("/",    getAllPaymentMethod);
 router.get("/:id", getPaymentMethodById);
 
-router.post("/",   verifyToken, requireRol("Admin", "Empleado"), validate(createPaymentMethodSchema), createPaymentMethod);
-router.put("/:id", verifyToken, requireRol("Admin", "Empleado"), validate(updatePaymentMethodSchema), updatePaymentMethod);
-router.delete("/:id", verifyToken, requireRol("Admin", "Empleado"), deletePaymentMethod);
+router.post("/",   verifyToken, requireRol("Admin"), validate(createPaymentMethodSchema), createPaymentMethod);
+router.put("/:id", verifyToken, requireRol("Admin"), validate(updatePaymentMethodSchema), updatePaymentMethod);
+router.delete("/:id", verifyToken, requireRol("Admin"), deletePaymentMethod);
 
-router.patch("/pago/:id_pago/metodo", verifyToken, requireRol("Admin", "Empleado"), validate(assignPaymentMethodSchema), assignPaymentMethod);
+router.patch("/pago/:id_pago/metodo", verifyToken, requireRol("Admin"), validate(assignPaymentMethodSchema), assignPaymentMethod);
 
 export { router as paymentMethodRouter };

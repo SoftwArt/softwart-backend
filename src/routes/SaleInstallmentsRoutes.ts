@@ -9,8 +9,8 @@ import { registerInstallmentSchema, configureInstallmentsSchema } from "../schem
 
 const router = Router();
 
-// Todas requieren estar autenticado como Admin o Empleado
-router.use(verifyToken, requireRol("Admin", "Empleado"));
+// Todas requieren estar autenticado como Admin
+router.use(verifyToken, requireRol("Admin"));
 
 router.get  ("/:id/payment-plan",           getPaymentPlan);
 router.post ("/:id/installment",            validate(registerInstallmentSchema),    registerInstallment);

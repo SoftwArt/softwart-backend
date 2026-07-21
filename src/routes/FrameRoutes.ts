@@ -7,7 +7,7 @@ import { createFrameSchema, updateFrameSchema } from "../schemas/admin.schemas";
 
 const router = Router();
 
-router.use(verifyToken, requireRol("Admin", "Empleado"));
+router.use(verifyToken, requireRol("Admin"));
 
 router.get("/",             getAllFrame);
 router.get("/:id",          getFrameById);

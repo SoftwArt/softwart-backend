@@ -92,17 +92,6 @@ const PERMISOS_CLIENTE = [
   "CUENTA.ELIMINAR_CUENTA",
 ];
 
-// Permisos que se asignan al rol Empleado
-const PERMISOS_EMPLEADO = [
-  "CLIENTES.VER",    "CLIENTES.CREAR",   "CLIENTES.EDITAR",   "CLIENTES.TOGGLE_ESTADO",
-  "CITAS.VER",       "CITAS.CREAR",      "CITAS.EDITAR",      "CITAS.CAMBIAR_ESTADO",
-  "VENTAS.VER",      "VENTAS.CREAR",     "VENTAS.EDITAR",     "VENTAS.TOGGLE_ESTADO",
-  "PEDIDOS.VER",     "PEDIDOS.CREAR",    "PEDIDOS.EDITAR",    "PEDIDOS.CAMBIAR_ESTADO",
-  "PAGOS.VER",       "PAGOS.CREAR",      "PAGOS.EDITAR",      "PAGOS.CAMBIAR_ESTADO",  "PAGOS.CAMBIAR_METODO",
-  "MARCOS.VER",      "MARCOS.CREAR",     "MARCOS.EDITAR",     "MARCOS.TOGGLE_ESTADO",
-  "SERVICIOS.VER",
-];
-
 async function asignarPermisos(
   permisoRolRepo: ReturnType<typeof AppDataSource.getRepository<RolePermission>>,
   rol: Role,
@@ -143,23 +132,19 @@ export async function seedPermissions(): Promise<void> {
   // ── 2. Cargar todos los permisos ya guardados ─────────────────────────────
   const todosLosPermisos = await permisoRepo.find();
   const permisosCliente  = todosLosPermisos.filter(p => PERMISOS_CLIENTE.includes(p.nombre));
-  const permisosEmpleado = todosLosPermisos.filter(p => PERMISOS_EMPLEADO.includes(p.nombre));
 
   // ── 3. Asignar a Admin → todos ────────────────────────────────────────────
+  // Se matchea por nombre — seguro ahora que Role.nombre es unique en BD y
+  // updateRole bloquea renombrar Admin/Cliente (ver esRolEstructural en
+  // RoleController.ts), así que ya no puede colisionar con un rol nuevo ni
+  // quedar huérfano si cambia el orden/IDs con el que se siembran los roles.
   const admin = await rolRepo.findOne({ where: { nombre: "Admin" } });
   if (admin) {
     await asignarPermisos(permisoRolRepo, admin, todosLosPermisos);
     console.log("✅  Permisos asignados a Admin");
   }
 
-  // ── 4. Asignar a Empleado → permisos operativos ───────────────────────────
-  const empleado = await rolRepo.findOne({ where: { nombre: "Empleado" } });
-  if (empleado) {
-    await asignarPermisos(permisoRolRepo, empleado, permisosEmpleado);
-    console.log("✅  Permisos asignados a Empleado");
-  }
-
-  // ── 5. Asignar a Cliente → solo los 4 básicos ─────────────────────────────
+  // ── 4. Asignar a Cliente → solo los 4 básicos ─────────────────────────────
   const cliente = await rolRepo.findOne({ where: { nombre: "Cliente" } });
   if (cliente) {
     await asignarPermisos(permisoRolRepo, cliente, permisosCliente);

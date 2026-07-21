@@ -5,7 +5,7 @@ import { verifyToken, requireRol } from '../middlewares/auth.middleware'
 
 const router = Router()
 
-router.use(verifyToken, requireRol('Admin', 'Empleado'))
+router.use(verifyToken, requireRol('Admin'))
 router.get('/', getDashboard)
 
 export { router as dashboardRouter }

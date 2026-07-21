@@ -7,10 +7,9 @@ export async function seedRoles(): Promise<void> {
   if (await repo.count() > 0) return;
 
   await repo.save(repo.create([
-    { nombre: "Admin",    estado: true },
-    { nombre: "Empleado", estado: true },
-    { nombre: "Cliente",  estado: true },
+    { nombre: "Admin",   estado: true },
+    { nombre: "Cliente", estado: true },
   ]));
 
-  console.log("✅  Roles sembrados (Admin, Empleado, Cliente)");
+  console.log("✅  Roles sembrados (Admin, Cliente)");
 }

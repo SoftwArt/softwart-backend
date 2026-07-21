@@ -7,7 +7,7 @@ import { createAppointmentSchema, updateAppointmentSchema, createSaleFromAppoint
 
 const router = Router();
 
-router.use(verifyToken, requireRol("Admin", "Empleado"));
+router.use(verifyToken, requireRol("Admin"));
 
 router.get("/",       getAllAppointment);
 router.get("/:id",    getAppointmentById);

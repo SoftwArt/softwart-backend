@@ -7,7 +7,7 @@ import { createClientSchema, updateClientSchema } from "../schemas/admin.schemas
 
 const router = Router();
 
-router.use(verifyToken, requireRol("Admin", "Empleado"));
+router.use(verifyToken, requireRol("Admin"));
 
 router.get("/",             getAllClient);
 router.get("/:id",          getClientById);

@@ -7,7 +7,7 @@ import { createSaleDetailSchema, updateSaleDetailSchema } from "../schemas/admin
 
 const router = Router();
 
-router.use(verifyToken, requireRol("Admin", "Empleado"));
+router.use(verifyToken, requireRol("Admin"));
 
 router.get("/",             getAllSaleDetail);
 router.get("/:id",          getSaleDetailById);

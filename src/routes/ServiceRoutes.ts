@@ -10,9 +10,9 @@ const router = Router();
 router.get("/",    getAllService);
 router.get("/:id", getServiceById);
 
-router.post("/",            verifyToken, requireRol("Admin", "Empleado"), validate(createServiceSchema), createService);
-router.put("/:id",          verifyToken, requireRol("Admin", "Empleado"), validate(updateServiceSchema), updateService);
-router.delete("/:id",       verifyToken, requireRol("Admin", "Empleado"), deleteService);
-router.patch("/:id/estado", verifyToken, requireRol("Admin", "Empleado"), toggleServiceStatus);
+router.post("/",            verifyToken, requireRol("Admin"), validate(createServiceSchema), createService);
+router.put("/:id",          verifyToken, requireRol("Admin"), validate(updateServiceSchema), updateService);
+router.delete("/:id",       verifyToken, requireRol("Admin"), deleteService);
+router.patch("/:id/estado", verifyToken, requireRol("Admin"), toggleServiceStatus);
 
 export { router as serviceRouter };
