@@ -7,6 +7,17 @@ import { Role } from "../models/Role";
 import { RolePermission } from "../models/RolePermission";
 import { User } from "../models/User";
 
+// Admin y Cliente son roles estructurales del sistema (sin Admin no hay
+// acceso administrativo; sin Cliente no hay a qué rol asignar una cuenta
+// registrada desde el portal) — no se pueden eliminar, desactivar ni
+// renombrar. Cualquier otro rol que se cree (ver migración
+// RemoveEmpleadoRole) queda fuera a propósito: es una decisión de negocio
+// operativa, no estructural.
+const esRolEstructural = (nombre: string | undefined): boolean => {
+  const n = nombre?.toLowerCase();
+  return n === "admin" || n === "cliente";
+};
+
 export const getAllRole = async (req: Request, res: Response): Promise<void> => {
   try {
     const rolRepo = AppDataSource.getRepository(Role);
@@ -43,6 +54,18 @@ export const createRole = async (req: Request, res: Response): Promise<void> => 
     const required = ["nombre"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
+
+    // Case-insensitive: "Admin" y "admin" son el mismo rol para efectos de
+    // los guards de deleteRole/toggleRoleStatus (comparan por .toLowerCase()).
+    const existente = await rolRepo
+      .createQueryBuilder("rol")
+      .where("LOWER(rol.nombre) = LOWER(:nombre)", { nombre: req.body.nombre })
+      .getOne();
+    if (existente) {
+      res.status(409).json({ success: false, message: `Ya existe un rol llamado "${req.body.nombre}"` });
+      return;
+    }
+
     const obj = rolRepo.create();
     obj.nombre = req.body.nombre;
     obj.estado = req.body.estado !== undefined ? req.body.estado : true;
@@ -58,7 +81,27 @@ export const updateRole = async (req: Request, res: Response): Promise<void> => 
     const rolRepo = AppDataSource.getRepository(Role);
     const item = await rolRepo.findOne({ where: { id_rol: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
-    if (req.body.nombre !== undefined) item.nombre = req.body.nombre;
+
+    if (req.body.nombre !== undefined && req.body.nombre.toLowerCase() !== item.nombre.toLowerCase()) {
+      // Renombrar Admin/Cliente los dejaría irreconocibles para los guards de
+      // deleteRole/toggleRoleStatus (comparan por nombre) — se bloquea antes
+      // de tocar nada.
+      if (esRolEstructural(item.nombre)) {
+        res.status(403).json({ success: false, message: `El rol ${item.nombre} no puede renombrarse` });
+        return;
+      }
+      const existente = await rolRepo
+        .createQueryBuilder("rol")
+        .where("LOWER(rol.nombre) = LOWER(:nombre)", { nombre: req.body.nombre })
+        .andWhere("rol.id_rol != :id", { id: item.id_rol })
+        .getOne();
+      if (existente) {
+        res.status(409).json({ success: false, message: `Ya existe un rol llamado "${req.body.nombre}"` });
+        return;
+      }
+      item.nombre = req.body.nombre;
+    }
+
     await rolRepo.save(item);
     res.json({ success: true, message: "Rol actualizado", data: item });
   } catch (error) {
@@ -73,8 +116,8 @@ export const deleteRole = async (req: Request, res: Response): Promise<void> => 
     const usuarioRepo    = AppDataSource.getRepository(User);
     const item = await rolRepo.findOneBy({ id_rol: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
-    if (item.nombre?.toLowerCase() === "admin") {
-      res.status(403).json({ success: false, message: "El rol Admin no puede eliminarse" }); return;
+    if (esRolEstructural(item.nombre)) {
+      res.status(403).json({ success: false, message: `El rol ${item.nombre} no puede eliminarse` }); return;
     }
     const countPermisoRol = await permisoRolRepo.count({ where: { role: { id_rol: Number(req.params.id) } } });
     if (countPermisoRol > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen PermisoRol asociados (${countPermisoRol})` }); return; }
@@ -92,8 +135,8 @@ export const toggleRoleStatus = async (req: Request, res: Response): Promise<voi
     const rolRepo = AppDataSource.getRepository(Role);
     const item = await rolRepo.findOneBy({ id_rol: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
-    if (item.nombre?.toLowerCase() === "admin") {
-      res.status(403).json({ success: false, message: "El rol Admin no puede desactivarse" }); return;
+    if (esRolEstructural(item.nombre)) {
+      res.status(403).json({ success: false, message: `El rol ${item.nombre} no puede desactivarse` }); return;
     }
     item.estado = !item.estado;
     await rolRepo.save(item);

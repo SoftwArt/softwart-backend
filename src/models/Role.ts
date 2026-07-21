@@ -8,7 +8,7 @@ export class Role {
   @PrimaryGeneratedColumn()
   id_rol!: number;
 
-  @Column()
+  @Column({ unique: true })
   nombre!: string;
 
   @Column({ type: "boolean" })
