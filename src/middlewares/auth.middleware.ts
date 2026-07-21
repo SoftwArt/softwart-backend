@@ -26,8 +26,13 @@ export const verifyToken: RequestHandler = (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET) as AuthUser;
     req.user = decoded;
     next();
-  } catch {
-    return res.status(403).json({ success: false, message: "Token inválido o expirado" });
+  } catch (err) {
+    // 401 = expiró, el frontend puede intentar refrescar la sesión.
+    // 403 = inválido/malformado, no tiene sentido reintentar.
+    if (err instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ success: false, message: "Token expirado" });
+    }
+    return res.status(403).json({ success: false, message: "Token inválido" });
   }
 };
 

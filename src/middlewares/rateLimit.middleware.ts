@@ -21,6 +21,18 @@ export const authLimiter = rateLimit({
   skipSuccessfulRequests: true,
 })
 
+// Más holgado que authLimiter: el refresh proactivo del frontend es
+// automático (cada ~15 min mientras la pestaña esté abierta), no una acción
+// deliberada del usuario — solo cuenta intentos fallidos.
+export const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isDev ? 200 : 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Demasiadas solicitudes de renovación de sesión.' },
+  skipSuccessfulRequests: true,
+})
+
 // Límite estricto para reenvío de código — evita spam de emails
 export const resendLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

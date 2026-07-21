@@ -20,6 +20,42 @@ import { ContextoAceptacion } from "../models/LegalAcceptance";
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
 
+// Sliding expiration: access token corto (verificado en cada request por
+// verifyToken) + refresh token opaco de vida más larga que se rota en cada
+// uso — mientras el usuario esté activo, /api/auth/refresh lo va extendiendo
+// otras REFRESH_TTL_MS sin que la sesión visible expire nunca.
+const ACCESS_TOKEN_TTL = "15m";
+const REFRESH_TTL_MS   = 8 * 60 * 60 * 1000; // 8h de inactividad
+
+// Firma el access token + genera y persiste un refresh token nuevo (rota el
+// anterior). Usado tanto por login como por refreshToken — única fuente de
+// verdad para no repetir la lógica de emisión en dos lugares.
+const issueTokenPair = async (
+  usuario: User,
+  id_cliente: number | null,
+): Promise<{ token: string; refreshToken: string }> => {
+  const token = jwt.sign(
+    {
+      id_usuario: usuario.id_usuario,
+      correo:     usuario.correo,
+      id_rol:     usuario.role?.id_rol,
+      rol:        usuario.role?.nombre,
+      id_cliente,
+    },
+    JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_TTL },
+  );
+
+  // Mismo patrón que recover/resendCode: token de alta entropía, solo se
+  // guarda el hash SHA-256 — el plaintext nunca toca la BD.
+  const refreshToken = crypto.randomBytes(32).toString("hex");
+  usuario.refresh_token_hash   = hashToken(refreshToken);
+  usuario.refresh_token_expira = new Date(Date.now() + REFRESH_TTL_MS);
+  await AppDataSource.getRepository(User).save(usuario);
+
+  return { token, refreshToken };
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  GET /api/auth/me/permissions  (requiere JWT)
 //  Devuelve los nombres de permisos asignados al rol del usuario autenticado.
@@ -275,10 +311,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/auth/login
 //  Body: { correo, clave }
-//  El token incluye id_cliente (null si es Admin/Empleado sin Cliente asociado)
+//  El token incluye id_cliente (null si es Admin sin Cliente asociado)
 //  El frontend usa "role" para redirigir:
-//    "Admin" / "Empleado" → panel admin  (PrivateRoute React)
-//    "Cliente"            → landing / mis citas
+//    "Admin"    → panel admin  (PrivateRoute React)
+//    "Cliente"  → landing / mis citas
 // ─────────────────────────────────────────────────────────────────────────────
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -321,22 +357,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const cliente    = await clienteRepo.findOne({ where: { correo } });
     const id_cliente = cliente?.id_cliente ?? null;
 
-    const token = jwt.sign(
-      {
-        id_usuario: usuario.id_usuario,
-        correo:     usuario.correo,
-        id_rol:     usuario.role?.id_rol,
-        rol:        usuario.role?.nombre,
-        id_cliente,
-      },
-      JWT_SECRET,
-      { expiresIn: "8h" },
-    );
+    const { token, refreshToken } = await issueTokenPair(usuario, id_cliente);
 
     res.json({
       success: true,
       message: "Bienvenido",
       token,
+      refreshToken,
       data: {
         id_usuario: usuario.id_usuario,
         correo:     usuario.correo,
@@ -348,6 +375,76 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
   } catch (error) {
     res.status(500).json({ success: false, message: "Error en login", error });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/auth/refresh
+//  Body: { refreshToken }
+//  Rota el refresh token (el anterior queda inválido) y emite un access token
+//  nuevo — sliding expiration: cada llamada exitosa extiende la sesión otras
+//  8h de inactividad sin que el usuario tenga que volver a loguearse.
+// ─────────────────────────────────────────────────────────────────────────────
+export const refreshToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { refreshToken: incoming } = req.body;
+
+    const usuarioRepo = AppDataSource.getRepository(User);
+    const usuario = await usuarioRepo.findOne({
+      where:     { refresh_token_hash: hashToken(incoming) },
+      relations: ["role"],
+    });
+
+    const expirado = usuario?.refresh_token_expira != null && usuario.refresh_token_expira < new Date();
+
+    if (!usuario || expirado || !usuario.estado) {
+      res.status(401).json({ success: false, message: "Sesión expirada, inicia sesión nuevamente" });
+      return;
+    }
+
+    const clienteRepo = AppDataSource.getRepository(Client);
+    const cliente     = await clienteRepo.findOne({ where: { correo: usuario.correo } });
+    const id_cliente  = cliente?.id_cliente ?? null;
+
+    const { token, refreshToken: nuevoRefreshToken } = await issueTokenPair(usuario, id_cliente);
+
+    res.json({
+      success: true,
+      message: "Token renovado",
+      token,
+      refreshToken: nuevoRefreshToken,
+      data: {
+        id_usuario: usuario.id_usuario,
+        correo:     usuario.correo,
+        rol:        usuario.role?.nombre,
+        id_cliente,
+        nombre:     cliente?.nombre ?? null,
+      },
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al renovar la sesión", error });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  POST /api/auth/logout  (requiere JWT — verifyToken)
+//  Invalida el refresh token del usuario autenticado del lado del servidor.
+//  Requiere un access token válido a propósito: alguien que solo robó un
+//  refresh token (sin el access token) no puede cerrarle la sesión a otro.
+// ─────────────────────────────────────────────────────────────────────────────
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const usuarioRepo = AppDataSource.getRepository(User);
+    const usuario = await usuarioRepo.findOneBy({ id_usuario: req.user!.id_usuario });
+    if (usuario) {
+      usuario.refresh_token_hash   = null;
+      usuario.refresh_token_expira = null;
+      await usuarioRepo.save(usuario);
+    }
+    res.json({ success: true, message: "Sesión cerrada" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al cerrar sesión", error });
   }
 };
 

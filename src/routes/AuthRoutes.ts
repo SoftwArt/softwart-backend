@@ -1,13 +1,15 @@
 import { Router } from "express";
-import { publicAvailability, guestAppointment, registerGuest, register, login, recover, resetPassword, resendCode, myPermissions, validateResetToken } from "../controllers/AuthController";
-import { authLimiter, resendLimiter } from "../middlewares/rateLimit.middleware";
+import { publicAvailability, guestAppointment, registerGuest, register, login, recover, resetPassword, resendCode, myPermissions, validateResetToken, refreshToken, logout } from "../controllers/AuthController";
+import { authLimiter, resendLimiter, refreshLimiter } from "../middlewares/rateLimit.middleware";
 import { validate } from "../middlewares/validate.middleware";
-import { guestAppointmentSchema, guestClientSchema, registerSchema, loginSchema, recoverSchema, resetPasswordSchema, resendCodeSchema } from "../schemas/auth.schemas";
+import { guestAppointmentSchema, guestClientSchema, registerSchema, loginSchema, recoverSchema, resetPasswordSchema, resendCodeSchema, refreshTokenSchema } from "../schemas/auth.schemas";
 import { verifyToken } from "../middlewares/auth.middleware";
 
 const router = Router();
 
 router.get ("/me/permissions",   verifyToken,   myPermissions);
+router.post("/refresh",          refreshLimiter, validate(refreshTokenSchema), refreshToken);
+router.post("/logout",           verifyToken,    logout);
 
 // Todos públicos — rate-limited
 router.get ("/availability",     publicAvailability);

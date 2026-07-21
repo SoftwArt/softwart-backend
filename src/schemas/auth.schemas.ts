@@ -120,3 +120,7 @@ export const resetPasswordSchema = z.object({
 export const resendCodeSchema = z.object({
   correo: z.string().email("Correo inválido"),
 });
+
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, "refreshToken es requerido"),
+});

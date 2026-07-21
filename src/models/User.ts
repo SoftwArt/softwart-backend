@@ -22,6 +22,14 @@ export class User {
   @Column({ type: "timestamp", nullable: true })
   token_expira!: Date | null;
 
+  // Sliding expiration — refresh token opaco, hasheado (SHA-256), un solo
+  // activo por usuario, rotado en cada /api/auth/refresh.
+  @Column({ type: "varchar", nullable: true })
+  refresh_token_hash!: string | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  refresh_token_expira!: Date | null;
+
   @ManyToOne(() => Role, (x) => x.users)
   @JoinColumn({ name: "id_rol" })
   role!: Role;
