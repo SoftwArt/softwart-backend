@@ -84,6 +84,13 @@ export const registerInstallment = async (req: Request, res: Response): Promise<
     })
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrada" }); return }
 
+    // Una venta anulada (Activo→Inactivo, ver toggleSaleStatus) ya cascadeó
+    // sus servicios/abonos pendientes — registrar un abono nuevo encima
+    // resucitaría una venta que el sistema ya dio por cerrada.
+    if (!venta.estado) {
+      res.status(409).json({ success: false, message: "No se puede registrar un abono: la venta está anulada" }); return
+    }
+
     // Excluir pagos anulados del conteo
     const pagosActivos    = venta.payments.filter(p => !p.paymentStatus?.nombre?.toLowerCase().includes("anulado"))
     const pagosRealizados = pagosActivos.length

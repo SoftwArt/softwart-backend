@@ -5,6 +5,8 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { PaymentStatus } from "../models/PaymentStatus";
 import { Payment } from "../models/Payment";
+import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
+import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/statusTransition.helper";
 
 export const getAllPaymentStatus = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -55,7 +57,13 @@ export const deletePaymentStatus = async (req: Request, res: Response): Promise<
     const repo     = AppDataSource.getRepository(PaymentStatus);
     const pagoRepo = AppDataSource.getRepository(Payment);
     const count = await pagoRepo.count({ where: { paymentStatus: { id_estado_pago: Number(req.params.id) } } });
-    if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Pago asociados (${count})` }); return; }
+    if (count > 0) {
+      enviarNoEliminarAsociados(res, {
+        count, singular: "pago", plural: "pagos", genero: "m",
+        alternativa: "Reasigna esos pagos a otro estado antes de eliminarlo.",
+      });
+      return;
+    }
     const item = await repo.findOneBy({ id_estado_pago: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "EstadoPago no encontrado" }); return; }
     await repo.remove(item);
@@ -72,15 +80,28 @@ export const changePaymentStatus = async (req: Request, res: Response): Promise<
     const estadoPagoRepo = AppDataSource.getRepository(PaymentStatus);
     const target = await pagoRepo.findOne({ where: { id_pago: Number(req.params.id_pago) }, relations: ["paymentStatus"] });
     if (!target) { res.status(404).json({ success: false, message: "Pago no encontrado" }); return; }
-    const estadoActual = target.paymentStatus?.nombre?.toLowerCase() ?? ""
-    if (estadoActual.includes("anulado")) {
-      res.status(409).json({ success: false, message: "No se puede cambiar el estado de un pago anulado" }); return;
-    }
-    if (estadoActual.includes("validado")) {
-      res.status(409).json({ success: false, message: "No se puede cambiar el estado de un pago validado" }); return;
-    }
+    const bloqueoTerminal = guardEstadoTerminal({
+      estadoActualNombre: target.paymentStatus?.nombre ?? "",
+      claveTerminal: "anulado", etiquetaEntidad: "pago", genero: "m", etiquetaEstado: "Anulado",
+      alternativa: "Un pago anulado no se reactiva — si fue un error, registra un abono nuevo.",
+    });
+    if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     const nuevoEstado = await estadoPagoRepo.findOneBy({ id_estado_pago: Number(req.body.id_estado_pago) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoPago no encontrado" }); return; }
+
+    // Un pago Validado ya se dio por completo — el único cambio de estado
+    // válido a partir de acá es anularlo, no "retroceder" a otro estado.
+    if (nuevoEstado.id_estado_pago !== target.paymentStatus?.id_estado_pago) {
+      const bloqueo = transicionUnicaPermitida({
+        estadoActualNombre: target.paymentStatus?.nombre ?? "",
+        estadoNuevoNombre:  nuevoEstado.nombre,
+        claveEstadoActual:    "validado",
+        claveEstadoPermitido: "anulado",
+        etiquetaEstadoPermitido: "Anulado",
+      });
+      if (bloqueo) { res.status(409).json({ success: false, message: bloqueo }); return; }
+    }
+
     target.paymentStatus = nuevoEstado;
     await pagoRepo.save(target);
     res.json({ success: true, message: "Estado de Pago actualizado", data: target });

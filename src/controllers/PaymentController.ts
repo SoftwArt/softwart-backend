@@ -7,6 +7,7 @@ import { Payment } from "../models/Payment";
 import { Sale } from "../models/Sale";
 import { PaymentMethod } from "../models/PaymentMethod";
 import { PaymentStatus } from "../models/PaymentStatus";
+import { guardEstadoTerminal } from "../helpers/statusTransition.helper";
 
 export const getAllPayment = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -55,11 +56,32 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
     obj.fecha       = req.body.fecha;
     obj.monto       = req.body.monto;
     obj.observacion = req.body.observacion;
-    if (req.body.id_venta !== undefined) {
-      const rel = await AppDataSource.getRepository(Sale).findOneBy({ id_venta: Number(req.body.id_venta) });
-      if (!rel) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
-      obj.sale = rel;
+
+    // id_venta es obligatorio (createPaymentSchema) — sin esto, el CRUD
+    // genérico de Pago sería una puerta de atrás sin ninguno de los guards
+    // de negocio de abajo.
+    const venta = await AppDataSource.getRepository(Sale).findOne({
+      where: { id_venta: Number(req.body.id_venta) },
+      relations: ["payments", "payments.paymentStatus"],
+    });
+    if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
+    // Mismo criterio que registerInstallment (SaleInstallmentsController.ts)
+    // — el CRUD genérico de Pago no puede ser una puerta de atrás para
+    // registrar abonos en una venta anulada, ni más de los configurados.
+    if (!venta.estado) {
+      res.status(409).json({ success: false, message: "No se puede registrar un pago: la venta está anulada" });
+      return;
     }
+    const pagosActivos = venta.payments.filter(p => !p.paymentStatus?.nombre?.toLowerCase().includes("anulado"));
+    if (pagosActivos.length >= venta.num_abonos) {
+      res.status(409).json({
+        success: false,
+        message: `Esta venta ya tiene ${venta.num_abonos} abono(s) registrado(s). No se pueden agregar más.`,
+      });
+      return;
+    }
+    obj.sale = venta;
+
     if (req.body.id_metodo_pago !== undefined) {
       const rel = await AppDataSource.getRepository(PaymentMethod).findOneBy({ id_metodo_pago: Number(req.body.id_metodo_pago) });
       if (!rel) { res.status(404).json({ success: false, message: "MetodoPago no encontrado" }); return; }
@@ -85,6 +107,12 @@ export const updatePayment = async (req: Request, res: Response): Promise<void> 
       relations: ["sale", "paymentMethod", "paymentStatus"],
     });
     if (!item) { res.status(404).json({ success: false, message: "Pago no encontrado" }); return; }
+    const bloqueoTerminal = guardEstadoTerminal({
+      estadoActualNombre: item.paymentStatus?.nombre ?? "",
+      claveTerminal: "anulado", etiquetaEntidad: "pago", genero: "m", etiquetaEstado: "Anulado",
+      alternativa: "Un pago anulado no se reactiva — si fue un error, registra un abono nuevo.",
+    });
+    if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
     if (req.body.monto       !== undefined) item.monto       = req.body.monto;
     if (req.body.observacion !== undefined) item.observacion = req.body.observacion;
