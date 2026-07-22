@@ -11,6 +11,9 @@ export class Role {
   @Column({ unique: true })
   nombre!: string;
 
+  @Column({ nullable: true })
+  descripcion?: string;
+
   @Column({ type: "boolean" })
   estado!: boolean;
 

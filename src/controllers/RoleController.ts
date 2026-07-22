@@ -6,6 +6,7 @@ import { AppDataSource } from "../data-source";
 import { Role } from "../models/Role";
 import { RolePermission } from "../models/RolePermission";
 import { User } from "../models/User";
+import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
 
 // Admin y Cliente son roles estructurales del sistema (sin Admin no hay
 // acceso administrativo; sin Cliente no hay a qué rol asignar una cuenta
@@ -68,6 +69,7 @@ export const createRole = async (req: Request, res: Response): Promise<void> => 
 
     const obj = rolRepo.create();
     obj.nombre = req.body.nombre;
+    obj.descripcion = req.body.descripcion;
     obj.estado = req.body.estado !== undefined ? req.body.estado : true;
     await rolRepo.save(obj);
     res.status(201).json({ success: true, message: "Rol creado exitosamente", data: obj });
@@ -102,6 +104,8 @@ export const updateRole = async (req: Request, res: Response): Promise<void> => 
       item.nombre = req.body.nombre;
     }
 
+    if (req.body.descripcion !== undefined) item.descripcion = req.body.descripcion;
+
     await rolRepo.save(item);
     res.json({ success: true, message: "Rol actualizado", data: item });
   } catch (error) {
@@ -120,9 +124,21 @@ export const deleteRole = async (req: Request, res: Response): Promise<void> => 
       res.status(403).json({ success: false, message: `El rol ${item.nombre} no puede eliminarse` }); return;
     }
     const countPermisoRol = await permisoRolRepo.count({ where: { role: { id_rol: Number(req.params.id) } } });
-    if (countPermisoRol > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen PermisoRol asociados (${countPermisoRol})` }); return; }
+    if (countPermisoRol > 0) {
+      enviarNoEliminarAsociados(res, {
+        count: countPermisoRol, singular: "permiso", plural: "permisos", genero: "m",
+        alternativa: "Desactívalo en su lugar.",
+      });
+      return;
+    }
     const countUsuario = await usuarioRepo.count({ where: { role: { id_rol: Number(req.params.id) } } });
-    if (countUsuario > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Usuario asociados (${countUsuario})` }); return; }
+    if (countUsuario > 0) {
+      enviarNoEliminarAsociados(res, {
+        count: countUsuario, singular: "usuario", plural: "usuarios", genero: "m",
+        alternativa: "Desactívalo en su lugar.",
+      });
+      return;
+    }
     await rolRepo.remove(item);
     res.json({ success: true, message: "Rol eliminado correctamente" });
   } catch (error) {
