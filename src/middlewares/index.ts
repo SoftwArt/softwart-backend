@@ -4,7 +4,7 @@
 export { corsMiddleware }      from "./cors.middleware";
 export { notFoundMiddleware }  from "./notFound.middleware";
 export { generalLimiter, authLimiter } from "./rateLimit.middleware";
-export { verifyToken, requireRol, requireCliente } from "./auth.middleware";
+export { verifyToken, requireCliente } from "./auth.middleware";
 export { requirePermission }      from "./requirePermission.middleware";
 
 export type { AuthUser }       from "./auth.middleware";

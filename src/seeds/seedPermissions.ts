@@ -5,6 +5,9 @@ import { Role }           from "../models/Role";
 import { RolePermission }    from "../models/RolePermission";
 
 const PERMISOS_BASE = [
+  // ── Panel Admin ──────────────────────────────────────────────────────────
+  { nombre: "PANEL.ACCESO",             descripcion: "Acceder al panel de administración" },
+
   // ── Cliente ──────────────────────────────────────────────────────────────
   { nombre: "CUENTA.VER_PERFIL",        descripcion: "Ver perfil del cliente" },
   { nombre: "CUENTA.EDITAR_PERFIL",     descripcion: "Editar perfil del cliente" },

@@ -15,7 +15,7 @@ export const requirePermission = (nombrePermiso: string): RequestHandler => {
 
       const tienePermiso = await permisoRepo
         .createQueryBuilder("pr")
-        .innerJoin("pr.permiso", "permiso")
+        .innerJoin("pr.permission", "permiso")
         .where("pr.id_rol = :id_rol", { id_rol })
         .andWhere("permiso.nombre = :nombrePermiso", { nombrePermiso })
         .getOne();

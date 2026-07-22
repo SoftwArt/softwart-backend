@@ -36,20 +36,6 @@ export const verifyToken: RequestHandler = (req, res, next) => {
   }
 };
 
-// ── Guard por nombre de rol ───────────────────────────────────
-export const requireRol = (...roles: string[]): RequestHandler => {
-  return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.rol)) {
-      logger.warn(
-        { id_usuario: req.user?.id_usuario, rol: req.user?.rol, ruta: req.originalUrl },
-        "acceso denegado (rol insuficiente)",
-      );
-      return res.status(403).json({ success: false, message: "Acceso denegado: permisos insuficientes" });
-    }
-    next();
-  };
-};
-
 // ── Guard: solo clientes ─────────────────────────────────────
 export const requireCliente: RequestHandler = (req, res, next) => {
   if (!req.user || req.user.id_cliente === null) {
