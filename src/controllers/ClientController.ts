@@ -7,6 +7,7 @@ import { Client } from "../models/Client";
 import { Appointment } from "../models/Appointment";
 import { Sale } from "../models/Sale";
 import { User } from "../models/User";
+import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
 
 export const getAllClient = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -47,6 +48,13 @@ export const createClient = async (req: Request, res: Response): Promise<void> =
 
     const { tipoDocumento, documento, nombre, correo, telefono } = req.body;
 
+    const [porDocumento, porCorreo] = await Promise.all([
+      clienteRepo.findOne({ where: { documento } }),
+      clienteRepo.findOne({ where: { correo } }),
+    ]);
+    if (porDocumento) { res.status(409).json({ success: false, message: "Ya existe un cliente registrado con ese número de documento" }); return; }
+    if (porCorreo)    { res.status(409).json({ success: false, message: "Ya existe un cliente registrado con ese correo" }); return; }
+
     const obj = clienteRepo.create();
     obj.tipoDocumento = tipoDocumento;
     obj.documento     = documento;
@@ -66,6 +74,16 @@ export const updateClient = async (req: Request, res: Response): Promise<void> =
     const clienteRepo = AppDataSource.getRepository(Client);
     const item = await clienteRepo.findOne({ where: { id_cliente: Number(req.params.id) } });
     if (!item) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
+
+    if (req.body.documento !== undefined && req.body.documento !== item.documento) {
+      const porDocumento = await clienteRepo.findOne({ where: { documento: req.body.documento } });
+      if (porDocumento) { res.status(409).json({ success: false, message: "Ya existe un cliente registrado con ese número de documento" }); return; }
+    }
+    if (req.body.correo !== undefined && req.body.correo !== item.correo) {
+      const porCorreo = await clienteRepo.findOne({ where: { correo: req.body.correo } });
+      if (porCorreo) { res.status(409).json({ success: false, message: "Ya existe un cliente registrado con ese correo" }); return; }
+    }
+
     if (req.body.tipoDocumento !== undefined) item.tipoDocumento = req.body.tipoDocumento;
     if (req.body.documento     !== undefined) item.documento     = req.body.documento;
     if (req.body.nombre        !== undefined) item.nombre        = req.body.nombre;
@@ -84,9 +102,21 @@ export const deleteClient = async (req: Request, res: Response): Promise<void> =
     const citaRepo    = AppDataSource.getRepository(Appointment);
     const ventaRepo   = AppDataSource.getRepository(Sale);
     const countCita  = await citaRepo.count({ where: { client: { id_cliente: Number(req.params.id) } } });
-    if (countCita > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Cita asociados (${countCita})` }); return; }
+    if (countCita > 0) {
+      enviarNoEliminarAsociados(res, {
+        count: countCita, singular: "cita", plural: "citas", genero: "f",
+        alternativa: "Desactívalo en su lugar.",
+      });
+      return;
+    }
     const countVenta = await ventaRepo.count({ where: { client: { id_cliente: Number(req.params.id) } } });
-    if (countVenta > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Venta asociados (${countVenta})` }); return; }
+    if (countVenta > 0) {
+      enviarNoEliminarAsociados(res, {
+        count: countVenta, singular: "venta", plural: "ventas", genero: "f",
+        alternativa: "Desactívalo en su lugar.",
+      });
+      return;
+    }
     const item = await clienteRepo.findOneBy({ id_cliente: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
     // Eliminar también el Usuario asociado por correo

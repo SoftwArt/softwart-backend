@@ -72,7 +72,11 @@ export const deletePermission = async (req: Request, res: Response): Promise<voi
     const permisoRepo    = AppDataSource.getRepository(Permission);
     const permisoRolRepo = AppDataSource.getRepository(RolePermission);
     const count = await permisoRolRepo.count({ where: { permission: { id_permiso: Number(req.params.id) } } });
-    if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen PermisoRol asociados (${count})` }); return; }
+    if (count > 0) {
+      const sujeto = count === 1 ? "1 rol tiene" : `${count} roles tienen`;
+      res.status(409).json({ success: false, message: `No se puede eliminar: ${sujeto} este permiso asignado. Desactívalo en su lugar.` });
+      return;
+    }
     const item = await permisoRepo.findOneBy({ id_permiso: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Permiso no encontrado" }); return; }
     await permisoRepo.remove(item);

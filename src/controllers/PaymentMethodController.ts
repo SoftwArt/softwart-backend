@@ -5,6 +5,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { PaymentMethod } from "../models/PaymentMethod";
 import { Payment } from "../models/Payment";
+import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
 
 export const getAllPaymentMethod = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -55,7 +56,13 @@ export const deletePaymentMethod = async (req: Request, res: Response): Promise<
     const repo     = AppDataSource.getRepository(PaymentMethod);
     const pagoRepo = AppDataSource.getRepository(Payment);
     const count = await pagoRepo.count({ where: { paymentMethod: { id_metodo_pago: Number(req.params.id) } } });
-    if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Pago asociados (${count})` }); return; }
+    if (count > 0) {
+      enviarNoEliminarAsociados(res, {
+        count, singular: "pago", plural: "pagos", genero: "m",
+        alternativa: "Asigna otro método a esos pagos antes de eliminar este.",
+      });
+      return;
+    }
     const item = await repo.findOneBy({ id_metodo_pago: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "MetodoPago no encontrado" }); return; }
     await repo.remove(item);

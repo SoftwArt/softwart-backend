@@ -5,6 +5,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { Service } from "../models/Service";
 import { SaleDetail } from "../models/SaleDetail";
+import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
 
 export const getAllService = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -76,7 +77,13 @@ export const deleteService = async (req: Request, res: Response): Promise<void> 
     const servicioRepo     = AppDataSource.getRepository(Service);
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const count = await detalleVentaRepo.count({ where: { service: { id_servicio: Number(req.params.id) } } });
-    if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${count})` }); return; }
+    if (count > 0) {
+      enviarNoEliminarAsociados(res, {
+        count, singular: "servicio de venta", plural: "servicios de venta", genero: "m",
+        alternativa: "Desactívalo en su lugar.",
+      });
+      return;
+    }
     const item = await servicioRepo.findOneBy({ id_servicio: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Servicio no encontrado" }); return; }
     await servicioRepo.remove(item);

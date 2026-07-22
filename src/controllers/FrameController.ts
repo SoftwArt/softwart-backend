@@ -5,6 +5,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { Frame } from "../models/Frame";
 import { SaleDetail } from "../models/SaleDetail";
+import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
 
 export const getAllFrame = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -74,7 +75,13 @@ export const deleteFrame = async (req: Request, res: Response): Promise<void> =>
     const marcoRepo        = AppDataSource.getRepository(Frame);
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const count = await detalleVentaRepo.count({ where: { frame: { id_marco: Number(req.params.id) } } });
-    if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${count})` }); return; }
+    if (count > 0) {
+      enviarNoEliminarAsociados(res, {
+        count, singular: "servicio de venta", plural: "servicios de venta", genero: "m",
+        alternativa: "Desactívalo en su lugar.",
+      });
+      return;
+    }
     const item = await marcoRepo.findOneBy({ id_marco: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "Marco no encontrado" }); return; }
     await marcoRepo.remove(item);
