@@ -7,6 +7,8 @@ import { ServiceStatus } from "../models/ServiceStatus";
 import { SaleDetail } from "../models/SaleDetail";
 import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
 import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
+import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
+import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/statusTransition.helper";
 
 const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
@@ -59,7 +61,13 @@ export const deleteServiceStatus = async (req: Request, res: Response): Promise<
     const repo             = AppDataSource.getRepository(ServiceStatus);
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const count = await detalleVentaRepo.count({ where: { serviceStatus: { id_estado: Number(req.params.id) } } });
-    if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen DetalleVenta asociados (${count})` }); return; }
+    if (count > 0) {
+      enviarNoEliminarAsociados(res, {
+        count, singular: "servicio de venta", plural: "servicios de venta", genero: "m",
+        alternativa: "Reasigna esos servicios de venta a otro estado antes de eliminarlo.",
+      });
+      return;
+    }
     const item = await repo.findOneBy({ id_estado: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
     await repo.remove(item);
@@ -80,11 +88,27 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
     });
     if (!target) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
     // Estado terminal: un servicio cancelado no puede cambiar de estado.
-    if (target.serviceStatus?.nombre?.toLowerCase().includes("cancelado")) {
-      res.status(409).json({ success: false, message: "No se puede cambiar el estado de un servicio cancelado" }); return;
-    }
+    const bloqueoTerminal = guardEstadoTerminal({
+      estadoActualNombre: target.serviceStatus?.nombre ?? "",
+      claveTerminal: "cancelado", etiquetaEntidad: "servicio", genero: "m", etiquetaEstado: "Cancelado",
+      alternativa: "Se conserva por trazabilidad del servicio prestado — un servicio cancelado no se reactiva.",
+    });
+    if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     const nuevoEstado = await estadoServicioRepo.findOneBy({ id_estado: Number(req.body.id_estado) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
+
+    // Un servicio Finalizado ya se entregó — el único cambio de estado válido
+    // a partir de acá es cancelarlo, no "retroceder" a Sin empezar/En preparación.
+    if (nuevoEstado.id_estado !== target.serviceStatus?.id_estado) {
+      const bloqueo = transicionUnicaPermitida({
+        estadoActualNombre: target.serviceStatus?.nombre ?? "",
+        estadoNuevoNombre:  nuevoEstado.nombre,
+        claveEstadoActual:    "finalizado",
+        claveEstadoPermitido: "cancelado",
+        etiquetaEstadoPermitido: "Cancelado",
+      });
+      if (bloqueo) { res.status(409).json({ success: false, message: bloqueo }); return; }
+    }
 
     // Cancelar el último servicio activo de la venta cascadea hacia arriba: la
     // venta se anula también (misma regla que anular Venta directamente).
