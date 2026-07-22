@@ -10,6 +10,8 @@ import { Service } from "../models/Service";
 import { ServiceStatus } from "../models/ServiceStatus";
 import { Frame } from "../models/Frame";
 import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
+import { guardEstadoTerminal, transicionUnicaPermitida } from "../helpers/statusTransition.helper";
+import { coincideConCentavos, sumaServiciosVenta, msgTotalNoCoincide } from "../helpers/saleTotal.helper";
 
 const SALE_RELATIONS = ["sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
@@ -61,16 +63,16 @@ export const createSaleDetail = async (req: Request, res: Response): Promise<voi
     obj.observacion = req.body.observacion;
     obj.precio      = req.body.precio;
     obj.estado      = req.body.estado !== undefined ? req.body.estado : true;
-    if (req.body.id_venta !== undefined) {
-      const rel = await AppDataSource.getRepository(Sale).findOneBy({ id_venta: Number(req.body.id_venta) });
-      if (!rel) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
-      obj.sale = rel;
-    }
-    if (req.body.id_servicio !== undefined) {
-      const rel = await AppDataSource.getRepository(Service).findOneBy({ id_servicio: Number(req.body.id_servicio) });
-      if (!rel) { res.status(404).json({ success: false, message: "Servicio no encontrado" }); return; }
-      obj.service = rel;
-    }
+
+    // id_venta e id_servicio son obligatorios (createSaleDetailSchema).
+    const ventaRel = await AppDataSource.getRepository(Sale).findOneBy({ id_venta: Number(req.body.id_venta) });
+    if (!ventaRel) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
+    obj.sale = ventaRel;
+
+    const servicioRel = await AppDataSource.getRepository(Service).findOneBy({ id_servicio: Number(req.body.id_servicio) });
+    if (!servicioRel) { res.status(404).json({ success: false, message: "Servicio no encontrado" }); return; }
+    obj.service = servicioRel;
+
     if (req.body.id_estado !== undefined) {
       const rel = await AppDataSource.getRepository(ServiceStatus).findOneBy({ id_estado: Number(req.body.id_estado) });
       if (!rel) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
@@ -102,9 +104,12 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
     });
     if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
     // Estado terminal: un servicio cancelado no puede modificarse.
-    if (item.serviceStatus?.nombre?.toLowerCase().includes("cancelado")) {
-      res.status(409).json({ success: false, message: "No se puede modificar un servicio cancelado" }); return;
-    }
+    const bloqueoTerminal = guardEstadoTerminal({
+      estadoActualNombre: item.serviceStatus?.nombre ?? "",
+      claveTerminal: "cancelado", etiquetaEntidad: "servicio", genero: "m", etiquetaEstado: "Cancelado",
+      alternativa: "Se conserva por trazabilidad del servicio prestado — un servicio cancelado no se reactiva.",
+    });
+    if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
     if (req.body.observacion !== undefined) item.observacion = req.body.observacion;
     if (req.body.precio      !== undefined) item.precio      = req.body.precio;
@@ -122,6 +127,16 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
     if (req.body.id_estado !== undefined && Number(req.body.id_estado) !== item.serviceStatus?.id_estado) {
       nuevoEstado = await AppDataSource.getRepository(ServiceStatus).findOneBy({ id_estado: Number(req.body.id_estado) });
       if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
+      // Un servicio Finalizado ya se entregó — el único cambio de estado
+      // válido a partir de acá es cancelarlo (mismo guard que changeSaleDetailStatus).
+      const bloqueoTransicion = transicionUnicaPermitida({
+        estadoActualNombre: item.serviceStatus?.nombre ?? "",
+        estadoNuevoNombre:  nuevoEstado.nombre,
+        claveEstadoActual:    "finalizado",
+        claveEstadoPermitido: "cancelado",
+        etiquetaEstadoPermitido: "Cancelado",
+      });
+      if (bloqueoTransicion) { res.status(409).json({ success: false, message: bloqueoTransicion }); return; }
       item.serviceStatus = nuevoEstado;
     }
     if (req.body.id_marco !== undefined) {
@@ -133,6 +148,21 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
         item.frame = rel;
       }
     }
+    // Solo se re-valida si el precio (o la venta a la que pertenece) cambió —
+    // crear un DetalleVenta nunca dispara esto: su precio ya viene forzado
+    // 1:1 con Venta.total desde el frontend (ver OrdersPage.tsx).
+    if ((req.body.precio !== undefined || req.body.id_venta !== undefined) && item.sale) {
+      const suma = await sumaServiciosVenta(detalleVentaRepo, item.sale.id_venta, item.id_detalle);
+      const sumaConEstePrecio = suma + Number(item.precio);
+      if (!coincideConCentavos(sumaConEstePrecio, Number(item.sale.total))) {
+        res.status(409).json({
+          success: false,
+          message: msgTotalNoCoincide(item.sale.id_venta, Number(item.sale.total), sumaConEstePrecio),
+        });
+        return;
+      }
+    }
+
     await detalleVentaRepo.save(item);
     if (nuevoEstado) await logServiceStatusChange(AppDataSource.manager, item, nuevoEstado);
     res.json({ success: true, message: "DetalleVenta actualizado", data: item });
@@ -149,9 +179,12 @@ export const toggleSaleDetailStatus = async (req: Request, res: Response): Promi
       relations: ["serviceStatus"],
     });
     if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
-    if (item.serviceStatus?.nombre?.toLowerCase().includes("cancelado")) {
-      res.status(409).json({ success: false, message: "No se puede modificar un servicio cancelado" }); return;
-    }
+    const bloqueoTerminal = guardEstadoTerminal({
+      estadoActualNombre: item.serviceStatus?.nombre ?? "",
+      claveTerminal: "cancelado", etiquetaEntidad: "servicio", genero: "m", etiquetaEstado: "Cancelado",
+      alternativa: "Se conserva por trazabilidad del servicio prestado — un servicio cancelado no se reactiva.",
+    });
+    if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     item.estado = !item.estado;
     await detalleVentaRepo.save(item);
     res.json({ success: true, message: `DetalleVenta ${item.estado ? "activado" : "inactivado"}`, data: { estado: item.estado } });
