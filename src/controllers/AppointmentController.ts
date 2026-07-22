@@ -8,6 +8,8 @@ import { Sale } from "../models/Sale";
 import { AppointmentStatus } from "../models/AppointmentStatus";
 import { Client } from "../models/Client";
 import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
+import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/statusTransition.helper";
+import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
 import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 import { sendCitaConfirmadaEmail, sendCitaCanceladaEmail } from "../services/email.service";
 
@@ -79,7 +81,7 @@ export const getAppointmentById = async (req: Request, res: Response): Promise<v
       where: { id_cita: Number(req.params.id) },
       relations: ["appointmentStatus", "client", ...SALE_RELATIONS],
     });
-    if (!item) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
+    if (!item) { res.status(404).json({ success: false, message: "Cita no encontrada" }); return; }
     res.json({ success: true, data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener Cita", error });
@@ -92,6 +94,9 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
     const required = ["fecha", "hora"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
+    if (await existeCitaEnHorario(citaRepo, req.body.fecha, req.body.hora)) {
+      res.status(409).json({ success: false, message: MSG_HORARIO_OCUPADO }); return;
+    }
     const obj = citaRepo.create();
     obj.fecha = req.body.fecha;
     obj.hora  = req.body.hora;
@@ -108,7 +113,7 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
       obj.client = rel;
     }
     await citaRepo.save(obj);
-    res.status(201).json({ success: true, message: "Cita creado exitosamente", data: obj });
+    res.status(201).json({ success: true, message: "Cita creada exitosamente", data: obj });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al crear Cita", error });
   }
@@ -121,11 +126,13 @@ export const updateAppointment = async (req: Request, res: Response): Promise<vo
       where: { id_cita: Number(req.params.id) },
       relations: ["appointmentStatus", "client", ...SALE_RELATIONS],
     });
-    if (!item) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
+    if (!item) { res.status(404).json({ success: false, message: "Cita no encontrada" }); return; }
     // Estado terminal: una cita cancelada no puede modificarse.
-    if (item.appointmentStatus?.nombre?.toLowerCase().includes("cancelada")) {
-      res.status(409).json({ success: false, message: "No se puede modificar una cita cancelada" }); return;
-    }
+    const bloqueoTerminal = guardEstadoTerminal({
+      estadoActualNombre: item.appointmentStatus?.nombre ?? "",
+      claveTerminal: "cancelada", etiquetaEntidad: "cita", genero: "f", etiquetaEstado: "Cancelada",
+    });
+    if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     // Una cita Completada ya ocurrió (y pudo generar una Venta) — permitir
     // reagendar su fecha/hora después del hecho corrompería el registro
     // histórico. El único cambio permitido a partir de acá es de estado
@@ -134,10 +141,28 @@ export const updateAppointment = async (req: Request, res: Response): Promise<vo
       res.status(409).json({ success: false, message: "No se puede modificar la fecha/hora de una cita Completada" }); return;
     }
 
+    if (req.body.fecha !== undefined || req.body.hora !== undefined) {
+      const fechaEfectiva = req.body.fecha ?? item.fecha;
+      const horaEfectiva  = req.body.hora  ?? item.hora;
+      if (await existeCitaEnHorario(citaRepo, fechaEfectiva, horaEfectiva, item.id_cita)) {
+        res.status(409).json({ success: false, message: MSG_HORARIO_OCUPADO }); return;
+      }
+    }
+
     let nuevoEstado: AppointmentStatus | null = null;
     if (req.body.id_estado_cita !== undefined) {
       nuevoEstado = await AppDataSource.getRepository(AppointmentStatus).findOneBy({ id_estado_cita: Number(req.body.id_estado_cita) });
       if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
+      if (nuevoEstado.id_estado_cita !== item.appointmentStatus?.id_estado_cita) {
+        const bloqueo = transicionUnicaPermitida({
+          estadoActualNombre: item.appointmentStatus?.nombre ?? "",
+          estadoNuevoNombre:  nuevoEstado.nombre,
+          claveEstadoActual:    "completada",
+          claveEstadoPermitido: "cancelada",
+          etiquetaEstadoPermitido: "Cancelada",
+        });
+        if (bloqueo) { res.status(409).json({ success: false, message: bloqueo }); return; }
+      }
     }
 
     // Cancelar una cita que ya tiene Venta cascadea la misma anulación que
@@ -186,24 +211,46 @@ export const updateAppointment = async (req: Request, res: Response): Promise<vo
     }
     await citaRepo.save(item);
     if (nuevoEstado) notifyAppointmentStatusChange(item, nuevoEstado.nombre);
-    res.json({ success: true, message: "Cita actualizado", data: item });
+    res.json({ success: true, message: "Cita actualizada", data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al actualizar Cita", error });
   }
 };
 
+// Si la cita tiene Venta asociada, cascadea igual que deleteSale (SaleController.ts):
+// bloquea si esa venta tiene algún abono Validado (dinero real recibido —
+// ahí solo cabe anular), y si no, borra en la misma transacción los
+// SaleDetail/Payment de la venta, la venta, y finalmente la cita. No tendría
+// sentido dejar una Venta huérfana (sin su Cita) ni una Cita "fantasma" con
+// una Venta que ya no debería existir.
 export const deleteAppointment = async (req: Request, res: Response): Promise<void> => {
   try {
-    const citaRepo  = AppDataSource.getRepository(Appointment);
-    const ventaRepo = AppDataSource.getRepository(Sale);
-    const countVenta = await ventaRepo.count({ where: { appointment: { id_cita: Number(req.params.id) } } });
-    if (countVenta > 0) {
-      res.status(409).json({ success: false, message: `No se puede eliminar: existen Venta asociados (${countVenta})` }); return;
+    const citaRepo = AppDataSource.getRepository(Appointment);
+    const item = await citaRepo.findOne({
+      where: { id_cita: Number(req.params.id) },
+      relations: ["sale", "sale.saleDetails", "sale.payments", "sale.payments.paymentStatus"],
+    });
+    if (!item) { res.status(404).json({ success: false, message: "Cita no encontrada" }); return; }
+
+    if (item.sale) {
+      if (saleHasValidatedPayments(item.sale)) {
+        res.status(409).json({
+          success: false,
+          message: "No se puede eliminar: la venta asociada tiene abonos validados. Solo se puede anular.",
+        });
+        return;
+      }
+      await AppDataSource.transaction(async (manager) => {
+        if (item.sale!.payments.length)    await manager.remove(item.sale!.payments);
+        if (item.sale!.saleDetails.length) await manager.remove(item.sale!.saleDetails);
+        await manager.remove(item.sale!);
+        await manager.remove(item);
+      });
+    } else {
+      await citaRepo.remove(item);
     }
-    const item = await citaRepo.findOneBy({ id_cita: Number(req.params.id) });
-    if (!item) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
-    await citaRepo.remove(item);
-    res.json({ success: true, message: "Cita eliminado correctamente" });
+
+    res.json({ success: true, message: "Cita eliminada correctamente" });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al eliminar Cita", error });
   }

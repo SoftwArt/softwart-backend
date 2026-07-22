@@ -16,6 +16,8 @@ import { notifyNewAppointment } from "../services/push.service";
 import { logger } from "../config/logger";
 import { insertarAceptacionesLegales } from "../helpers/legalAcceptance.helper";
 import { ContextoAceptacion } from "../models/LegalAcceptance";
+import { excedeLimiteCitasActivas, MSG_LIMITE_CITAS_ACTIVAS } from "../helpers/appointmentLimit.helper";
+import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
@@ -118,12 +120,6 @@ export const guestAppointment = async (req: Request, res: Response): Promise<voi
       res.status(400).json({ success: false, message: "No puedes agendar en fechas pasadas" });
       return;
     }
-    const [h] = hora.split(":").map(Number);
-    if (h < 13 || h >= 18) {
-      res.status(400).json({ success: false, message: "La hora debe estar entre 13:00 y 18:00" });
-      return;
-    }
-
     const estadoCita = await AppDataSource.getRepository(AppointmentStatus).findOneBy({ id_estado_cita: 1 });
     if (!estadoCita) {
       res.status(500).json({ success: false, message: "Estado de cita no configurado" });
@@ -131,12 +127,19 @@ export const guestAppointment = async (req: Request, res: Response): Promise<voi
     }
 
     // Slot check fuera de la transacción — solo para respuesta rápida al usuario
-    const slotOcupado = await AppDataSource.getRepository(Appointment)
-      .createQueryBuilder("c")
-      .where("CAST(c.fecha AS DATE) = :fecha AND c.hora = :hora", { fecha, hora })
-      .getOne();
-    if (slotOcupado) {
-      res.status(409).json({ success: false, message: "Ese horario ya está ocupado, elige otro" });
+    if (await existeCitaEnHorario(AppDataSource.getRepository(Appointment), fecha, hora)) {
+      res.status(409).json({ success: false, message: MSG_HORARIO_OCUPADO });
+      return;
+    }
+
+    // Límite anti-DoS check fuera de la transacción — solo para respuesta
+    // rápida al usuario (mismo criterio que el slot check de arriba). Un
+    // cliente nuevo (sin registro previo) nunca puede tener citas activas
+    // todavía, así que no hace falta chequear nada en ese caso.
+    const clienteExistente = await AppDataSource.getRepository(Client).findOne({ where: { correo } })
+      ?? await AppDataSource.getRepository(Client).findOne({ where: { documento } });
+    if (clienteExistente && await excedeLimiteCitasActivas(AppDataSource.getRepository(Appointment), clienteExistente.id_cliente)) {
+      res.status(409).json({ success: false, message: MSG_LIMITE_CITAS_ACTIVAS });
       return;
     }
 
@@ -185,7 +188,7 @@ export const guestAppointment = async (req: Request, res: Response): Promise<voi
   } catch (error: any) {
     // Slot tomado en una race condition entre el check y el insert
     if (error?.code === "23505" || error?.message?.includes("unique")) {
-      res.status(409).json({ success: false, message: "Ese horario ya está ocupado, elige otro" });
+      res.status(409).json({ success: false, message: MSG_HORARIO_OCUPADO });
       return;
     }
     res.status(500).json({ success: false, message: "Error al agendar cita", error });

@@ -197,10 +197,26 @@ describe("PUT /api/appointments/:id — misma cascada (guard duplicado en el otr
   });
 });
 
-describe("Hard-delete retirado del flujo de venta", () => {
-  it("DELETE /api/sales/:id no longer exists", async () => {
-    const res = await request(app).delete("/api/sales/1").set("Authorization", `Bearer ${adminToken}`);
-    expect(res.status).toBe(404);
+describe("DELETE /api/sales/:id — hard-delete con guard de abonos validados", () => {
+  it("elimina la Venta cuando no tiene abonos validados (0 o solo Pendiente)", async () => {
+    const { ventaId } = await seedCitaConVenta([sinEmpezar], [pendiente]);
+
+    const res = await request(app).delete(`/api/sales/${ventaId}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+
+    const sale = await loadSale(ventaId);
+    expect(sale).toBeNull();
+  });
+
+  it("bloquea con 409 y no elimina nada si tiene un abono Validado", async () => {
+    const { ventaId } = await seedCitaConVenta([sinEmpezar], [validado]);
+
+    const res = await request(app).delete(`/api/sales/${ventaId}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(409);
+
+    const sale = await loadSale(ventaId);
+    expect(sale).not.toBeNull();
+    expect(sale!.payments).toHaveLength(1);
   });
 
   it("DELETE /api/sale-details/:id no longer exists", async () => {
@@ -210,6 +226,51 @@ describe("Hard-delete retirado del flujo de venta", () => {
 
   it("DELETE /api/payments/:id no longer exists", async () => {
     const res = await request(app).delete("/api/payments/1").set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("DELETE /api/appointments/:id — cascada a Venta (mismo criterio que deleteSale)", () => {
+  it("elimina una cita sin venta asociada directamente", async () => {
+    const citaRepo = AppDataSource.getRepository(Appointment);
+    const cita = await citaRepo.save(citaRepo.create({
+      fecha: new Date("2026-04-10"), hora: "11:00:00", client, appointmentStatus: completada,
+    }));
+
+    const res = await request(app).delete(`/api/appointments/${cita.id_cita}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+
+    const reloaded = await loadCita(cita.id_cita);
+    expect(reloaded).toBeNull();
+  });
+
+  it("elimina la cita y cascadea su Venta cuando no tiene abonos validados", async () => {
+    const { citaId, ventaId } = await seedCitaConVenta([sinEmpezar], [pendiente]);
+
+    const res = await request(app).delete(`/api/appointments/${citaId}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+
+    const cita = await loadCita(citaId);
+    expect(cita).toBeNull();
+    const sale = await loadSale(ventaId);
+    expect(sale).toBeNull();
+  });
+
+  it("bloquea con 409 y no borra nada si la Venta tiene un abono Validado", async () => {
+    const { citaId, ventaId } = await seedCitaConVenta([sinEmpezar], [validado]);
+
+    const res = await request(app).delete(`/api/appointments/${citaId}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(409);
+
+    const cita = await loadCita(citaId);
+    expect(cita).not.toBeNull();
+    const sale = await loadSale(ventaId);
+    expect(sale).not.toBeNull();
+    expect(sale!.payments).toHaveLength(1);
+  });
+
+  it("404 cuando la cita no existe", async () => {
+    const res = await request(app).delete("/api/appointments/999999").set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(404);
   });
 });

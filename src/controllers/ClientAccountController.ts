@@ -9,13 +9,14 @@ import { Sale }             from "../models/Sale";
 import { SaleDetail }       from "../models/SaleDetail";
 import { ServiceStatusHistory } from "../models/ServiceStatusHistory";
 import bcrypt                from "bcrypt";
-import { claveSchema }       from "../schemas/auth.schemas";
 import {
   sendCitaConfirmacionEmail,
   sendAdminNewAppointmentAlert,
   CitaConfirmacionData,
 } from "../services/email.service";
 import { notifyNewAppointment } from "../services/push.service";
+import { excedeLimiteCitasActivas, MSG_LIMITE_CITAS_ACTIVAS } from "../helpers/appointmentLimit.helper";
+import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
 
 // ── GET /api/cuenta/perfil ────────────────────────────────────────────────────
 export const viewProfile = async (req: Request, res: Response): Promise<void> => {
@@ -43,16 +44,14 @@ export const editProfile = async (req: Request, res: Response): Promise<void> =>
     const { nombre, telefono, correo, clave_actual, clave } = req.body;
 
     // ── Rama cambio de contraseña ─────────────────────────────────────────────
+    // La complejidad de `clave` ya la garantiza editProfileSchema (claveSchema)
+    // en la validación de ruta — acá solo queda confirmar la contraseña actual.
     if (clave_actual !== undefined) {
       if (!clave_actual || !clave) {
-        res.status(400).json({ success: false, message: "clave_actual y clave son requeridos" }); return;
+        res.status(400).json({ success: false, message: "Debes indicar la contraseña actual y la nueva contraseña" }); return;
       }
       const claveValida = await bcrypt.compare(clave_actual, usuario.clave);
       if (!claveValida) { res.status(401).json({ success: false, message: "La contraseña actual es incorrecta" }); return; }
-      const claveCheck = claveSchema.safeParse(clave);
-      if (!claveCheck.success) {
-        res.status(422).json({ success: false, message: claveCheck.error.issues[0].message }); return;
-      }
       usuario.clave = await bcrypt.hash(clave, 10);
       await usuarioRepo.save(usuario);
       res.json({ success: true, message: "Contraseña actualizada correctamente" });
@@ -99,20 +98,11 @@ export const createMyAppointment = async (req: Request, res: Response): Promise<
   try {
     const { fecha, hora, observacion, id_estado_cita = 1 } = req.body;
 
-    if (!fecha || !hora) {
-      res.status(400).json({ success: false, message: "fecha y hora son requeridos" }); return;
-    }
-
-    // Validar que no sea fecha pasada
+    // Validar que no sea fecha pasada (formato y rango horario ya los valida
+    // createMyAppointmentSchema — fechaISO/horaHHMM en common.schemas.ts)
     const hoy = new Date().toISOString().slice(0, 10);
     if (fecha < hoy) {
       res.status(400).json({ success: false, message: "No puedes agendar en fechas pasadas" }); return;
-    }
-
-    // Validar rango de hora 13:00 – 18:00
-    const [h] = hora.split(":").map(Number);
-    if (h < 13 || h >= 18) {
-      res.status(400).json({ success: false, message: "La hora debe estar entre 13:00 y 18:00" }); return;
     }
 
     const clienteRepo   = AppDataSource.getRepository(Client);
@@ -124,6 +114,14 @@ export const createMyAppointment = async (req: Request, res: Response): Promise<
 
     if (!cliente)    { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
     if (!estadoCita) { res.status(404).json({ success: false, message: "Estado de cita no encontrado" }); return; }
+
+    if (await excedeLimiteCitasActivas(citaRepo, cliente.id_cliente)) {
+      res.status(409).json({ success: false, message: MSG_LIMITE_CITAS_ACTIVAS }); return;
+    }
+
+    if (await existeCitaEnHorario(citaRepo, fecha, hora)) {
+      res.status(409).json({ success: false, message: MSG_HORARIO_OCUPADO }); return;
+    }
 
     const cita        = citaRepo.create();
     cita.fecha        = fecha;

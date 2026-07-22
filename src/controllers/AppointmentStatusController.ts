@@ -6,6 +6,8 @@ import { AppDataSource } from "../data-source";
 import { AppointmentStatus } from "../models/AppointmentStatus";
 import { Appointment } from "../models/Appointment";
 import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
+import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
+import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/statusTransition.helper";
 import { sendCitaConfirmadaEmail, sendCitaCanceladaEmail } from "../services/email.service";
 
 const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
@@ -78,7 +80,13 @@ export const deleteAppointmentStatus = async (req: Request, res: Response): Prom
     const repo     = AppDataSource.getRepository(AppointmentStatus);
     const citaRepo = AppDataSource.getRepository(Appointment);
     const count = await citaRepo.count({ where: { appointmentStatus: { id_estado_cita: Number(req.params.id) } } });
-    if (count > 0) { res.status(409).json({ success: false, message: `No se puede eliminar: existen Cita asociados (${count})` }); return; }
+    if (count > 0) {
+      enviarNoEliminarAsociados(res, {
+        count, singular: "cita", plural: "citas", genero: "f",
+        alternativa: "Reasigna esas citas a otro estado antes de eliminarlo.",
+      });
+      return;
+    }
     const item = await repo.findOneBy({ id_estado_cita: Number(req.params.id) });
     if (!item) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
     await repo.remove(item);
@@ -99,11 +107,27 @@ export const changeAppointmentStatus = async (req: Request, res: Response): Prom
     });
     if (!target) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
     // Estado terminal: una cita cancelada no puede modificarse.
-    if (target.appointmentStatus?.nombre?.toLowerCase().includes("cancelada")) {
-      res.status(409).json({ success: false, message: "No se puede modificar una cita cancelada" }); return;
-    }
+    const bloqueoTerminal = guardEstadoTerminal({
+      estadoActualNombre: target.appointmentStatus?.nombre ?? "",
+      claveTerminal: "cancelada", etiquetaEntidad: "cita", genero: "f", etiquetaEstado: "Cancelada",
+    });
+    if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     const nuevoEstado = await estadoCitaRepo.findOneBy({ id_estado_cita: Number(req.body.id_estado_cita) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
+
+    // Una cita Completada ya ocurrió (y pudo generar una Venta) — el único
+    // cambio de estado válido a partir de acá es anularla, no "retroceder"
+    // a Pendiente/Confirmada/No Asistió.
+    if (nuevoEstado.id_estado_cita !== target.appointmentStatus?.id_estado_cita) {
+      const bloqueo = transicionUnicaPermitida({
+        estadoActualNombre: target.appointmentStatus?.nombre ?? "",
+        estadoNuevoNombre:  nuevoEstado.nombre,
+        claveEstadoActual:    "completada",
+        claveEstadoPermitido: "cancelada",
+        etiquetaEstadoPermitido: "Cancelada",
+      });
+      if (bloqueo) { res.status(409).json({ success: false, message: bloqueo }); return; }
+    }
 
     // Cancelar una cita que ya tiene Venta cascadea la misma anulación que
     // toggleSaleStatus: bloquea si hay pagos validados (dinero recibido →

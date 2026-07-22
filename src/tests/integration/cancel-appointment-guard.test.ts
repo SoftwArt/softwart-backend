@@ -80,11 +80,11 @@ describe("PUT /api/appointments/:id — guard de cita cancelada", () => {
     const res = await request(app)
       .put(`/api/appointments/${pendingAppointmentId}`)
       .set("Authorization", `Bearer ${adminToken}`)
-      .send({ hora: "12:30:00" });
+      .send({ hora: "14:30:00" });
 
     expect(res.status).toBe(200);
     const cita = await loadAppointment(pendingAppointmentId);
-    expect(cita!.hora.slice(0, 8)).toBe("12:30:00");
+    expect(cita!.hora.slice(0, 8)).toBe("14:30:00");
   });
 });
 
