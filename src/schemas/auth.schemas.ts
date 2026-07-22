@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { textoRequerido, fechaISO, horaHHMM } from "./common.schemas";
 
 // ── Política de contraseña (estándar comercial) ───────────────────────────────
 // Reutilizable en registro, reset de clave y cambio de clave desde la cuenta.
 export const claveSchema = z
-  .string()
+  .string({ error: "La contraseña es requerida" })
   .min(8,  "La contraseña debe tener al menos 8 caracteres")
   .max(64, "La contraseña no puede superar los 64 caracteres")
   .regex(/[A-Z]/,        "La contraseña debe incluir al menos una letra mayúscula")
@@ -16,7 +17,7 @@ export const claveSchema = z
 // los formularios que lo usan) — solo valida el formato cuando sí se escribe algo.
 export const TELEFONO_MENSAJE = "El teléfono debe tener al menos 10 dígitos numéricos";
 export const telefonoSchema = z
-  .string()
+  .string({ error: "El teléfono es requerido" })
   .refine((v) => v === "" || /^\d{10,15}$/.test(v), TELEFONO_MENSAJE);
 
 // ── Nombre (mínimo 2 caracteres, sin dígitos) ─────────────────────────────────
@@ -25,7 +26,7 @@ export const telefonoSchema = z
 export const NOMBRE_MIN_MENSAJE     = "El nombre debe tener al menos 2 caracteres";
 export const NOMBRE_NUMEROS_MENSAJE = "El nombre no puede contener números";
 export const nombreSchema = z
-  .string()
+  .string({ error: "El nombre es requerido" })
   .min(2, NOMBRE_MIN_MENSAJE)
   .max(100, "El nombre no puede superar los 100 caracteres")
   .regex(/^[^0-9]*$/, NOMBRE_NUMEROS_MENSAJE);
@@ -72,29 +73,29 @@ function conValidacionDeDocumento<T extends z.ZodObject<{ tipoDocumento: z.ZodTy
 }
 
 export const guestClientSchema = conValidacionDeDocumento(z.object({
-  tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
-  documento:     z.string().min(1, "documento es requerido"),
+  tipoDocumento: textoRequerido("El tipo de documento"),
+  documento:     textoRequerido("El número de documento"),
   nombre:        nombreSchema,
-  correo:        z.string().email("Correo inválido"),
+  correo:        z.string({ error: "El correo es requerido" }).email("Correo inválido"),
   telefono:      z.string().optional(),
 }));
 
 export const guestAppointmentSchema = conValidacionDeDocumento(z.object({
-  tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
-  documento:     z.string().min(1, "documento es requerido"),
+  tipoDocumento: textoRequerido("El tipo de documento"),
+  documento:     textoRequerido("El número de documento"),
   nombre:        nombreSchema,
-  correo:        z.string().email("Correo inválido"),
+  correo:        z.string({ error: "El correo es requerido" }).email("Correo inválido"),
   telefono:      z.string().optional(),
-  fecha:         z.string().min(1, "fecha es requerida"),
-  hora:          z.string().min(1, "hora es requerida"),
+  fecha:         fechaISO("La fecha"),
+  hora:          horaHHMM("La hora"),
   observacion:   z.string().optional(),
 }));
 
 export const registerSchema = conValidacionDeDocumento(z.object({
-  tipoDocumento: z.string().min(1, "tipoDocumento es requerido"),
-  documento:     z.string().min(1, "documento es requerido"),
+  tipoDocumento: textoRequerido("El tipo de documento"),
+  documento:     textoRequerido("El número de documento"),
   nombre:        nombreSchema,
-  correo:        z.string().email("Correo inválido"),
+  correo:        z.string({ error: "El correo es requerido" }).email("Correo inválido"),
   clave:         claveSchema,
   telefono:      telefonoSchema.optional(),
   // El backend no confía en que el checkbox del frontend haya estado
@@ -104,23 +105,23 @@ export const registerSchema = conValidacionDeDocumento(z.object({
 }));
 
 export const loginSchema = z.object({
-  correo: z.string().email("Correo inválido"),
-  clave:  z.string().min(1, "La clave es requerida"),
+  correo: z.string({ error: "El correo es requerido" }).email("Correo inválido"),
+  clave:  z.string({ error: "La clave es requerida" }).min(1, "La clave es requerida"),
 });
 
 export const recoverSchema = z.object({
-  correo: z.string().email("Correo inválido"),
+  correo: z.string({ error: "El correo es requerido" }).email("Correo inválido"),
 });
 
 export const resetPasswordSchema = z.object({
-  token:       z.string().min(1, "El token es requerido"),
+  token:       textoRequerido("El token"),
   nueva_clave: claveSchema,
 });
 
 export const resendCodeSchema = z.object({
-  correo: z.string().email("Correo inválido"),
+  correo: z.string({ error: "El correo es requerido" }).email("Correo inválido"),
 });
 
 export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, "refreshToken es requerido"),
+  refreshToken: textoRequerido("El token de actualización"),
 });

@@ -1,24 +1,32 @@
 import { z } from "zod";
-import { telefonoSchema, nombreSchema } from "./auth.schemas";
+import { telefonoSchema, nombreSchema, claveSchema } from "./auth.schemas";
+import { fechaISO, horaHHMM, idPositivo } from "./common.schemas";
 
+// La política de contraseña es una sola en todo el sistema (registro, reset
+// y cambio desde la cuenta): min 8, mayúscula, minúscula, número, especial —
+// `claveSchema` en auth.schemas.ts. Antes esta ruta aceptaba min 6 sin
+// complejidad en el schema y el controller la re-validaba por su cuenta con
+// claveSchema, dejando un 422 duplicado con mensajes distintos.
 export const editProfileSchema = z.object({
   nombre:       nombreSchema.optional(),
   telefono:     telefonoSchema.nullable().optional(),
-  correo:       z.string().email("Correo inválido").optional(),
-  clave_actual: z.string().optional(),
-  clave:        z.string().min(6, "La nueva clave debe tener al menos 6 caracteres").optional(),
+  correo:       z.string({ error: "El correo es requerido" }).email("Correo inválido").optional(),
+  clave_actual: z.string({ error: "La contraseña actual es requerida" }).optional(),
+  clave:        claveSchema.optional(),
 }).refine(
   data => Object.keys(data).some(k => data[k as keyof typeof data] !== undefined),
-  { message: "Se requiere al menos un campo para actualizar" }
+  { message: "Debes indicar al menos un campo para actualizar" }
 );
 
 export const cancelMyAppointmentSchema = z.object({
-  motivo: z.string().max(500, "El motivo no puede superar los 500 caracteres").optional(),
+  motivo: z.string({ error: "El motivo debe ser un texto" })
+            .max(500, "El motivo no puede superar los 500 caracteres")
+            .optional(),
 });
 
 export const createMyAppointmentSchema = z.object({
-  fecha:         z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "fecha debe tener formato YYYY-MM-DD"),
-  hora:          z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, "hora debe tener formato HH:MM"),
-  observacion:   z.string().optional(),
-  id_estado_cita: z.number().int().positive().optional(),
+  fecha:          fechaISO("La fecha"),
+  hora:           horaHHMM("La hora"),
+  observacion:    z.string().optional(),
+  id_estado_cita: idPositivo("El estado de la cita").optional(),
 });
