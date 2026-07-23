@@ -56,6 +56,10 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     const required = ["correo", "clave"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
+
+    const porCorreo = await usuarioRepo.findOne({ where: { correo: req.body.correo } });
+    if (porCorreo) { res.status(409).json({ success: false, message: "Ya existe un usuario registrado con ese correo" }); return; }
+
     const obj = usuarioRepo.create();
     obj.correo = req.body.correo;
     obj.clave  = await bcrypt.hash(req.body.clave, 10);
@@ -80,6 +84,28 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       relations: ["role"],
     });
     if (!item) { res.status(404).json({ success: false, message: "Usuario no encontrado" }); return; }
+
+    // El admin base (SEED_ADMIN_ID) ya no puede eliminarse ni desactivarse
+    // (deleteUser/toggleUserStatus) — pero updateUser no replicaba la misma
+    // protección: cambiarle el correo o el rol equivale a un bloqueo de acceso
+    // encubierto (deja de poder loguearse, o pierde los permisos de Admin). La
+    // clave sí se puede rotar, eso no compromete la cuenta protegida.
+    if (item.id_usuario === SEED_ADMIN_ID) {
+      if (req.body.correo !== undefined && req.body.correo !== item.correo) {
+        res.status(403).json({ success: false, message: "El correo del usuario administrador base no puede cambiarse" });
+        return;
+      }
+      if (req.body.id_rol !== undefined && Number(req.body.id_rol) !== item.role?.id_rol) {
+        res.status(403).json({ success: false, message: "El rol del usuario administrador base no puede cambiarse" });
+        return;
+      }
+    }
+
+    if (req.body.correo !== undefined && req.body.correo !== item.correo) {
+      const porCorreo = await usuarioRepo.findOne({ where: { correo: req.body.correo } });
+      if (porCorreo) { res.status(409).json({ success: false, message: "Ya existe un usuario registrado con ese correo" }); return; }
+    }
+
     if (req.body.correo !== undefined) item.correo = req.body.correo;
     if (req.body.clave  !== undefined) item.clave  = await bcrypt.hash(req.body.clave, 10);
     if (req.body.id_rol !== undefined) {
