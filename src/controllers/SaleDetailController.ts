@@ -12,6 +12,7 @@ import { Frame } from "../models/Frame";
 import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 import { guardEstadoTerminal, transicionUnicaPermitida } from "../helpers/statusTransition.helper";
 import { coincideConCentavos, sumaServiciosVenta, msgTotalNoCoincide } from "../helpers/saleTotal.helper";
+import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
 
 const SALE_RELATIONS = ["sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
@@ -100,7 +101,7 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
     const item = await detalleVentaRepo.findOne({
       where: { id_detalle: Number(req.params.id) },
-      relations: ["sale", "sale.client", "service", "serviceStatus", "frame"],
+      relations: ["sale", "sale.client", "service", "serviceStatus", "frame", ...SALE_RELATIONS],
     });
     if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
     // Estado terminal: un servicio cancelado no puede modificarse.
@@ -138,6 +139,44 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
       });
       if (bloqueoTransicion) { res.status(409).json({ success: false, message: bloqueoTransicion }); return; }
       item.serviceStatus = nuevoEstado;
+
+      // Mismo guard/cascada que changeSaleDetailStatus (PATCH dedicado): cancelar
+      // el último servicio activo de la venta cascadea hacia arriba y anula la
+      // Venta también — el PUT genérico no puede quedar como un atajo que se
+      // salte esta regla.
+      if (nuevoEstado.nombre.toLowerCase().includes("cancelado") && item.sale && isLastActiveDetail(item.sale, item.id_detalle)) {
+        if (saleHasValidatedPayments(item.sale)) {
+          res.status(409).json({
+            success: false,
+            message: `No se puede cancelar: es el único servicio activo de la Venta #${item.sale.id_venta} y tiene pagos validados. Registra la devolución antes de cancelarlo.`,
+          });
+          return;
+        }
+        // item viene de una relación cargada aparte de item.sale.saleDetails
+        // (no es el mismo objeto JS aunque comparta id_detalle) — sin este alias,
+        // voidSaleCascade vería la copia con el estado viejo y lo "cancelaría"
+        // dos veces (doble conteo, doble entrada de historial).
+        const idx = item.sale.saleDetails?.findIndex(d => d.id_detalle === item.id_detalle) ?? -1;
+        if (idx >= 0 && item.sale.saleDetails) item.sale.saleDetails[idx] = item;
+
+        let cascada = { serviciosCancelados: 0, abonosAnulados: 0 };
+        await AppDataSource.transaction(async (manager) => {
+          await manager.save(item);
+          await logServiceStatusChange(manager, item, nuevoEstado!);
+          cascada = await voidSaleCascade(manager, item.sale!);
+        });
+
+        // El alias de arriba deja item.sale.saleDetails[idx] === item, es decir
+        // item -> sale -> saleDetails -> item: una referencia circular real que
+        // rompe JSON.stringify si se manda `sale` tal cual en la respuesta.
+        const { sale: _saleSinCircular, ...itemSinSale } = item;
+        res.json({
+          success: true,
+          message: `DetalleVenta actualizado — al ser el último servicio activo, la Venta #${item.sale.id_venta} también se anuló en cascada (abonos anulados: ${cascada.abonosAnulados})`,
+          data: { ...itemSinSale, ...cascada },
+        });
+        return;
+      }
     }
     if (req.body.id_marco !== undefined) {
       if (req.body.id_marco === null) {

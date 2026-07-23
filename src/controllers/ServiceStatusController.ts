@@ -133,10 +133,14 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
         cascada = await voidSaleCascade(manager, target.sale!);
       });
 
+      // El alias de arriba deja target.sale.saleDetails[idx] === target, es decir
+      // target -> sale -> saleDetails -> target: una referencia circular real que
+      // rompe JSON.stringify si se manda `sale` tal cual en la respuesta.
+      const { sale: _saleSinCircular, ...targetSinSale } = target;
       res.json({
         success: true,
         message: `Servicio cancelado — al ser el último activo, la Venta #${target.sale.id_venta} también se anuló en cascada (abonos anulados: ${cascada.abonosAnulados})`,
-        data: { ...target, ...cascada },
+        data: { ...targetSinSale, ...cascada },
       });
       return;
     }
