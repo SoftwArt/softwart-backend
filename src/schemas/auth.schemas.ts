@@ -20,14 +20,14 @@ export const telefonoSchema = z
   .string({ error: "El teléfono es requerido" })
   .refine((v) => v === "" || /^\d{10,15}$/.test(v), TELEFONO_MENSAJE);
 
-// ── Nombre (mínimo 2 caracteres, sin dígitos) ─────────────────────────────────
+// ── Nombre (mínimo 5 caracteres, sin dígitos) ─────────────────────────────────
 // Mensajes custom para no dejar pasar el genérico de Zod ("String must
-// contain at least 2 character(s)") hasta el usuario final.
-export const NOMBRE_MIN_MENSAJE     = "El nombre debe tener al menos 2 caracteres";
+// contain at least 5 character(s)") hasta el usuario final.
+export const NOMBRE_MIN_MENSAJE     = "El nombre debe tener al menos 5 caracteres";
 export const NOMBRE_NUMEROS_MENSAJE = "El nombre no puede contener números";
 export const nombreSchema = z
   .string({ error: "El nombre es requerido" })
-  .min(2, NOMBRE_MIN_MENSAJE)
+  .min(5, NOMBRE_MIN_MENSAJE)
   .max(100, "El nombre no puede superar los 100 caracteres")
   .regex(/^[^0-9]*$/, NOMBRE_NUMEROS_MENSAJE);
 
