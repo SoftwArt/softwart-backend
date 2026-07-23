@@ -123,7 +123,15 @@ export const deleteRole = async (req: Request, res: Response): Promise<void> => 
     if (esRolEstructural(item.nombre)) {
       res.status(403).json({ success: false, message: `El rol ${item.nombre} no puede eliminarse` }); return;
     }
-    const countPermisoRol = await permisoRolRepo.count({ where: { role: { id_rol: Number(req.params.id) } } });
+    // RolePermission tiene clave compuesta (permission + role, ambos
+    // @PrimaryColumn) — el `where: { role: { id_rol } }` anidado de TypeORM
+    // no la resuelve bien contra esa entidad (liga el objeto completo en vez
+    // del id) y revienta con un error de sintaxis en Postgres. QueryBuilder
+    // explícito, mismo patrón ya usado en RolePermissionController.
+    const countPermisoRol = await permisoRolRepo
+      .createQueryBuilder("pr")
+      .where("pr.id_rol = :id_rol", { id_rol: Number(req.params.id) })
+      .getCount();
     if (countPermisoRol > 0) {
       enviarNoEliminarAsociados(res, {
         count: countPermisoRol, singular: "permiso", plural: "permisos", genero: "m",
