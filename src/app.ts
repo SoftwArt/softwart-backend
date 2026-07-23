@@ -13,6 +13,7 @@ import { corsMiddleware, notFoundMiddleware, generalLimiter } from "./middleware
 import { HandlerError } from "./errors";
 import { logger } from "./config/logger";
 import swaggerSpec from "./docs/swagger";
+import { version as APP_VERSION } from "../package.json";
 
 const app: Application = express();
 
@@ -46,7 +47,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 app.get("/", (_req, res) => {
-  res.json({ success: true, message: "API en línea 🚀", timestamp: new Date() });
+  res.json({ success: true, message: "API en línea 🚀", version: APP_VERSION, status: "OK", timestamp: new Date() });
 });
 app.use("/api", generalLimiter);
 registerRoutes(app);

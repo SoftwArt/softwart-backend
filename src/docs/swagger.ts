@@ -1,9 +1,11 @@
+import { version as APP_VERSION } from "../../package.json";
+
 const spec = {
   openapi: "3.0.3",
   info: {
     title: "SoftwArt API",
     description: "REST API for Arte Café — a framing and marquetry shop in Medellín, Colombia. Consumed by the web admin panel and the Android companion app.",
-    version: "1.0.0",
+    version: APP_VERSION,
     contact: { name: "Sergio E. León V." },
   },
   servers: [
