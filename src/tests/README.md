@@ -1,6 +1,6 @@
 # Pruebas — SoftwArt Backend
 
-Suite de pruebas con **Vitest** + **supertest**. Actualmente **132 pruebas** (11 unitarias + 121 de integración).
+Suite de pruebas con **Vitest** + **supertest**. Actualmente **135 pruebas** (11 unitarias + 124 de integración).
 
 > ✅ **Se ejecutan en el CI** en cada push y PR (con un PostgreSQL efímero como *service container*).
 > Una prueba fallida **bloquea el despliegue**.
@@ -43,6 +43,7 @@ src/tests/
     ├── role-structural-guard.test.ts        ← 12 pruebas (Admin/Cliente: no renombrar/eliminar/desactivar
     │                                            + mensaje de asociados con concordancia correcta)
     ├── service-delete-guard.test.ts         ← 3 pruebas (mensaje de DetalleVenta asociados, servicios)
+    ├── frame-delete-guard.test.ts           ← 3 pruebas (mensaje de DetalleVenta asociados, marcos)
     └── (otros: cancel-appointment-guard, legal-acceptance-immutability, refresh-token —
         pendientes de documentar acá, no forman parte de esta actualización)
 ```
@@ -364,6 +365,15 @@ bien. Se verificó con datos reales en vez de asumir por lectura de código.
    mensaje; el servicio no se borra.
 2. `409` con plural correcto (`"existen 2 servicios de venta asociados..."`).
 3. `200` elimina un servicio sin ningún `DetalleVenta` asociado.
+
+### `integration/frame-delete-guard.test.ts` (3)
+
+Mismo chequeo, esta vez para `deleteFrame` (catálogo Marcos): `SaleDetail.frame` también es un
+`@ManyToOne` normal (nullable) — el conteo anidado funciona bien, mismo resultado que Servicios.
+
+1. `409` con singular correcto — sin "DetalleVenta" en el mensaje; el marco no se borra.
+2. `409` con plural correcto con dos `DetalleVenta` asociados.
+3. `200` elimina un marco sin ningún `DetalleVenta` asociado.
 
 ---
 
