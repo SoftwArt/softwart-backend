@@ -1,6 +1,6 @@
 # Pruebas — SoftwArt Backend
 
-Suite de pruebas con **Vitest** + **supertest**. Actualmente **128 pruebas** (11 unitarias + 117 de integración).
+Suite de pruebas con **Vitest** + **supertest**. Actualmente **132 pruebas** (11 unitarias + 121 de integración).
 
 > ✅ **Se ejecutan en el CI** en cada push y PR (con un PostgreSQL efímero como *service container*).
 > Una prueba fallida **bloquea el despliegue**.
@@ -42,6 +42,7 @@ src/tests/
     ├── user-admin-base-guard.test.ts        ← 5 pruebas (updateUser protege correo/rol del admin base)
     ├── role-structural-guard.test.ts        ← 12 pruebas (Admin/Cliente: no renombrar/eliminar/desactivar
     │                                            + mensaje de asociados con concordancia correcta)
+    ├── service-delete-guard.test.ts         ← 3 pruebas (mensaje de DetalleVenta asociados, servicios)
     └── (otros: cancel-appointment-guard, legal-acceptance-immutability, refresh-token —
         pendientes de documentar acá, no forman parte de esta actualización)
 ```
@@ -104,22 +105,27 @@ Usan **supertest**, que inyecta la app de Express (sin levantar un servidor) y l
 reales a través de **toda la cadena**: Helmet → CORS → rate limit → Zod → controlador → TypeORM →
 PostgreSQL. Por eso verifican que las piezas funcionan **juntas**.
 
-### `integration/auth.test.ts` (8)
+### `integration/auth.test.ts` (9)
 
 **`POST /api/auth/login`**
 1. `200` + token con credenciales válidas de admin (verifica `success`, `token`, `correo`, `rol`).
 2. `401` con contraseña incorrecta.
 3. `401` con correo inexistente.
 4. `422` cuando falta `clave` (validación Zod).
+5. `401` + mismo mensaje genérico (`"Credenciales inválidas"`) con clave correcta pero cuenta
+   **inactiva** — antes era `403 "Cuenta inactiva"` (mensaje distinguible), lo que permitía enumerar
+   qué correos existen y están desactivados sin necesitar la clave real (OWASP A01). El chequeo de
+   `estado` se movió a **después** de `bcrypt.compare`, así que el resultado (status + mensaje) es
+   idéntico al de clave incorrecta.
 
 **`POST /api/auth/register`**
-5. `201` crea un usuario cliente nuevo.
-6. `409` cuando el correo ya está registrado.
-7. `422` cuando faltan campos requeridos (validación Zod).
-8. `200` el usuario recién registrado puede iniciar sesión con rol `Cliente`.
+6. `201` crea un usuario cliente nuevo.
+7. `409` cuando el correo ya está registrado.
+8. `422` cuando faltan campos requeridos (validación Zod).
+9. `200` el usuario recién registrado puede iniciar sesión con rol `Cliente`.
 
-> **Nota:** estas pruebas **comparten estado** dentro del archivo y dependen del orden (la #6 requiere
-> que la #5 haya creado el usuario). Vitest ejecuta los tests de un archivo secuencialmente, así que
+> **Nota:** estas pruebas **comparten estado** dentro del archivo y dependen del orden (la #7 requiere
+> que la #6 haya creado el usuario). Vitest ejecuta los tests de un archivo secuencialmente, así que
 > funciona. Lo "puro" sería que cada prueba fuese independiente.
 
 ### `integration/create-sale.test.ts` (6)
@@ -345,6 +351,19 @@ vez del id, generando SQL inválido. Se corrigió con `createQueryBuilder`, mism
 11. `409` con plural correcto (`"existen 2 permisos asociados..."`) con dos permisos asignados.
 12. `409` con el mensaje de usuario asociado (`"existe 1 usuario asociado..."`) cuando el rol tiene un
     usuario asignado.
+
+### `integration/service-delete-guard.test.ts` (3)
+
+Mismo chequeo que `role-structural-guard.test.ts`, pero para `deleteService` (catálogo Servicios): el
+mensaje crudo anterior (`existen DetalleVenta asociados (1)`) ya estaba reemplazado por
+`enviarNoEliminarAsociados`, y a diferencia del bug de `RolePermission`, `SaleDetail.service` es un
+`@ManyToOne` normal — el conteo anidado (`count({ where: { service: { id_servicio } } })`) sí funciona
+bien. Se verificó con datos reales en vez de asumir por lectura de código.
+
+1. `409` con singular correcto (`"existe 1 servicio de venta asociado..."`) — sin "DetalleVenta" en el
+   mensaje; el servicio no se borra.
+2. `409` con plural correcto (`"existen 2 servicios de venta asociados..."`).
+3. `200` elimina un servicio sin ningún `DetalleVenta` asociado.
 
 ---
 
