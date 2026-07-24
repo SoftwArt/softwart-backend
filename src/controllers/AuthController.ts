@@ -343,15 +343,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!usuario.estado) {
-      logger.warn({ correo, ip: req.ip, motivo: "cuenta inactiva" }, "login rechazado");
-      res.status(403).json({ success: false, message: "Cuenta inactiva" });
-      return;
-    }
-
+    // Cuenta inactiva se valida DESPUÉS de la clave, con el mismo 401 +
+    // mensaje genérico que clave incorrecta / correo inexistente — antes
+    // devolvía 403 "Cuenta inactiva" antes de siquiera comparar la clave,
+    // lo que permitía enumerar qué correos existen y están desactivados
+    // (OWASP A01) sin necesitar la clave real, y además revelaba el motivo
+    // exacto del rechazo al frontend.
     const claveValida = await bcrypt.compare(clave, usuario.clave);
-    if (!claveValida) {
-      logger.warn({ correo, ip: req.ip, motivo: "clave incorrecta" }, "login fallido");
+    if (!claveValida || !usuario.estado) {
+      logger.warn(
+        { correo, ip: req.ip, motivo: !claveValida ? "clave incorrecta" : "cuenta inactiva" },
+        "login fallido",
+      );
       res.status(401).json({ success: false, message: "Credenciales inválidas" });
       return;
     }

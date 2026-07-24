@@ -48,6 +48,33 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(422);
     expect(res.body.success).toBe(false);
   });
+
+  it("returns the same 401 + generic message for an inactive account (anti-enumeration)", async () => {
+    const adminToken = (await request(app).post("/api/auth/login").send(ADMIN)).body.token;
+    const INACTIVE_USER = { correo: "inactivo@test.com", clave: "Inactivo1234!" };
+
+    const created = await request(app)
+      .post("/api/users")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(INACTIVE_USER);
+    await request(app)
+      .patch(`/api/users/${created.body.data.id_usuario}/estado`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    // Con la clave correcta pero cuenta inactiva: mismo 401 + mismo mensaje
+    // que clave incorrecta / correo inexistente — antes era 403 "Cuenta
+    // inactiva", un mensaje distinguible que permitía enumerar qué correos
+    // existen y están desactivados sin necesitar la clave real.
+    const res = await request(app).post("/api/auth/login").send(INACTIVE_USER);
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Credenciales inválidas");
+
+    const wrongPassword = await request(app)
+      .post("/api/auth/login")
+      .send({ correo: ADMIN.correo, clave: "wrongpassword" });
+    expect(res.status).toBe(wrongPassword.status);
+    expect(res.body.message).toBe(wrongPassword.body.message);
+  });
 });
 
 describe("POST /api/auth/register", () => {
