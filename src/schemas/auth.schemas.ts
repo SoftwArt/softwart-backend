@@ -89,6 +89,9 @@ export const guestAppointmentSchema = conValidacionDeDocumento(z.object({
   fecha:         fechaISO("La fecha"),
   hora:          horaHHMM("La hora"),
   observacion:   z.string().optional(),
+  // El backend no confía en que el checkbox del frontend haya estado
+  // marcado — lo re-valida acá, mismo criterio que registerSchema.
+  acceptTerms:   z.literal(true, { message: "Debes aceptar los Términos de Servicio y la Política de Privacidad" }),
 }));
 
 export const registerSchema = conValidacionDeDocumento(z.object({

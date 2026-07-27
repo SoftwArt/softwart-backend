@@ -1,6 +1,6 @@
 # Pruebas — SoftwArt Backend
 
-Suite de pruebas con **Vitest** + **supertest**. Actualmente **135 pruebas** (11 unitarias + 124 de integración).
+Suite de pruebas con **Vitest** + **supertest**. Actualmente **140 pruebas** (11 unitarias + 129 de integración).
 
 > ✅ **Se ejecutan en el CI** en cada push y PR (con un PostgreSQL efímero como *service container*).
 > Una prueba fallida **bloquea el despliegue**.
@@ -44,6 +44,7 @@ src/tests/
     │                                            + mensaje de asociados con concordancia correcta)
     ├── service-delete-guard.test.ts         ← 3 pruebas (mensaje de DetalleVenta asociados, servicios)
     ├── frame-delete-guard.test.ts           ← 3 pruebas (mensaje de DetalleVenta asociados, marcos)
+    ├── cancel-appointment-6h-guard.test.ts  ← 2 pruebas (precisión horaria del guard de 6h, Bogotá vs UTC)
     └── (otros: cancel-appointment-guard, legal-acceptance-immutability, refresh-token —
         pendientes de documentar acá, no forman parte de esta actualización)
 ```
@@ -251,13 +252,26 @@ venta anulada, y los guards de estado terminal/transición única que Cita y Ser
 6. `409` si un pago `Validado` intenta ir a un estado que no sea `Anulado`; `200` si va a `Anulado`.
 7. `409` si se intenta cambiar el estado de un pago ya `Anulado`.
 
-### `integration/appointment-guards.test.ts` (4)
+### `integration/appointment-guards.test.ts` (7)
 
 1. `409` al agendar (sin cuenta) el mismo horario ya ocupado por otro cliente.
 2. Cancelar una cita **libera el slot** para volver a agendarlo (antes no lo hacía: el guard viejo no
    excluía citas `Cancelada`/`No Asistió`).
 3. El panel admin (`POST /api/appointments`) respeta el mismo guard que "agendar sin cuenta".
-4. El límite anti-DoS de citas activas por cliente (3) se respeta; la 4ª cita agendada da `409`.
+
+**`guestAppointment` — constancia de habeas data (ADR-007)**
+
+`guestAppointment` (landing pública, sin cuenta) creaba un Cliente nuevo sin dejar ninguna constancia
+de aceptación de habeas data, a diferencia de `register`. Se agregó `acceptTerms` como campo requerido
+del schema y se inserta la constancia (contexto `CITA_INVITADO`) en la misma transacción que crea el
+Cliente — solo si el Cliente es nuevo (uno ya existente no vuelve a "aceptar" en cada cita).
+
+4. `422` cuando falta `acceptTerms` — no crea ni Cliente ni Cita.
+5. `201` inserta las 2 filas de aceptación (ToS + PyP) atómicamente, con `contexto = CITA_INVITADO`.
+6. Un segundo agendamiento del mismo invitado (mismo documento/correo) **no** duplica la constancia —
+   siguen siendo solo las 2 filas de la primera cita.
+
+7. El límite anti-DoS de citas activas por cliente (3) se respeta; la 4ª cita agendada da `409`.
 
 ### `integration/sale-detail-cascade.test.ts` (8)
 
@@ -374,6 +388,30 @@ Mismo chequeo, esta vez para `deleteFrame` (catálogo Marcos): `SaleDetail.frame
 1. `409` con singular correcto — sin "DetalleVenta" en el mensaje; el marco no se borra.
 2. `409` con plural correcto con dos `DetalleVenta` asociados.
 3. `200` elimina un marco sin ningún `DetalleVenta` asociado.
+
+### `integration/cancel-appointment-6h-guard.test.ts` (2)
+
+`cancelMyAppointment` bloqueaba cancelar si faltaban <6h para la cita comparando
+`fecha+hora` (naive-Bogotá) contra `NOW()` crudo de Postgres (UTC en Render) —
+un desfase de ~5h que dejaba el guard mal calibrado. Ningún test anterior
+probaba la *precisión horaria* del guard (solo el estado terminal y el IDOR),
+así que el bug pasó desapercibido. Corregido envolviendo `NOW()` como
+`(NOW() AT TIME ZONE 'America/Bogota')` (`bogotaTime.helper.ts` documenta la
+convención). Las citas de prueba se siembran a un offset conocido de "ahora"
+(vía `bogotaNowMs()`, no fechas hardcodeadas) para que la prueba sea válida
+sin importar cuándo corra la suite.
+
+1. `400` cuando la cita está a 4h (dentro de la ventana de 6h) — no cancela.
+2. `200` cuando la cita está a 8h (fuera de la ventana) — sí cancela.
+
+> **Nota de depuración:** construir la fecha del fixture con `new Date(fecha)`
+> (parseo de string, medianoche UTC) producía un desfase de un día en este
+> entorno local (proceso Node con TZ America/Bogota, offset -5h) porque
+> TypeORM serializa columnas `date` con los getters *locales* del `Date`, no
+> los UTC — mismo tipo de bug que `DatePicker.tsx` ya evita en el frontend.
+> Se corrigió con el constructor local `new Date(y, m-1, d)`. No es un bug de
+> la app real (los controllers asignan el string tal cual, nunca construyen
+> un `Date`), solo del fixture del test.
 
 ---
 

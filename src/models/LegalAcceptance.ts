@@ -15,6 +15,8 @@ export enum ContextoAceptacion {
   REGISTRO = "REGISTRO",
   RE_ACEPTACION = "RE_ACEPTACION",
   PORTAL = "PORTAL",
+  // Landing pública, sin cuenta — guestAppointment (AuthController.ts).
+  CITA_INVITADO = "CITA_INVITADO",
 }
 
 // Registro de EVENTOS append-only, no de estado — ver ADR-007 (docs/ADR/).

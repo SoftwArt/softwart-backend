@@ -22,7 +22,7 @@ const guestAppointment = (overrides: Partial<Record<string, unknown>> = {}) =>
   request(app).post("/api/auth/guest-appointment").send({
     tipoDocumento: "CC", documento: "88880003", nombre: "Test Appointment Guards",
     correo: "appointmentguards@test.com", telefono: "3007778833",
-    fecha: futureDate(10), hora: "13:00",
+    fecha: futureDate(10), hora: "13:00", acceptTerms: true,
     ...overrides,
   });
 
@@ -67,6 +67,54 @@ describe("existeCitaEnHorario — no se puede doblar-reservar la misma fecha+hor
       .send({ fecha: futureDate(13), hora: "16:00" });
 
     expect(res.status).toBe(409);
+  });
+});
+
+describe("guestAppointment — constancia de habeas data (ADR-007)", () => {
+  it("returns 422 when acceptTerms is missing, and creates nothing", async () => {
+    const correo = "sinaceptar.cita@test.com";
+    const res = await guestAppointment({
+      documento: "88880007", correo, fecha: futureDate(30), hora: "13:00", acceptTerms: undefined,
+    });
+    expect(res.status).toBe(422);
+
+    const cliente = await AppDataSource.query(`SELECT 1 FROM cliente WHERE correo = $1`, [correo]);
+    expect(cliente).toHaveLength(0);
+  });
+
+  it("registers the acceptance of both legal documents atomically when the Client is new", async () => {
+    const correo = "aceptacion.cita@test.com";
+    const res = await guestAppointment({ documento: "88880008", correo, fecha: futureDate(31), hora: "13:00" });
+    expect(res.status).toBe(201);
+
+    const filas = await AppDataSource.query(
+      `SELECT tipo_documento, evento, contexto FROM aceptacion_legal WHERE correo_titular = $1`,
+      [correo],
+    );
+    expect(filas).toHaveLength(2);
+    const tipos = filas.map((f: { tipo_documento: string }) => f.tipo_documento).sort();
+    expect(tipos).toEqual(["POLITICA_PRIVACIDAD", "TERMINOS_SERVICIO"]);
+    for (const fila of filas) {
+      expect(fila.evento).toBe("ACEPTACION");
+      expect(fila.contexto).toBe("CITA_INVITADO");
+    }
+  });
+
+  it("does not insert a duplicate acceptance when the same guest books a second appointment", async () => {
+    const doc = "88880009";
+    const correo = "aceptacion.repetida@test.com";
+
+    const first = await guestAppointment({ documento: doc, correo, fecha: futureDate(32), hora: "13:00" });
+    expect(first.status).toBe(201);
+
+    const second = await guestAppointment({ documento: doc, correo, fecha: futureDate(33), hora: "14:00" });
+    expect(second.status).toBe(201);
+
+    const filas = await AppDataSource.query(
+      `SELECT 1 FROM aceptacion_legal WHERE correo_titular = $1`,
+      [correo],
+    );
+    expect(filas).toHaveLength(2); // solo las de la primera cita, no 4
   });
 });
 
