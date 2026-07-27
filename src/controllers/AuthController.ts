@@ -18,6 +18,7 @@ import { insertarAceptacionesLegales } from "../helpers/legalAcceptance.helper";
 import { ContextoAceptacion } from "../models/LegalAcceptance";
 import { excedeLimiteCitasActivas, MSG_LIMITE_CITAS_ACTIVAS } from "../helpers/appointmentLimit.helper";
 import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
+import { bogotaToday } from "../helpers/bogotaTime.helper";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
@@ -115,7 +116,7 @@ export const guestAppointment = async (req: Request, res: Response): Promise<voi
     const { tipoDocumento, documento, nombre, correo, telefono, fecha, hora, observacion } = req.body;
 
     // Validaciones previas a la transacción
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = bogotaToday();
     if (fecha < hoy) {
       res.status(400).json({ success: false, message: "No puedes agendar en fechas pasadas" });
       return;
@@ -158,6 +159,19 @@ export const guestAppointment = async (req: Request, res: Response): Promise<voi
       if (esNuevoCliente) {
         cliente = clienteRepo.create({ tipoDocumento, documento, nombre, correo, telefono: telefono ?? null, estado: true });
         await clienteRepo.save(cliente);
+
+        // Un Cliente nuevo sin constancia de habeas data es un estado
+        // inválido del sistema (mismo criterio que register — ADR-007 §6).
+        // Solo al crearse: un cliente ya existente (con su propia constancia
+        // de origen) no vuelve a aceptar en cada cita que agende.
+        await insertarAceptacionesLegales(manager, {
+          id_cliente:        cliente.id_cliente,
+          documento_titular: cliente.documento,
+          correo_titular:    cliente.correo,
+          contexto:          ContextoAceptacion.CITA_INVITADO,
+          ip:                req.ip ?? null,
+          user_agent:        req.headers["user-agent"] ?? null,
+        });
       }
 
       const nuevaCita = citaRepo.create();

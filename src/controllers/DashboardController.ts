@@ -1,6 +1,7 @@
 // src/controllers/DashboardController.ts
 import { Request, Response } from 'express'
 import { AppDataSource } from '../data-source'
+import { bogotaToday } from '../helpers/bogotaTime.helper'
 
 async function q<T>(sql: string, params: unknown[], fallback: T): Promise<T> {
   try {
@@ -24,10 +25,12 @@ async function qAll<T>(sql: string, params: unknown[]): Promise<T[]> {
 
 export const getDashboard = async (req: Request, res: Response): Promise<void> => {
   try {
-    const ahora           = new Date()
-    const hoy             = ahora.toISOString().slice(0, 10)
-    const mesActual       = ahora.getMonth() + 1
-    const anio            = ahora.getFullYear()
+    // hoy/mesActual/anio derivan del mismo string Bogotá-anclado, no de una
+    // segunda llamada independiente a Date (evita que "hoy" y "mesActual"
+    // queden en días distintos cerca de la medianoche UTC).
+    const hoy             = bogotaToday()
+    const mesActual       = Number(hoy.slice(5, 7))
+    const anio            = Number(hoy.slice(0, 4))
     const mesAnterior     = mesActual === 1 ? 12 : mesActual - 1
     const anioMesAnterior = mesActual === 1 ? anio - 1 : anio
 
@@ -145,7 +148,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       `SELECT TO_CHAR(DATE_TRUNC('week', fecha), 'DD/MM') AS semana,
               COALESCE(SUM(total), 0) AS total
        FROM venta
-       WHERE fecha >= NOW() - INTERVAL '8 weeks'
+       WHERE fecha >= (NOW() AT TIME ZONE 'America/Bogota') - INTERVAL '8 weeks'
        GROUP BY DATE_TRUNC('week', fecha)
        ORDER BY DATE_TRUNC('week', fecha) ASC`,
       []
@@ -206,7 +209,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
        JOIN servicio s          ON s.id_servicio    = dv.id_servicio
        LEFT JOIN cliente cl     ON cl.id_cliente    = v.id_cliente
        WHERE (es.nombre ILIKE '%sin empezar%' OR es.nombre ILIKE '%preparac%')
-         AND dv.fecha <= CURRENT_DATE - INTERVAL '3 days'
+         AND dv.fecha <= ((NOW() AT TIME ZONE 'America/Bogota')::date - INTERVAL '3 days')
        ORDER BY dv.fecha ASC`,
       []
     )

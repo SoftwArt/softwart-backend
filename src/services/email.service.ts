@@ -116,12 +116,20 @@ function to12h(hora: string): string {
   return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
+const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
 function formatFecha(fecha: string): string {
-  // "2025-03-15" → "sábado, 15 de marzo de 2025"
-  const d = new Date(fecha + "T00:00:00");
-  return d.toLocaleDateString("es-CO", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
+  // "2025-03-15" → "sábado, 15 de marzo de 2025" — parseo manual de las
+  // partes (sin construir un Date con TZ ambiguo, mismo criterio que
+  // DatePicker.tsx en el frontend) y Date.UTC solo para calcular el día de
+  // la semana, que no depende de ninguna hora ni zona horaria.
+  const [y, m, d] = fecha.split("-").map(Number);
+  const diaSemana = DIAS_SEMANA[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${diaSemana}, ${d} de ${MESES[m - 1]} de ${y}`;
 }
 
 export const sendCitaConfirmacionEmail = async (

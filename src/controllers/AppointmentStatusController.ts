@@ -8,28 +8,9 @@ import { Appointment } from "../models/Appointment";
 import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
 import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
 import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/statusTransition.helper";
-import { sendCitaConfirmadaEmail, sendCitaCanceladaEmail } from "../services/email.service";
+import { notifyAppointmentStatusChange } from "../helpers/appointmentNotification.helper";
 
 const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
-
-// Reenvía correo al cliente cuando el nuevo estado es Confirmada/Cancelada.
-// Fire-and-forget: no debe bloquear ni fallar la respuesta HTTP.
-function notifyAppointmentStatusChange(target: Appointment, nuevoEstadoNombre: string): void {
-  if (!target.client?.correo) return;
-  const data = {
-    correo:        target.client.correo,
-    nombreCliente: target.client.nombre,
-    fecha:         new Date(target.fecha).toISOString().slice(0, 10),
-    hora:          target.hora,
-    id_cita:       target.id_cita,
-  };
-  const nombre = nuevoEstadoNombre.toLowerCase();
-  if (nombre.includes("confirmada")) {
-    sendCitaConfirmadaEmail(data).catch(err => console.error("⚠️  Error enviando correo de cita confirmada:", err));
-  } else if (nombre.includes("cancelada")) {
-    sendCitaCanceladaEmail(data).catch(err => console.error("⚠️  Error enviando correo de cita cancelada:", err));
-  }
-}
 
 export const getAllAppointmentStatus = async (_req: Request, res: Response): Promise<void> => {
   try {

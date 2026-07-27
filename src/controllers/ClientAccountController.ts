@@ -17,6 +17,7 @@ import {
 import { notifyNewAppointment } from "../services/push.service";
 import { excedeLimiteCitasActivas, MSG_LIMITE_CITAS_ACTIVAS } from "../helpers/appointmentLimit.helper";
 import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
+import { bogotaToday } from "../helpers/bogotaTime.helper";
 
 // ── GET /api/cuenta/perfil ────────────────────────────────────────────────────
 export const viewProfile = async (req: Request, res: Response): Promise<void> => {
@@ -100,7 +101,7 @@ export const createMyAppointment = async (req: Request, res: Response): Promise<
 
     // Validar que no sea fecha pasada (formato y rango horario ya los valida
     // createMyAppointmentSchema — fechaISO/horaHHMM en common.schemas.ts)
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = bogotaToday();
     if (fecha < hoy) {
       res.status(400).json({ success: false, message: "No puedes agendar en fechas pasadas" }); return;
     }
@@ -234,8 +235,10 @@ export const cancelMyAppointment = async (req: Request, res: Response): Promise<
     // Ventana mínima de 6h antes de la hora de la cita — evita que se libere
     // un horario (ej. 17:00, la última del día) tan tarde que nadie más
     // alcance a agendarlo antes de que empiece la atención (13:00).
+    // fecha/hora son naive-Bogotá — NOW() debe convertirse a la misma zona
+    // antes de comparar, o el guard queda desfasado ~5h (ver bogotaTime.helper.ts).
     const [{ muy_tarde }] = await AppDataSource.query(
-      `SELECT (fecha + hora) <= (NOW() + INTERVAL '6 hours') AS muy_tarde FROM cita WHERE id_cita = $1`,
+      `SELECT (fecha + hora) <= ((NOW() AT TIME ZONE 'America/Bogota') + INTERVAL '6 hours') AS muy_tarde FROM cita WHERE id_cita = $1`,
       [id_cita]
     )
     if (muy_tarde) {

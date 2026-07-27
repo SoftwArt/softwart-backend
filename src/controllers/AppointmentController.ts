@@ -11,37 +11,20 @@ import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascad
 import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/statusTransition.helper";
 import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
 import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
-import { sendCitaConfirmadaEmail, sendCitaCanceladaEmail } from "../services/email.service";
+import { notifyAppointmentStatusChange } from "../helpers/appointmentNotification.helper";
 
 const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
-
-// Reenvía correo al cliente cuando el nuevo estado es Confirmada/Cancelada.
-// Fire-and-forget: no debe bloquear ni fallar la respuesta HTTP.
-function notifyAppointmentStatusChange(item: Appointment, nuevoEstadoNombre: string): void {
-  if (!item.client?.correo) return;
-  const data = {
-    correo:        item.client.correo,
-    nombreCliente: item.client.nombre,
-    fecha:         new Date(item.fecha).toISOString().slice(0, 10),
-    hora:          item.hora,
-    id_cita:       item.id_cita,
-  };
-  const nombre = nuevoEstadoNombre.toLowerCase();
-  if (nombre.includes("confirmada")) {
-    sendCitaConfirmadaEmail(data).catch(err => console.error("⚠️  Error enviando correo de cita confirmada:", err));
-  } else if (nombre.includes("cancelada")) {
-    sendCitaCanceladaEmail(data).catch(err => console.error("⚠️  Error enviando correo de cita cancelada:", err));
-  }
-}
 
 // Marca como "No Asistió" (id 3) las citas Pendientes cuyo horario + 3h ya pasó.
 // Se ejecuta antes de devolver el listado para mantener estados coherentes sin cron.
 async function markNoShowIfOverdue(): Promise<void> {
+  // fecha/hora son naive-Bogotá — NOW() debe convertirse a la misma zona
+  // antes de comparar, o el umbral queda desfasado ~5h (ver bogotaTime.helper.ts).
   await AppDataSource.query(`
     UPDATE cita
     SET id_estado_cita = 3
     WHERE id_estado_cita = 1
-      AND (fecha + hora + INTERVAL '3 hours') < NOW()
+      AND (fecha + hora + INTERVAL '3 hours') < (NOW() AT TIME ZONE 'America/Bogota')
   `);
 }
 

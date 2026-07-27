@@ -1,5 +1,6 @@
 import { Repository, MoreThanOrEqual } from "typeorm";
 import { Appointment } from "../models/Appointment";
+import { bogotaToday } from "./bogotaTime.helper";
 
 // Protección anti-DoS del autoservicio (portal cliente + "agendar sin
 // cuenta"): un mismo cliente no puede acumular más de N citas activas y
@@ -14,7 +15,7 @@ export const MSG_LIMITE_CITAS_ACTIVAS =
   `Ya tienes ${LIMITE_CITAS_ACTIVAS_CLIENTE} citas activas agendadas. Espera a que se complete o cancela alguna antes de agendar una nueva.`;
 
 export async function excedeLimiteCitasActivas(citaRepo: Repository<Appointment>, id_cliente: number): Promise<boolean> {
-  const hoy = new Date(new Date().toISOString().slice(0, 10));
+  const hoy = new Date(bogotaToday());
   const citas = await citaRepo.find({
     where: { client: { id_cliente }, fecha: MoreThanOrEqual(hoy) },
     relations: ["appointmentStatus"],
