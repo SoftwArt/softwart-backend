@@ -15,6 +15,6 @@ router.get("/:id",          requirePermission("MARCOS.VER"),           getFrameB
 router.post("/",            requirePermission("MARCOS.CREAR"),  validate(createFrameSchema), createFrame);
 router.put("/:id",          requirePermission("MARCOS.EDITAR"), validate(updateFrameSchema), updateFrame);
 router.delete("/:id",       requirePermission("MARCOS.ELIMINAR"),      deleteFrame);
-router.patch("/:id/estado", requirePermission("MARCOS.TOGGLE_ESTADO"), toggleFrameStatus);
+router.patch("/:id/estado", requirePermission("MARCOS.CAMBIAR_ESTADO"), toggleFrameStatus);
 
 export { router as frameRouter };

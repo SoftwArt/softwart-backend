@@ -14,6 +14,6 @@ router.get("/:id", getServiceById);
 router.post("/",            verifyToken, requirePermission("SERVICIOS.CREAR"),  validate(createServiceSchema), createService);
 router.put("/:id",          verifyToken, requirePermission("SERVICIOS.EDITAR"), validate(updateServiceSchema), updateService);
 router.delete("/:id",       verifyToken, requirePermission("SERVICIOS.ELIMINAR"),      deleteService);
-router.patch("/:id/estado", verifyToken, requirePermission("SERVICIOS.TOGGLE_ESTADO"), toggleServiceStatus);
+router.patch("/:id/estado", verifyToken, requirePermission("SERVICIOS.CAMBIAR_ESTADO"), toggleServiceStatus);
 
 export { router as serviceRouter };

@@ -15,6 +15,6 @@ router.get("/:id",          requirePermission("USUARIOS.VER"),           getUser
 router.post("/",            requirePermission("USUARIOS.CREAR"),  validate(createUserSchema), createUser);
 router.put("/:id",          requirePermission("USUARIOS.EDITAR"), validate(updateUserSchema), updateUser);
 router.delete("/:id",       requirePermission("USUARIOS.ELIMINAR"),      deleteUser);
-router.patch("/:id/estado", requirePermission("USUARIOS.TOGGLE_ESTADO"), toggleUserStatus);
+router.patch("/:id/estado", requirePermission("USUARIOS.CAMBIAR_ESTADO"), toggleUserStatus);
 
 export { router as userRouter };

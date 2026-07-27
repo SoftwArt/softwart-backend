@@ -15,6 +15,6 @@ router.get("/:id",          requirePermission("ROLES.VER"),           getRoleByI
 router.post("/",            requirePermission("ROLES.CREAR"),  validate(createRoleSchema), createRole);
 router.put("/:id",          requirePermission("ROLES.EDITAR"), validate(updateRoleSchema), updateRole);
 router.delete("/:id",       requirePermission("ROLES.ELIMINAR"),      deleteRole);
-router.patch("/:id/estado", requirePermission("ROLES.TOGGLE_ESTADO"), toggleRoleStatus);
+router.patch("/:id/estado", requirePermission("ROLES.CAMBIAR_ESTADO"), toggleRoleStatus);
 
 export { router as roleRouter };

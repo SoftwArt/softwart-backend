@@ -15,6 +15,6 @@ router.get("/:id",          requirePermission("CLIENTES.VER"),           getClie
 router.post("/",            requirePermission("CLIENTES.CREAR"),  validate(createClientSchema), createClient);
 router.put("/:id",          requirePermission("CLIENTES.EDITAR"), validate(updateClientSchema), updateClient);
 router.delete("/:id",       requirePermission("CLIENTES.ELIMINAR"),      deleteClient);
-router.patch("/:id/estado", requirePermission("CLIENTES.TOGGLE_ESTADO"), toggleClientStatus);
+router.patch("/:id/estado", requirePermission("CLIENTES.CAMBIAR_ESTADO"), toggleClientStatus);
 
 export { router as clientRouter };

@@ -15,6 +15,6 @@ router.get("/:id",          requirePermission("VENTAS.VER"),           getSaleBy
 router.post("/",            requirePermission("VENTAS.CREAR"),  validate(createSaleSchema), createSale);
 router.put("/:id",          requirePermission("VENTAS.EDITAR"), validate(updateSaleSchema), updateSale);
 router.delete("/:id",       requirePermission("VENTAS.ELIMINAR"), deleteSale);
-router.patch("/:id/estado", requirePermission("VENTAS.TOGGLE_ESTADO"), toggleSaleStatus);
+router.patch("/:id/estado", requirePermission("VENTAS.CAMBIAR_ESTADO"), toggleSaleStatus);
 
 export { router as saleRouter };

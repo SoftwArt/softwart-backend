@@ -19,7 +19,7 @@ const PERMISOS_BASE = [
   { nombre: "CLIENTES.CREAR",           descripcion: "Crear clientes" },
   { nombre: "CLIENTES.EDITAR",          descripcion: "Editar clientes" },
   { nombre: "CLIENTES.ELIMINAR",        descripcion: "Eliminar clientes" },
-  { nombre: "CLIENTES.TOGGLE_ESTADO",   descripcion: "Activar/inactivar clientes" },
+  { nombre: "CLIENTES.CAMBIAR_ESTADO",  descripcion: "Activar/inactivar clientes" },
 
   // ── Citas ─────────────────────────────────────────────────────────────────
   { nombre: "CITAS.VER",                descripcion: "Listar y ver citas" },
@@ -33,7 +33,7 @@ const PERMISOS_BASE = [
   { nombre: "VENTAS.CREAR",             descripcion: "Crear ventas" },
   { nombre: "VENTAS.EDITAR",            descripcion: "Editar ventas" },
   { nombre: "VENTAS.ELIMINAR",          descripcion: "Eliminar ventas" },
-  { nombre: "VENTAS.TOGGLE_ESTADO",     descripcion: "Activar/inactivar ventas" },
+  { nombre: "VENTAS.CAMBIAR_ESTADO",    descripcion: "Activar/inactivar ventas" },
 
   // ── Pedidos (DetalleVenta) ────────────────────────────────────────────────
   { nombre: "PEDIDOS.VER",              descripcion: "Listar y ver pedidos" },
@@ -55,28 +55,28 @@ const PERMISOS_BASE = [
   { nombre: "MARCOS.CREAR",             descripcion: "Crear marcos" },
   { nombre: "MARCOS.EDITAR",            descripcion: "Editar marcos" },
   { nombre: "MARCOS.ELIMINAR",          descripcion: "Eliminar marcos" },
-  { nombre: "MARCOS.TOGGLE_ESTADO",     descripcion: "Activar/inactivar marcos" },
+  { nombre: "MARCOS.CAMBIAR_ESTADO",    descripcion: "Activar/inactivar marcos" },
 
   // ── Servicios (TipoServicio) ──────────────────────────────────────────────
   { nombre: "SERVICIOS.VER",            descripcion: "Listar y ver servicios" },
   { nombre: "SERVICIOS.CREAR",          descripcion: "Crear servicios" },
   { nombre: "SERVICIOS.EDITAR",         descripcion: "Editar servicios" },
   { nombre: "SERVICIOS.ELIMINAR",       descripcion: "Eliminar servicios" },
-  { nombre: "SERVICIOS.TOGGLE_ESTADO",  descripcion: "Activar/inactivar servicios" },
+  { nombre: "SERVICIOS.CAMBIAR_ESTADO", descripcion: "Activar/inactivar servicios" },
 
   // ── Usuarios ──────────────────────────────────────────────────────────────
   { nombre: "USUARIOS.VER",             descripcion: "Listar y ver usuarios" },
   { nombre: "USUARIOS.CREAR",           descripcion: "Crear usuarios" },
   { nombre: "USUARIOS.EDITAR",          descripcion: "Editar usuarios" },
   { nombre: "USUARIOS.ELIMINAR",        descripcion: "Eliminar usuarios" },
-  { nombre: "USUARIOS.TOGGLE_ESTADO",   descripcion: "Activar/inactivar usuarios" },
+  { nombre: "USUARIOS.CAMBIAR_ESTADO",  descripcion: "Activar/inactivar usuarios" },
 
   // ── Roles ─────────────────────────────────────────────────────────────────
   { nombre: "ROLES.VER",                descripcion: "Listar y ver roles" },
   { nombre: "ROLES.CREAR",              descripcion: "Crear roles" },
   { nombre: "ROLES.EDITAR",             descripcion: "Editar roles" },
   { nombre: "ROLES.ELIMINAR",           descripcion: "Eliminar roles" },
-  { nombre: "ROLES.TOGGLE_ESTADO",      descripcion: "Activar/inactivar roles" },
+  { nombre: "ROLES.CAMBIAR_ESTADO",     descripcion: "Activar/inactivar roles" },
 
   // ── Permisos ──────────────────────────────────────────────────────────────
   { nombre: "PERMISOS.VER",             descripcion: "Listar y ver permisos" },
