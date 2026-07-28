@@ -102,3 +102,37 @@ describe("DELETE /api/sale-details/:id — guard de estado", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("PUT /api/sale-details/:id — Finalizado no se puede editar (solo cancelar)", () => {
+  it("409 al intentar cambiar el precio de un DetalleVenta Finalizado — no lo modifica", async () => {
+    const detalle = await crearDetalle(estadoFinalizado);
+
+    const res = await request(app)
+      .put(`/api/sale-details/${detalle.id_detalle}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ precio: 99999 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("Finalizado");
+    const reloaded = await AppDataSource.getRepository(SaleDetail).findOneBy({ id_detalle: detalle.id_detalle });
+    expect(Number(reloaded!.precio)).toBe(50000);
+  });
+
+  it("permite cambiar el estado de Finalizado a Cancelado (unico cambio valido)", async () => {
+    // Un hermano activo evita que esta cancelación cascadee sobre la Venta —
+    // no es lo que se está probando acá.
+    await crearDetalle(estadoSinEmpezar);
+    const detalle = await crearDetalle(estadoFinalizado);
+
+    const res = await request(app)
+      .put(`/api/sale-details/${detalle.id_detalle}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ id_estado: estadoCancelado.id_estado });
+
+    expect(res.status).toBe(200);
+    const reloaded = await AppDataSource.getRepository(SaleDetail).findOne({
+      where: { id_detalle: detalle.id_detalle }, relations: ["serviceStatus"],
+    });
+    expect(reloaded!.serviceStatus.nombre).toBe("Cancelado");
+  });
+});

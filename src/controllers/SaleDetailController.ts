@@ -112,6 +112,22 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
       alternativa: "Se conserva por trazabilidad del servicio prestado — un servicio cancelado no se reactiva.",
     });
     if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
+
+    // Un servicio Finalizado ya se entregó — sus datos (fecha, precio,
+    // observación, venta/servicio/marco) tampoco se editan, igual que uno
+    // Cancelado. El único cambio válido es el de estado hacia Cancelado
+    // (ver transicionUnicaPermitida más abajo), así que este guard solo
+    // bloquea si el body toca algún otro campo.
+    const tocaOtroCampo = ["fecha", "observacion", "precio", "id_venta", "id_servicio", "id_marco"]
+      .some((campo) => req.body[campo] !== undefined);
+    if (tocaOtroCampo && (item.serviceStatus?.nombre ?? "").toLowerCase().includes("finalizado")) {
+      res.status(409).json({
+        success: false,
+        message: "No se puede modificar: este servicio ya está Finalizado. Se conserva por trazabilidad — solo puede cancelarse.",
+      });
+      return;
+    }
+
     if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
     if (req.body.observacion !== undefined) item.observacion = req.body.observacion;
     if (req.body.precio      !== undefined) item.precio      = req.body.precio;

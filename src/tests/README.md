@@ -1,6 +1,6 @@
 # Pruebas — SoftwArt Backend
 
-Suite de pruebas con **Vitest** + **supertest**. Actualmente **147 pruebas** (11 unitarias + 136 de integración).
+Suite de pruebas con **Vitest** + **supertest**. Actualmente **152 pruebas** (11 unitarias + 141 de integración).
 
 > ✅ **Se ejecutan en el CI** en cada push y PR (con un PostgreSQL efímero como *service container*).
 > Una prueba fallida **bloquea el despliegue**.
@@ -420,6 +420,17 @@ un error de captura antes de que avance en el flujo real.
 2. `409` al intentar eliminar uno `Cancelado` — no lo borra.
 3. `409` al intentar eliminar uno `Finalizado` — no lo borra.
 4. `404` cuando el `DetalleVenta` no existe.
+
+### `integration/sale-detail-delete-guard.test.ts` — bloque PUT (2)
+
+`updateSaleDetail` solo bloqueaba editar un DetalleVenta ya `Cancelado` —
+uno `Finalizado` (ya entregado) podía seguir editándose (fecha, precio,
+observación, venta/servicio/marco) libremente por ese mismo endpoint,
+aunque el frontend (OrdersPage) ya deshabilitaba el botón "Editar" para
+ese caso. Se agrega el guard también en el backend para que ambos coincidan.
+
+1. `409` al intentar cambiar el `precio` de un Finalizado — no lo modifica.
+2. `200` el único cambio válido (`id_estado` → Cancelado) sigue funcionando.
 
 ### `integration/cancel-appointment-6h-guard.test.ts` (2)
 
