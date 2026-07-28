@@ -14,7 +14,7 @@ import {
   sendAdminNewAppointmentAlert,
   CitaConfirmacionData,
 } from "../services/email.service";
-import { notifyNewAppointment } from "../services/push.service";
+import { notifyNewAppointment, notifyAppointmentCancelled } from "../services/push.service";
 import { excedeLimiteCitasActivas, MSG_LIMITE_CITAS_ACTIVAS } from "../helpers/appointmentLimit.helper";
 import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
 import { bogotaToday } from "../helpers/bogotaTime.helper";
@@ -256,6 +256,16 @@ export const cancelMyAppointment = async (req: Request, res: Response): Promise<
     cita.appointmentStatus = estadoCancelada
     if (req.body.motivo) cita.motivo_cancelacion = req.body.motivo
     await citaRepo.save(cita)
+
+    // Push al staff (topic "staff") — mismo criterio que agendar: que se
+    // enteren sin tener que revisar el panel. Solo dispara acá (cancelación
+    // iniciada por el cliente), no cuando el staff cancela desde el panel.
+    notifyAppointmentCancelled({
+      nombreCliente: cita.client!.nombre,
+      fecha:         new Date(cita.fecha).toISOString().slice(0, 10),
+      hora:          cita.hora,
+      id_cita:       cita.id_cita,
+    }).catch(err => console.error("⚠️  Error enviando push de cancelación:", err));
 
     res.json({ success: true, message: 'Cita cancelada correctamente' })
   } catch (error) {

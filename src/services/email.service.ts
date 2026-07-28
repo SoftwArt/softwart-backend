@@ -414,3 +414,70 @@ export const sendAdminNewAppointmentAlert = async (
   if (error) throw new Error(`Resend error (alerta admin cita #${data.id_cita}): ${error.message}`);
   console.log(`✅ Alerta admin cita #${data.id_cita} enviada a: ${adminEmail}`);
 };
+
+// ── Servicio finalizado ───────────────────────────────────────────────────────
+export type ServicioFinalizadoData = {
+  correo:        string
+  nombreCliente: string
+  servicio:      string  // nombre del tipo de servicio (ej. "Enmarcación")
+  id_detalle:    number
+  id_venta:      number
+}
+
+export const sendServicioFinalizadoEmail = async (
+  data: ServicioFinalizadoData
+): Promise<void> => {
+  const { data: sent, error } = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: data.correo,
+    subject: `¡Tu ${data.servicio.toLowerCase()} está lista! — Arte Café`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
+
+        ${emailHeader("Servicio finalizado")}
+
+        <div style="background: #fff; padding: 32px; border: 1px solid #e5e5e5; border-top: none;">
+          <p style="margin: 0 0 16px; font-size: 15px;">
+            Hola, <strong>${data.nombreCliente}</strong> 👋
+          </p>
+          <p style="margin: 0 0 24px; font-size: 15px; color: #444;">
+            ¡Buenas noticias! Ya terminamos tu servicio de <strong>${data.servicio}</strong>
+            y está lista para que la recojas cuando gustes.
+          </p>
+
+          <div style="background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px; padding: 20px 24px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px; width: 40%;">Venta</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">#${data.id_venta}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Servicio</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">${data.servicio}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Estado</td>
+                <td style="padding: 8px 0;">
+                  <span style="
+                    display: inline-block; padding: 2px 10px; border-radius: 99px;
+                    background: #dcfce7; color: #166534; font-size: 12px; font-weight: 600;
+                  ">Finalizado</span>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <p style="margin: 24px 0 0; font-size: 14px; color: #555;">
+            Puedes ver el detalle desde
+            <a href="${SITE_URL}" style="color: #7c4a2d; text-decoration: none;">tu cuenta</a>.
+          </p>
+        </div>
+
+        ${emailFooter()}
+
+      </div>
+    `,
+  });
+  if (error) throw new Error(`Resend error (servicio finalizado #${data.id_detalle}): ${error.message}`);
+  console.log(`✅ Correo de servicio finalizado #${data.id_detalle} enviado:`, sent?.id);
+};

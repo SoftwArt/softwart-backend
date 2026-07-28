@@ -9,8 +9,9 @@ import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from ".
 import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
 import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/statusTransition.helper";
+import { sendServicioFinalizadoEmail } from "../services/email.service";
 
-const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
+const SALE_RELATIONS = ["sale", "sale.client", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
 export const getAllServiceStatus = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -84,7 +85,7 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
     const estadoServicioRepo = AppDataSource.getRepository(ServiceStatus);
     const target = await detalleVentaRepo.findOne({
       where: { id_detalle: Number(req.params.id_detalle) },
-      relations: ["serviceStatus", ...SALE_RELATIONS],
+      relations: ["serviceStatus", "service", ...SALE_RELATIONS],
     });
     if (!target) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
     // Estado terminal: un servicio cancelado no puede cambiar de estado.
@@ -148,6 +149,20 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
     target.serviceStatus = nuevoEstado;
     await detalleVentaRepo.save(target);
     await logServiceStatusChange(AppDataSource.manager, target, nuevoEstado);
+
+    // Avisar al cliente cuando su servicio queda listo — fire-and-forget,
+    // no debe bloquear ni fallar la respuesta HTTP (mismo criterio que las
+    // notificaciones de citas).
+    if (nuevoEstado.nombre.toLowerCase().includes("finalizado") && target.sale?.client?.correo) {
+      sendServicioFinalizadoEmail({
+        correo:        target.sale.client.correo,
+        nombreCliente: target.sale.client.nombre,
+        servicio:      target.service?.nombre ?? "Servicio",
+        id_detalle:    target.id_detalle,
+        id_venta:      target.sale.id_venta,
+      }).catch(err => console.error("⚠️  Error enviando correo de servicio finalizado:", err));
+    }
+
     res.json({ success: true, message: "Estado de DetalleVenta actualizado", data: target });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error en changeSaleDetailStatus", error });

@@ -13,6 +13,7 @@ import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 import { guardEstadoTerminal, transicionUnicaPermitida } from "../helpers/statusTransition.helper";
 import { coincideConCentavos, sumaServiciosVenta, msgTotalNoCoincide } from "../helpers/saleTotal.helper";
 import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
+import { sendServicioFinalizadoEmail } from "../services/email.service";
 
 const SALE_RELATIONS = ["sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
@@ -203,7 +204,20 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
     }
 
     await detalleVentaRepo.save(item);
-    if (nuevoEstado) await logServiceStatusChange(AppDataSource.manager, item, nuevoEstado);
+    if (nuevoEstado) {
+      await logServiceStatusChange(AppDataSource.manager, item, nuevoEstado);
+      // Avisar al cliente cuando su servicio queda listo — fire-and-forget,
+      // mismo criterio que changeSaleDetailStatus (PATCH dedicado).
+      if (nuevoEstado.nombre.toLowerCase().includes("finalizado") && item.sale?.client?.correo) {
+        sendServicioFinalizadoEmail({
+          correo:        item.sale.client.correo,
+          nombreCliente: item.sale.client.nombre,
+          servicio:      item.service?.nombre ?? "Servicio",
+          id_detalle:    item.id_detalle,
+          id_venta:      item.sale.id_venta,
+        }).catch(err => console.error("⚠️  Error enviando correo de servicio finalizado:", err));
+      }
+    }
     res.json({ success: true, message: "DetalleVenta actualizado", data: item });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al actualizar DetalleVenta", error });

@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "lint": "eslint src",
     "seed": "ts-node src/seeds/index.ts",
+    "reset-data": "ts-node scripts/reset-data.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

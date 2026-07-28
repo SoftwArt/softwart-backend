@@ -54,3 +54,27 @@ export const notifyNewAppointment = async (
     android: { priority: "high" },
   });
 };
+
+// Notifica al personal (topic "staff") que un CLIENTE canceló su propia
+// cita desde el portal (cancelMyAppointment) — igual que nueva_cita, para
+// que el staff se entere sin tener que abrir el panel a revisar. Las
+// cancelaciones hechas por el propio staff desde el panel no disparan esto
+// (no tiene sentido notificarse a sí mismo de su propia acción).
+export const notifyAppointmentCancelled = async (
+  data: NewAppointmentPush
+): Promise<void> => {
+  if (!ensureInit()) return;
+
+  await admin.messaging().send({
+    topic: STAFF_TOPIC,
+    notification: {
+      title: "Cita cancelada por el cliente",
+      body:  `${data.nombreCliente} · ${data.fecha} ${data.hora}`,
+    },
+    data: {
+      tipo:    "cita_cancelada",
+      id_cita: String(data.id_cita),
+    },
+    android: { priority: "high" },
+  });
+};
