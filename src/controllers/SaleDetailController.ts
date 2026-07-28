@@ -210,6 +210,42 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  DELETE /api/sale-details/:id
+//  Hard-delete de un DetalleVenta ("Servicio" en el lenguaje de negocio,
+//  OrdersPage.tsx). A diferencia de Pago (dinero real, nunca se borra) y de
+//  un DetalleVenta ya Cancelado/Finalizado (ya es trazabilidad de algo que
+//  ocurrió o se decidió formalmente), un DetalleVenta "Sin empezar"/"En
+//  preparación" es solo un compromiso todavía no realizado — se puede
+//  deshacer por completo. ServiceStatusHistory tiene onDelete: CASCADE a
+//  nivel de BD, así que su historial se limpia solo.
+// ─────────────────────────────────────────────────────────────────────────────
+export const deleteSaleDetail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);
+    const item = await detalleVentaRepo.findOne({
+      where: { id_detalle: Number(req.params.id) },
+      relations: ["serviceStatus"],
+    });
+    if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
+
+    const estadoActual = item.serviceStatus?.nombre?.toLowerCase() ?? "";
+    if (estadoActual.includes("cancelado")) {
+      res.status(409).json({ success: false, message: "No se puede eliminar: este servicio ya está Cancelado. Se conserva por trazabilidad." });
+      return;
+    }
+    if (estadoActual.includes("finalizado")) {
+      res.status(409).json({ success: false, message: "No se puede eliminar: este servicio ya está Finalizado. Se conserva por trazabilidad." });
+      return;
+    }
+
+    await detalleVentaRepo.remove(item);
+    res.json({ success: true, message: "Servicio eliminado correctamente" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al eliminar el servicio", error });
+  }
+};
+
 export const toggleSaleDetailStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const detalleVentaRepo = AppDataSource.getRepository(SaleDetail);

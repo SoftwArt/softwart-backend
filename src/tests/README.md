@@ -1,6 +1,6 @@
 # Pruebas — SoftwArt Backend
 
-Suite de pruebas con **Vitest** + **supertest**. Actualmente **144 pruebas** (11 unitarias + 133 de integración).
+Suite de pruebas con **Vitest** + **supertest**. Actualmente **147 pruebas** (11 unitarias + 136 de integración).
 
 > ✅ **Se ejecutan en el CI** en cada push y PR (con un PostgreSQL efímero como *service container*).
 > Una prueba fallida **bloquea el despliegue**.
@@ -228,8 +228,8 @@ borrarse por completo, cascadeando `SaleDetail`/`Payment`.
 **`DELETE /api/sales/:id`**
 1. `200` elimina la Venta cuando no tiene abonos validados (0 o solo `Pendiente`).
 2. `409` y no borra nada si tiene un abono `Validado`.
-3. `DELETE /api/sale-details/:id` y `DELETE /api/payments/:id` siguen sin existir (`404`) — esos
-   nunca se borran duro, solo la Venta.
+3. `DELETE /api/payments/:id` sigue sin existir (`404`) — nunca se borra duro. `DELETE /api/sale-details/:id`
+   fue reintroducido con guard propio, ver `sale-detail-delete-guard.test.ts` más abajo.
 
 **`DELETE /api/appointments/:id`** (mismo criterio, cascadeando también la Venta asociada)
 4. `200` elimina una cita sin venta directamente.
@@ -408,6 +408,18 @@ Mismo chequeo, esta vez para `deleteFrame` (catálogo Marcos): `SaleDetail.frame
 1. `409` con singular correcto — sin "DetalleVenta" en el mensaje; el marco no se borra.
 2. `409` con plural correcto con dos `DetalleVenta` asociados.
 3. `200` elimina un marco sin ningún `DetalleVenta` asociado.
+
+### `integration/sale-detail-delete-guard.test.ts` (4)
+
+`deleteSaleDetail` (`DELETE /api/sale-details/:id`) fue reintroducido — había sido retirado en `d28b7b5`
+("nunca tuvo un botón conectado en el frontend"), pero se decidió que solo `Pago` necesita trazabilidad
+fiscal estricta; un `DetalleVenta` es "una promesa" hasta que se completa, pensado para que Admin corrija
+un error de captura antes de que avance en el flujo real.
+
+1. `200` elimina un `DetalleVenta` `Sin empezar`.
+2. `409` al intentar eliminar uno `Cancelado` — no lo borra.
+3. `409` al intentar eliminar uno `Finalizado` — no lo borra.
+4. `404` cuando el `DetalleVenta` no existe.
 
 ### `integration/cancel-appointment-6h-guard.test.ts` (2)
 

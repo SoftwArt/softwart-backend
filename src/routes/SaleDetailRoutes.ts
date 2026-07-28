@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getAllSaleDetail, getSaleDetailById, createSaleDetail,
-         updateSaleDetail, toggleSaleDetailStatus, getSaleDetailHistorial } from "../controllers/SaleDetailController";
+         updateSaleDetail, toggleSaleDetailStatus, getSaleDetailHistorial, deleteSaleDetail } from "../controllers/SaleDetailController";
 import { verifyToken } from "../middlewares/auth.middleware";
 import { requirePermission } from "../middlewares/requirePermission.middleware";
 import { validate } from "../middlewares/validate.middleware";
@@ -15,6 +15,7 @@ router.get("/:id",          requirePermission("PEDIDOS.VER"),           getSaleD
 router.post("/",            requirePermission("PEDIDOS.CREAR"),  validate(createSaleDetailSchema), createSaleDetail);
 router.put("/:id",          requirePermission("PEDIDOS.EDITAR"), validate(updateSaleDetailSchema), updateSaleDetail);
 router.patch("/:id/estado", requirePermission("PEDIDOS.CAMBIAR_ESTADO"), toggleSaleDetailStatus);
+router.delete("/:id",       requirePermission("PEDIDOS.ELIMINAR"),       deleteSaleDetail);
 router.get("/:id/historial", requirePermission("PEDIDOS.VER"), getSaleDetailHistorial);
 
 export { router as saleDetailRouter };

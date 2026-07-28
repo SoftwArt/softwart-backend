@@ -219,10 +219,8 @@ describe("DELETE /api/sales/:id — hard-delete con guard de abonos validados", 
     expect(sale!.payments).toHaveLength(1);
   });
 
-  it("DELETE /api/sale-details/:id no longer exists", async () => {
-    const res = await request(app).delete("/api/sale-details/1").set("Authorization", `Bearer ${adminToken}`);
-    expect(res.status).toBe(404);
-  });
+  // DELETE /api/sale-details/:id fue reintroducido (con guard de estado
+  // Cancelado/Finalizado) — ver sale-detail-delete-guard.test.ts.
 
   it("DELETE /api/payments/:id no longer exists", async () => {
     const res = await request(app).delete("/api/payments/1").set("Authorization", `Bearer ${adminToken}`);
