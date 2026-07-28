@@ -118,6 +118,30 @@ describe("guestAppointment — constancia de habeas data (ADR-007)", () => {
   });
 });
 
+describe("guestAppointment — reutiliza el Cliente por documento aunque el correo cambie", () => {
+  it("no duplica el Cliente cuando el mismo documento agenda una segunda cita con otro correo", async () => {
+    const doc = "88880010";
+    const primerCorreo = "primer.correo.guard@test.com";
+    const segundoCorreo = "segundo.correo.guard@test.com";
+
+    const first = await guestAppointment({ documento: doc, correo: primerCorreo, fecha: futureDate(40), hora: "13:00" });
+    expect(first.status).toBe(201);
+
+    const second = await guestAppointment({ documento: doc, correo: segundoCorreo, fecha: futureDate(41), hora: "14:00" });
+    expect(second.status).toBe(201); // crea la cita igual, sin duplicar el Cliente
+
+    const clientes = await AppDataSource.query(`SELECT id_cliente, correo FROM cliente WHERE documento = $1`, [doc]);
+    expect(clientes).toHaveLength(1);
+    expect(clientes[0].correo).toBe(primerCorreo); // guestAppointment nunca reescribe el correo existente
+
+    const citas = await AppDataSource.query(
+      `SELECT id_cita FROM cita WHERE id_cliente = $1`,
+      [clientes[0].id_cliente],
+    );
+    expect(citas).toHaveLength(2);
+  });
+});
+
 describe("excedeLimiteCitasActivas — tope anti-DoS de citas activas por cliente", () => {
   it("permite hasta 3 citas activas y bloquea la 4ª con 409", async () => {
     const doc = "88880006";

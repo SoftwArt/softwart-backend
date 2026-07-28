@@ -255,8 +255,12 @@ export const registerGuest = async (req: Request, res: Response): Promise<void> 
 // ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/auth/register
 //  Landing página registrar — crea Cliente + Usuario en una sola llamada.
-//  Si ya existe un Cliente con ese correo (fue creado como invitado), solo crea
-//  el Usuario y lo vincula por correo — así se preserva el historial de pedidos.
+//  Si ya existe un Cliente con ese documento (fue creado como invitado vía
+//  guest-appointment/register-guest) se reutiliza — el documento es la
+//  identidad real de la persona, el correo puede cambiar (typo, correo
+//  temporal al agendar, etc.). Si el correo reutilizado difiere del que se
+//  está registrando ahora, se actualiza al nuevo — User y Client deben
+//  coincidir en correo para que el login pueda vincularlos (ver login()).
 //  Body: { tipoDocumento, documento, nombre, correo, clave, telefono }
 // ─────────────────────────────────────────────────────────────────────────────
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -267,13 +271,22 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     const { tipoDocumento, documento, nombre, correo, clave, telefono } = req.body;
 
-    const [usuarioExiste, clienteExiste] = await Promise.all([
+    const [usuarioExiste, clienteExiste, clienteConEseCorreo] = await Promise.all([
       usuarioRepo.findOne({ where: { correo } }),
+      clienteRepo.findOne({ where: { documento } }),
       clienteRepo.findOne({ where: { correo } }),
     ]);
 
     if (usuarioExiste) {
       res.status(409).json({ success: false, message: "Ya existe una cuenta con ese correo" });
+      return;
+    }
+
+    // El documento ya pertenece a un Cliente, pero el correo que se está
+    // registrando es de OTRO Cliente distinto (correo es unique) — conflicto
+    // real de identidad que no se puede resolver actualizando silenciosamente.
+    if (clienteConEseCorreo && clienteConEseCorreo.documento !== documento) {
+      res.status(409).json({ success: false, message: "Ese correo ya está en uso por otro cliente" });
       return;
     }
 
@@ -288,7 +301,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // autorización es un estado inválido del sistema".
     let cliente!: Client;
     await AppDataSource.transaction(async (manager) => {
-      // Si ya existe como invitado, reutiliza el Cliente — solo crea el Usuario
+      // Si ya existe (por documento) como invitado, reutiliza el Cliente —
+      // solo crea el Usuario. Si su correo cambió, se actualiza al nuevo.
       const clienteRepoTx = manager.getRepository(Client);
       cliente = clienteExiste ?? clienteRepoTx.create({
         tipoDocumento,
@@ -298,7 +312,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         telefono: telefono ?? null,
         estado:   true,
       });
-      if (!clienteExiste) await clienteRepoTx.save(cliente);
+      if (!clienteExiste) {
+        await clienteRepoTx.save(cliente);
+      } else if (clienteExiste.correo !== correo) {
+        cliente.correo = correo;
+        await clienteRepoTx.save(cliente);
+      }
 
       const hash    = await bcrypt.hash(clave, 10);
       const usuario = manager.getRepository(User).create({ correo, clave: hash, role: rolCliente, estado: true });

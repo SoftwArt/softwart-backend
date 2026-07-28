@@ -1,6 +1,6 @@
 # Pruebas — SoftwArt Backend
 
-Suite de pruebas con **Vitest** + **supertest**. Actualmente **140 pruebas** (11 unitarias + 129 de integración).
+Suite de pruebas con **Vitest** + **supertest**. Actualmente **144 pruebas** (11 unitarias + 133 de integración).
 
 > ✅ **Se ejecutan en el CI** en cada push y PR (con un PostgreSQL efímero como *service container*).
 > Una prueba fallida **bloquea el despliegue**.
@@ -125,10 +125,22 @@ PostgreSQL. Por eso verifican que las piezas funcionan **juntas**.
 7. `409` cuando el correo ya está registrado.
 8. `422` cuando faltan campos requeridos (validación Zod).
 9. `200` el usuario recién registrado puede iniciar sesión con rol `Cliente`.
+10. `201` reutiliza el `Cliente` existente **por documento** (creado antes como invitado vía
+    `guest-appointment`) aunque se registre con un correo distinto — antes solo buscaba por correo, así
+    que un mismo documento con otro correo intentaba crear un `Cliente` duplicado y chocaba con el
+    `unique` de `documento` (500 crudo). Además actualiza `cliente.correo` al nuevo, y confirma con un
+    login real que `id_cliente` queda bien vinculado (User y Client deben coincidir en correo).
+11. `409` si el correo que se está registrando ya pertenece a **otro** `Cliente` (documento distinto) —
+    conflicto real que no se puede resolver actualizando en silencio.
 
 > **Nota:** estas pruebas **comparten estado** dentro del archivo y dependen del orden (la #7 requiere
 > que la #6 haya creado el usuario). Vitest ejecuta los tests de un archivo secuencialmente, así que
 > funciona. Lo "puro" sería que cada prueba fuese independiente.
+
+**`POST /api/auth/register-guest`**
+12. `201` crea el `Cliente` sin `telefono` (campo opcional en `guestClientSchema`) — antes la columna
+    `telefono` de `cliente` era `NOT NULL` en la BD pese a ser opcional en el schema, así que omitirlo
+    tiraba un `500` crudo de Postgres. Corregido con la migración `MakeClientTelefonoNullable`.
 
 ### `integration/create-sale.test.ts` (6)
 
@@ -272,6 +284,14 @@ Cliente — solo si el Cliente es nuevo (uno ya existente no vuelve a "aceptar" 
    siguen siendo solo las 2 filas de la primera cita.
 
 7. El límite anti-DoS de citas activas por cliente (3) se respeta; la 4ª cita agendada da `409`.
+
+**`guestAppointment` — reutiliza el Cliente por documento aunque el correo cambie**
+
+8. Un segundo agendamiento con el **mismo documento** pero **otro correo** no duplica el `Cliente`
+   (ya buscaba por correo *o* documento, en ese orden) — se confirma con una fila en `cliente` y **dos**
+   citas asociadas a ese mismo `id_cliente`. A diferencia de `register`, acá el correo del `Cliente`
+   reutilizado **no** se actualiza (`guestAppointment` documenta explícitamente "se reutiliza sin
+   modificarlo").
 
 ### `integration/sale-detail-cascade.test.ts` (8)
 

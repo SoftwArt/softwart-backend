@@ -21,7 +21,7 @@ export class Client {
   @Column({ unique: true })
   correo!: string;
 
-  @Column()
+  @Column({ nullable: true })
   telefono?: string;
 
   @Column({ type: "boolean" })
