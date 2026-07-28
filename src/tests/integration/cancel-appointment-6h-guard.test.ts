@@ -18,6 +18,9 @@ import { bogotaNowMs } from "../../helpers/bogotaTime.helper";
 let clientToken: string;
 let client: Client;
 let pendiente: AppointmentStatus;
+let confirmada: AppointmentStatus;
+let completada: AppointmentStatus;
+let cancelada: AppointmentStatus;
 
 // Convierte un instante UTC (ms) a los componentes de fecha/hora que
 // representaría en Bogotá (UTC-5 fijo, sin DST) — inverso de bogotaNowMs().
@@ -28,7 +31,7 @@ function bogotaPartsFromMs(ms: number): { fecha: string; hora: string } {
   return { fecha, hora };
 }
 
-const seedAppointment = async (offsetHours: number): Promise<number> => {
+const seedAppointment = async (offsetHours: number, estado: AppointmentStatus = pendiente): Promise<number> => {
   const { fecha, hora } = bogotaPartsFromMs(bogotaNowMs() + offsetHours * 60 * 60 * 1000);
   const [y, m, d] = fecha.split("-").map(Number);
   // TypeORM serializa la columna `date` con los getters LOCALES del Date, no
@@ -37,7 +40,7 @@ const seedAppointment = async (offsetHours: number): Promise<number> => {
   // local, America/Bogota). Constructor local (y, m-1, d) evita el desfase.
   const citaRepo = AppDataSource.getRepository(Appointment);
   const cita = await citaRepo.save(
-    citaRepo.create({ fecha: new Date(y, m - 1, d), hora, client, appointmentStatus: pendiente }),
+    citaRepo.create({ fecha: new Date(y, m - 1, d), hora, client, appointmentStatus: estado }),
   );
   return cita.id_cita;
 };
@@ -60,7 +63,11 @@ beforeAll(async () => {
   ).body.token;
 
   client = (await AppDataSource.getRepository(Client).findOneBy({ correo: "sixhourguard@test.com" }))!;
-  pendiente = (await AppDataSource.getRepository(AppointmentStatus).findOneBy({ id_estado_cita: 1 }))!;
+  const statusRepo = AppDataSource.getRepository(AppointmentStatus);
+  pendiente  = (await statusRepo.findOneBy({ nombre: "Pendiente" }))!;
+  confirmada = (await statusRepo.findOneBy({ nombre: "Confirmada" }))!;
+  completada = (await statusRepo.findOneBy({ nombre: "Completada" }))!;
+  cancelada  = (await statusRepo.findOneBy({ nombre: "Cancelada" }))!;
 });
 
 describe("PATCH /api/account/citas/:id/cancelar — precisión del guard de 6h", () => {
@@ -85,5 +92,42 @@ describe("PATCH /api/account/citas/:id/cancelar — precisión del guard de 6h",
 
     expect(res.status).toBe(200);
     expect(await statusOf(id_cita)).toBe(4); // Cancelada
+  });
+});
+
+describe("PATCH /api/account/citas/:id/cancelar — Confirmada también es cancelable", () => {
+  it("allows cancelling a Confirmada appointment outside the 6h window", async () => {
+    const id_cita = await seedAppointment(8, confirmada);
+
+    const res = await request(app)
+      .patch(`/api/account/citas/${id_cita}/cancelar`)
+      .set("Authorization", `Bearer ${clientToken}`);
+
+    expect(res.status).toBe(200);
+    expect(await statusOf(id_cita)).toBe(cancelada.id_estado_cita);
+  });
+
+  it("returns 400 when the Confirmada appointment is 4h away (inside the 6h window) and does not cancel it", async () => {
+    const id_cita = await seedAppointment(4, confirmada);
+
+    const res = await request(app)
+      .patch(`/api/account/citas/${id_cita}/cancelar`)
+      .set("Authorization", `Bearer ${clientToken}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("menos de 6 horas");
+    expect(await statusOf(id_cita)).toBe(confirmada.id_estado_cita); // sigue Confirmada
+  });
+
+  it("still blocks cancelling a Completada appointment (not Pendiente/Confirmada)", async () => {
+    const id_cita = await seedAppointment(8, completada);
+
+    const res = await request(app)
+      .patch(`/api/account/citas/${id_cita}/cancelar`)
+      .set("Authorization", `Bearer ${clientToken}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("Completada");
+    expect(await statusOf(id_cita)).toBe(completada.id_estado_cita);
   });
 });

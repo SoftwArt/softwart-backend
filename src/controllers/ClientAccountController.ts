@@ -224,8 +224,11 @@ export const cancelMyAppointment = async (req: Request, res: Response): Promise<
       res.status(403).json({ success: false, message: 'No tienes permiso para cancelar esta cita' }); return
     }
 
-    // Solo se pueden cancelar citas Pendientes (id 1)
-    if (cita.appointmentStatus?.id_estado_cita !== 1) {
+    // Solo se pueden cancelar citas Pendiente o Confirmada — por nombre, no
+    // por id (el id de cada estado depende del orden de seed, no es fijo).
+    const estadoActual = cita.appointmentStatus?.nombre?.toLowerCase() ?? ''
+    const esCancelable  = estadoActual.includes('pendiente') || estadoActual.includes('confirmada')
+    if (!esCancelable) {
       res.status(400).json({
         success: false,
         message: `No se puede cancelar una cita en estado "${cita.appointmentStatus?.nombre ?? 'desconocido'}"`,
