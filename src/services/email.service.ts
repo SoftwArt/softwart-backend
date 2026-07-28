@@ -138,7 +138,7 @@ export const sendCitaConfirmacionEmail = async (
   const { data: sent, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: data.correo,
-    subject: `Cita #${data.id_cita} agendada (por confirmar) — Arte Café`,
+    subject: `Cita agendada (por confirmar) — Arte Café`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
 
@@ -156,10 +156,6 @@ export const sendCitaConfirmacionEmail = async (
           <!-- Tarjeta de cita -->
           <div style="background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px; padding: 20px 24px;">
             <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #888; font-size: 13px; width: 40%;">Número de cita</td>
-                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">#${data.id_cita}</td>
-              </tr>
               <tr>
                 <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
                 <td style="padding: 8px 0; font-size: 13px; font-weight: 600; text-transform: capitalize;">
@@ -214,7 +210,7 @@ export const sendCitaConfirmadaEmail = async (
   const { data: sent, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: data.correo,
-    subject: `Cita #${data.id_cita} confirmada — Arte Café`,
+    subject: `Cita confirmada — Arte Café`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
 
@@ -232,10 +228,7 @@ export const sendCitaConfirmadaEmail = async (
           <!-- Tarjeta de cita -->
           <div style="background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px; padding: 20px 24px;">
             <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #888; font-size: 13px; width: 40%;">Número de cita</td>
-                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">#${data.id_cita}</td>
-              </tr>
+        
               <tr>
                 <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
                 <td style="padding: 8px 0; font-size: 13px; font-weight: 600; text-transform: capitalize;">
@@ -280,7 +273,7 @@ export const sendCitaCanceladaEmail = async (
   const { data: sent, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: data.correo,
-    subject: `Cita #${data.id_cita} cancelada — Arte Café`,
+    subject: `Cita cancelada — Arte Café`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
 
@@ -298,10 +291,7 @@ export const sendCitaCanceladaEmail = async (
           <!-- Tarjeta de cita -->
           <div style="background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px; padding: 20px 24px;">
             <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #888; font-size: 13px; width: 40%;">Número de cita</td>
-                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">#${data.id_cita}</td>
-              </tr>
+      
               <tr>
                 <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
                 <td style="padding: 8px 0; font-size: 13px; font-weight: 600; text-transform: capitalize;">
@@ -371,10 +361,6 @@ export const sendAdminNewAppointmentAlert = async (
 
           <div style="background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px; padding: 20px 24px;">
             <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #888; font-size: 13px; width: 40%;">Número de cita</td>
-                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">#${data.id_cita}</td>
-              </tr>
               <tr>
                 <td style="padding: 8px 0; color: #888; font-size: 13px;">Cliente</td>
                 <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">${data.nombreCliente}</td>
