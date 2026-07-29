@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import request from "supertest";
 import app from "../../app";
 import { AppDataSource } from "../../data-source";
+import { Client } from "../../models/Client";
 import "../setup";
 
 const ADMIN = { correo: "admin@softwart.com", clave: "Admin1234!" };
@@ -135,71 +136,48 @@ describe("POST /api/auth/register", () => {
     expect(res.body.data.rol).toBe("Cliente");
   });
 
-  it("reutiliza el Cliente existente por documento (creado como invitado) aunque el correo cambie", async () => {
+  it("returns 409 when the documento being registered already belongs to another client — nunca lo reutiliza", async () => {
     const documento = "77770001";
-    const correoInvitado = "invitado.reutiliza@test.com";
-    const correoRegistro = "registro.reutiliza@test.com";
+    const correoExistente = "cliente.existente@test.com";
+    const correoNuevoIntento = "registro.bloqueado@test.com";
 
-    const guestRes = await request(app).post("/api/auth/guest-appointment").send({
-      tipoDocumento: "CC", documento, nombre: "Cliente Invitado Reutilizado",
-      correo: correoInvitado, telefono: "3009998877",
-      fecha: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
-      hora: "13:00", acceptTerms: true,
-    });
-    expect(guestRes.status).toBe(201);
+    // Cliente creado directo (simula uno dado de alta por un admin en el
+    // panel, o cualquier Client preexistente) — register() no debe
+    // reutilizarlo ni actualizarlo, solo bloquear.
+    await AppDataSource.getRepository(Client).save(
+      AppDataSource.getRepository(Client).create({
+        tipoDocumento: "CC", documento, nombre: "Cliente Existente",
+        correo: correoExistente, telefono: "3009998877", estado: true,
+      }),
+    );
 
     const res = await request(app)
       .post("/api/auth/register")
-      .send({ ...NEW_USER, documento, correo: correoRegistro });
-    expect(res.status).toBe(201);
+      .send({ ...NEW_USER, documento, correo: correoNuevoIntento });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain("documento");
 
     const clientes = await AppDataSource.query(
-      `SELECT id_cliente, correo FROM cliente WHERE documento = $1`,
+      `SELECT correo FROM cliente WHERE documento = $1`,
       [documento],
     );
-    expect(clientes).toHaveLength(1); // no duplicó el Cliente del invitado
-    expect(clientes[0].correo).toBe(correoRegistro); // correo actualizado al de la cuenta
-
-    // User.correo y Client.correo deben coincidir para que login() vincule
-    // el cliente correcto (ver AuthController.login, búsqueda por correo).
-    const login = await request(app)
-      .post("/api/auth/login")
-      .send({ correo: correoRegistro, clave: NEW_USER.clave });
-    expect(login.status).toBe(200);
-    expect(login.body.data.id_cliente).toBe(clientes[0].id_cliente);
+    expect(clientes).toHaveLength(1); // no se creó un segundo Client
+    expect(clientes[0].correo).toBe(correoExistente); // ni se tocó el existente
   });
 
   it("returns 409 when the correo being registered already belongs to a different client", async () => {
     const documentoOtro = "77770003";
     const correoOtro = "otro.cliente.registro@test.com";
-    const guestRes = await request(app).post("/api/auth/register-guest").send({
-      tipoDocumento: "CC", documento: documentoOtro, nombre: "Otro Cliente", correo: correoOtro,
-      telefono: "3001112233",
-    });
-    expect(guestRes.status).toBe(201);
+    await AppDataSource.getRepository(Client).save(
+      AppDataSource.getRepository(Client).create({
+        tipoDocumento: "CC", documento: documentoOtro, nombre: "Otro Cliente",
+        correo: correoOtro, telefono: "3001112233", estado: true,
+      }),
+    );
 
     const res = await request(app)
       .post("/api/auth/register")
       .send({ ...NEW_USER, documento: "77770004", correo: correoOtro });
     expect(res.status).toBe(409);
-  });
-});
-
-describe("POST /api/auth/register-guest", () => {
-  it("crea el Cliente sin telefono (campo opcional en el schema)", async () => {
-    const res = await request(app).post("/api/auth/register-guest").send({
-      tipoDocumento: "CC",
-      documento: "66660001",
-      nombre: "Cliente Sin Telefono",
-      correo: "sintelefono@test.com",
-    });
-    expect(res.status).toBe(201);
-
-    const clientes = await AppDataSource.query(
-      `SELECT telefono FROM cliente WHERE correo = $1`,
-      ["sintelefono@test.com"],
-    );
-    expect(clientes).toHaveLength(1);
-    expect(clientes[0].telefono).toBeNull();
   });
 });

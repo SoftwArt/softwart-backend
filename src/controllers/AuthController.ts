@@ -5,20 +5,15 @@ import { User }               from "../models/User";
 import { Client }            from "../models/Client";
 import { Role }              from "../models/Role";
 import { Appointment }       from "../models/Appointment";
-import { AppointmentStatus } from "../models/AppointmentStatus";
 import jwt                   from "jsonwebtoken";
 import bcrypt                from "bcrypt";
 import crypto                from "crypto";
 
 import { hashToken } from "../helpers/inviteToken.helper";
-import { sendRecoveryEmail, sendCitaConfirmacionEmail, sendAdminNewAppointmentAlert } from "../services/email.service";
-import { notifyNewAppointment } from "../services/push.service";
+import { sendRecoveryEmail } from "../services/email.service";
 import { logger } from "../config/logger";
 import { insertarAceptacionesLegales } from "../helpers/legalAcceptance.helper";
 import { ContextoAceptacion } from "../models/LegalAcceptance";
-import { excedeLimiteCitasActivas, MSG_LIMITE_CITAS_ACTIVAS } from "../helpers/appointmentLimit.helper";
-import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
-import { bogotaToday } from "../helpers/bogotaTime.helper";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no puede arrancar");
@@ -105,162 +100,10 @@ export const publicAvailability = async (req: Request, res: Response): Promise<v
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/auth/guest-appointment
-//  Pública — crea o reutiliza Cliente y agenda una cita sin cuenta de usuario.
-//  El Cliente solo se persiste si la cita también se crea (transacción atómica).
-//  Si el Cliente ya existía por correo o documento se reutiliza sin modificarlo.
-//  Body: { tipoDocumento, documento, nombre, correo, telefono?, fecha, hora, observacion? }
-// ─────────────────────────────────────────────────────────────────────────────
-export const guestAppointment = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { tipoDocumento, documento, nombre, correo, telefono, fecha, hora, observacion } = req.body;
-
-    // Validaciones previas a la transacción
-    const hoy = bogotaToday();
-    if (fecha < hoy) {
-      res.status(400).json({ success: false, message: "No puedes agendar en fechas pasadas" });
-      return;
-    }
-    const estadoCita = await AppDataSource.getRepository(AppointmentStatus).findOneBy({ id_estado_cita: 1 });
-    if (!estadoCita) {
-      res.status(500).json({ success: false, message: "Estado de cita no configurado" });
-      return;
-    }
-
-    // Slot check fuera de la transacción — solo para respuesta rápida al usuario
-    if (await existeCitaEnHorario(AppDataSource.getRepository(Appointment), fecha, hora)) {
-      res.status(409).json({ success: false, message: MSG_HORARIO_OCUPADO });
-      return;
-    }
-
-    // Límite anti-DoS check fuera de la transacción — solo para respuesta
-    // rápida al usuario (mismo criterio que el slot check de arriba). Un
-    // cliente nuevo (sin registro previo) nunca puede tener citas activas
-    // todavía, así que no hace falta chequear nada en ese caso.
-    const clienteExistente = await AppDataSource.getRepository(Client).findOne({ where: { correo } })
-      ?? await AppDataSource.getRepository(Client).findOne({ where: { documento } });
-    if (clienteExistente && await excedeLimiteCitasActivas(AppDataSource.getRepository(Appointment), clienteExistente.id_cliente)) {
-      res.status(409).json({ success: false, message: MSG_LIMITE_CITAS_ACTIVAS });
-      return;
-    }
-
-    // Transacción: el Cliente solo queda en BD si la cita también se crea
-    const cita = await AppDataSource.transaction(async (manager) => {
-      const clienteRepo = manager.getRepository(Client);
-      const citaRepo    = manager.getRepository(Appointment);
-
-      // Buscar cliente existente por correo o por documento
-      let cliente = await clienteRepo.findOne({ where: { correo } });
-      if (!cliente) {
-        cliente = await clienteRepo.findOne({ where: { documento } });
-      }
-      const esNuevoCliente = !cliente;
-
-      if (esNuevoCliente) {
-        cliente = clienteRepo.create({ tipoDocumento, documento, nombre, correo, telefono: telefono ?? null, estado: true });
-        await clienteRepo.save(cliente);
-
-        // Un Cliente nuevo sin constancia de habeas data es un estado
-        // inválido del sistema (mismo criterio que register — ADR-007 §6).
-        // Solo al crearse: un cliente ya existente (con su propia constancia
-        // de origen) no vuelve a aceptar en cada cita que agende.
-        await insertarAceptacionesLegales(manager, {
-          id_cliente:        cliente.id_cliente,
-          documento_titular: cliente.documento,
-          correo_titular:    cliente.correo,
-          contexto:          ContextoAceptacion.CITA_INVITADO,
-          ip:                req.ip ?? null,
-          user_agent:        req.headers["user-agent"] ?? null,
-        });
-      }
-
-      const nuevaCita = citaRepo.create();
-      nuevaCita.fecha            = fecha;
-      nuevaCita.hora             = hora;
-      nuevaCita.client           = cliente!;
-      nuevaCita.appointmentStatus = estadoCita;
-      if (observacion) (nuevaCita as any).observacion = observacion;
-      await citaRepo.save(nuevaCita);
-
-      return nuevaCita;
-    });
-
-    sendCitaConfirmacionEmail({ correo, nombreCliente: nombre, fecha, hora, id_cita: cita.id_cita })
-      .catch(err => console.error("⚠️  Error enviando confirmación de cita:", err));
-
-    sendAdminNewAppointmentAlert({ nombreCliente: nombre, fecha, hora, id_cita: cita.id_cita, observacion, tipo: "Invitado" })
-      .catch(err => console.error("⚠️  Error enviando alerta admin:", err));
-
-    notifyNewAppointment({ nombreCliente: nombre, fecha, hora, id_cita: cita.id_cita })
-      .catch(err => console.error("⚠️  Error enviando push admin:", err));
-
-    res.status(201).json({
-      success: true,
-      message: "¡Cita agendada! Te enviaremos una confirmación al correo.",
-      data: { id_cita: cita.id_cita, fecha, hora },
-    });
-  } catch (error: any) {
-    // Slot tomado en una race condition entre el check y el insert
-    if (error?.code === "23505" || error?.message?.includes("unique")) {
-      res.status(409).json({ success: false, message: MSG_HORARIO_OCUPADO });
-      return;
-    }
-    res.status(500).json({ success: false, message: "Error al agendar cita", error });
-  }
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  POST /api/auth/register-guest
-//  Landing pública — crea solo Cliente (sin Usuario) para clientes ocasionales.
-//  Si ya existe un Cliente con ese correo devuelve 409 con flag `tieneCliente: true`
-//  para que el frontend sugiera hacer login en lugar de registrarse de nuevo.
-//  Body: { tipoDocumento, documento, nombre, correo, telefono? }
-// ─────────────────────────────────────────────────────────────────────────────
-export const registerGuest = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const clienteRepo = AppDataSource.getRepository(Client);
-    const { tipoDocumento, documento, nombre, correo, telefono } = req.body;
-
-    const clienteExiste = await clienteRepo.findOne({ where: { correo } });
-    if (clienteExiste) {
-      res.status(409).json({
-        success:      false,
-        tieneCliente: true,
-        message:      "Ya existe un registro con ese correo. Si quieres rastrear tus pedidos, crea una cuenta.",
-      });
-      return;
-    }
-
-    const cliente = clienteRepo.create({
-      tipoDocumento,
-      documento,
-      nombre,
-      correo,
-      telefono: telefono ?? null,
-      estado:   true,
-    });
-    await clienteRepo.save(cliente);
-
-    res.status(201).json({
-      success: true,
-      message: "¡Listo! Tus datos quedaron registrados. Nos pondremos en contacto contigo pronto.",
-      data: { id_cliente: cliente.id_cliente, nombre: cliente.nombre, correo: cliente.correo },
-    });
-
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Error al registrar datos", error });
-  }
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 //  POST /api/auth/register
 //  Landing página registrar — crea Cliente + Usuario en una sola llamada.
-//  Si ya existe un Cliente con ese documento (fue creado como invitado vía
-//  guest-appointment/register-guest) se reutiliza — el documento es la
-//  identidad real de la persona, el correo puede cambiar (typo, correo
-//  temporal al agendar, etc.). Si el correo reutilizado difiere del que se
-//  está registrando ahora, se actualiza al nuevo — User y Client deben
-//  coincidir en correo para que el login pueda vincularlos (ver login()).
+//  Estricto: si ya existe un Cliente con ese documento O ese correo, se
+//  bloquea con 409 — nunca se reutiliza ni se actualiza nada en silencio.
 //  Body: { tipoDocumento, documento, nombre, correo, clave, telefono }
 // ─────────────────────────────────────────────────────────────────────────────
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -271,7 +114,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     const { tipoDocumento, documento, nombre, correo, clave, telefono } = req.body;
 
-    const [usuarioExiste, clienteExiste, clienteConEseCorreo] = await Promise.all([
+    const [usuarioExiste, clienteConEseDocumento, clienteConEseCorreo] = await Promise.all([
       usuarioRepo.findOne({ where: { correo } }),
       clienteRepo.findOne({ where: { documento } }),
       clienteRepo.findOne({ where: { correo } }),
@@ -281,11 +124,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       res.status(409).json({ success: false, message: "Ya existe una cuenta con ese correo" });
       return;
     }
-
-    // El documento ya pertenece a un Cliente, pero el correo que se está
-    // registrando es de OTRO Cliente distinto (correo es unique) — conflicto
-    // real de identidad que no se puede resolver actualizando silenciosamente.
-    if (clienteConEseCorreo && clienteConEseCorreo.documento !== documento) {
+    if (clienteConEseDocumento) {
+      res.status(409).json({ success: false, message: "Ya existe un registro con ese número de documento" });
+      return;
+    }
+    if (clienteConEseCorreo) {
       res.status(409).json({ success: false, message: "Ese correo ya está en uso por otro cliente" });
       return;
     }
@@ -301,10 +144,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // autorización es un estado inválido del sistema".
     let cliente!: Client;
     await AppDataSource.transaction(async (manager) => {
-      // Si ya existe (por documento) como invitado, reutiliza el Cliente —
-      // solo crea el Usuario. Si su correo cambió, se actualiza al nuevo.
       const clienteRepoTx = manager.getRepository(Client);
-      cliente = clienteExiste ?? clienteRepoTx.create({
+      cliente = clienteRepoTx.create({
         tipoDocumento,
         documento,
         nombre,
@@ -312,12 +153,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         telefono: telefono ?? null,
         estado:   true,
       });
-      if (!clienteExiste) {
-        await clienteRepoTx.save(cliente);
-      } else if (clienteExiste.correo !== correo) {
-        cliente.correo = correo;
-        await clienteRepoTx.save(cliente);
-      }
+      await clienteRepoTx.save(cliente);
 
       const hash    = await bcrypt.hash(clave, 10);
       const usuario = manager.getRepository(User).create({ correo, clave: hash, role: rolCliente, estado: true });

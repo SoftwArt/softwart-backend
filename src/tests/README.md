@@ -1,6 +1,6 @@
 # Pruebas — SoftwArt Backend
 
-Suite de pruebas con **Vitest** + **supertest**. Actualmente **152 pruebas** (11 unitarias + 141 de integración).
+Suite de pruebas con **Vitest** + **supertest**. Actualmente **147 pruebas** (11 unitarias + 136 de integración).
 
 > ✅ **Se ejecutan en el CI** en cada push y PR (con un PostgreSQL efímero como *service container*).
 > Una prueba fallida **bloquea el despliegue**.
@@ -125,22 +125,19 @@ PostgreSQL. Por eso verifican que las piezas funcionan **juntas**.
 7. `409` cuando el correo ya está registrado.
 8. `422` cuando faltan campos requeridos (validación Zod).
 9. `200` el usuario recién registrado puede iniciar sesión con rol `Cliente`.
-10. `201` reutiliza el `Cliente` existente **por documento** (creado antes como invitado vía
-    `guest-appointment`) aunque se registre con un correo distinto — antes solo buscaba por correo, así
-    que un mismo documento con otro correo intentaba crear un `Cliente` duplicado y chocaba con el
-    `unique` de `documento` (500 crudo). Además actualiza `cliente.correo` al nuevo, y confirma con un
-    login real que `id_cliente` queda bien vinculado (User y Client deben coincidir en correo).
-11. `409` si el correo que se está registrando ya pertenece a **otro** `Cliente` (documento distinto) —
-    conflicto real que no se puede resolver actualizando en silencio.
+10. `409` si el **documento** que se está registrando ya pertenece a otro `Cliente` (creado directo, ej.
+    por un admin en el panel) — `register` **nunca reutiliza ni actualiza** un `Cliente` existente, solo
+    bloquea; confirma también que no se creó un segundo `Cliente` ni se tocó el existente.
+11. `409` si el correo que se está registrando ya pertenece a **otro** `Cliente` (documento distinto).
 
 > **Nota:** estas pruebas **comparten estado** dentro del archivo y dependen del orden (la #7 requiere
 > que la #6 haya creado el usuario). Vitest ejecuta los tests de un archivo secuencialmente, así que
 > funciona. Lo "puro" sería que cada prueba fuese independiente.
 
-**`POST /api/auth/register-guest`**
-12. `201` crea el `Cliente` sin `telefono` (campo opcional en `guestClientSchema`) — antes la columna
-    `telefono` de `cliente` era `NOT NULL` en la BD pese a ser opcional en el schema, así que omitirlo
-    tiraba un `500` crudo de Postgres. Corregido con la migración `MakeClientTelefonoNullable`.
+> **Nota histórica:** `register` reutilizaba el `Cliente` existente por documento (actualizando su
+> correo) cuando alguien se registraba después de haber agendado como invitado — ese comportamiento se
+> revirtió al eliminar por completo el flujo "agendar cita sin cuenta" (`guest-appointment`,
+> `register-guest`, ambos retirados del sistema).
 
 ### `integration/create-sale.test.ts` (6)
 
@@ -264,34 +261,17 @@ venta anulada, y los guards de estado terminal/transición única que Cita y Ser
 6. `409` si un pago `Validado` intenta ir a un estado que no sea `Anulado`; `200` si va a `Anulado`.
 7. `409` si se intenta cambiar el estado de un pago ya `Anulado`.
 
-### `integration/appointment-guards.test.ts` (7)
+### `integration/appointment-guards.test.ts` (4)
 
-1. `409` al agendar (sin cuenta) el mismo horario ya ocupado por otro cliente.
+Cubre dos guards de `Appointment` sobre el flujo autenticado (`POST /api/account/citas`,
+`ClientAccountController.createMyAppointment`) — antes se probaban vía "agendar sin cuenta"
+(`guest-appointment`), endpoint retirado del sistema junto con `register-guest`.
+
+1. `409` al agendar (con cuenta) el mismo horario ya ocupado por otro cliente.
 2. Cancelar una cita **libera el slot** para volver a agendarlo (antes no lo hacía: el guard viejo no
    excluía citas `Cancelada`/`No Asistió`).
-3. El panel admin (`POST /api/appointments`) respeta el mismo guard que "agendar sin cuenta".
-
-**`guestAppointment` — constancia de habeas data (ADR-007)**
-
-`guestAppointment` (landing pública, sin cuenta) creaba un Cliente nuevo sin dejar ninguna constancia
-de aceptación de habeas data, a diferencia de `register`. Se agregó `acceptTerms` como campo requerido
-del schema y se inserta la constancia (contexto `CITA_INVITADO`) en la misma transacción que crea el
-Cliente — solo si el Cliente es nuevo (uno ya existente no vuelve a "aceptar" en cada cita).
-
-4. `422` cuando falta `acceptTerms` — no crea ni Cliente ni Cita.
-5. `201` inserta las 2 filas de aceptación (ToS + PyP) atómicamente, con `contexto = CITA_INVITADO`.
-6. Un segundo agendamiento del mismo invitado (mismo documento/correo) **no** duplica la constancia —
-   siguen siendo solo las 2 filas de la primera cita.
-
-7. El límite anti-DoS de citas activas por cliente (3) se respeta; la 4ª cita agendada da `409`.
-
-**`guestAppointment` — reutiliza el Cliente por documento aunque el correo cambie**
-
-8. Un segundo agendamiento con el **mismo documento** pero **otro correo** no duplica el `Cliente`
-   (ya buscaba por correo *o* documento, en ese orden) — se confirma con una fila en `cliente` y **dos**
-   citas asociadas a ese mismo `id_cliente`. A diferencia de `register`, acá el correo del `Cliente`
-   reutilizado **no** se actualiza (`guestAppointment` documenta explícitamente "se reutiliza sin
-   modificarlo").
+3. El panel admin (`POST /api/appointments`) respeta el mismo guard `existeCitaEnHorario`.
+4. El límite anti-DoS de citas activas por cliente (3) se respeta; la 4ª cita agendada da `409`.
 
 ### `integration/sale-detail-cascade.test.ts` (8)
 

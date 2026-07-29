@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { textoRequerido, fechaISO, horaHHMM } from "./common.schemas";
+import { textoRequerido } from "./common.schemas";
 
 // ── Política de contraseña (estándar comercial) ───────────────────────────────
 // Reutilizable en registro, reset de clave y cambio de clave desde la cuenta.
@@ -71,28 +71,6 @@ function conValidacionDeDocumento<T extends z.ZodObject<{ tipoDocumento: z.ZodTy
     if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg, path: ["documento"] });
   });
 }
-
-export const guestClientSchema = conValidacionDeDocumento(z.object({
-  tipoDocumento: textoRequerido("El tipo de documento"),
-  documento:     textoRequerido("El número de documento"),
-  nombre:        nombreSchema,
-  correo:        z.string({ error: "El correo es requerido" }).email("Correo inválido"),
-  telefono:      z.string().optional(),
-}));
-
-export const guestAppointmentSchema = conValidacionDeDocumento(z.object({
-  tipoDocumento: textoRequerido("El tipo de documento"),
-  documento:     textoRequerido("El número de documento"),
-  nombre:        nombreSchema,
-  correo:        z.string({ error: "El correo es requerido" }).email("Correo inválido"),
-  telefono:      z.string().optional(),
-  fecha:         fechaISO("La fecha"),
-  hora:          horaHHMM("La hora"),
-  observacion:   z.string().optional(),
-  // El backend no confía en que el checkbox del frontend haya estado
-  // marcado — lo re-valida acá, mismo criterio que registerSchema.
-  acceptTerms:   z.literal(true, { message: "Debes aceptar los Términos de Servicio y la Política de Privacidad" }),
-}));
 
 export const registerSchema = conValidacionDeDocumento(z.object({
   tipoDocumento: textoRequerido("El tipo de documento"),

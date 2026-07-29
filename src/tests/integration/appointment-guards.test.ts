@@ -6,10 +6,13 @@ import { AppDataSource } from "../../data-source";
 import { Appointment } from "../../models/Appointment";
 import { AppointmentStatus } from "../../models/AppointmentStatus";
 
-// Cubre dos guards de Citas de este sprint sin prueba hasta ahora:
+// Cubre dos guards de Citas sin prueba hasta ahora:
 // - existeCitaEnHorario: no se puede doblar-reservar la misma fecha+hora.
-// - excedeLimiteCitasActivas: tope anti-DoS de citas activas por cliente,
-//   aplicado tanto en el panel admin como en "agendar sin cuenta" (público).
+// - excedeLimiteCitasActivas: tope anti-DoS de citas activas por cliente.
+// Antes se probaban vía "agendar sin cuenta" (guestAppointment), que se
+// eliminó del sistema — ambos guards también corren en el flujo autenticado
+// (ClientAccountController.createMyAppointment, POST /api/account/citas), así
+// que se reescribe sobre ese endpoint para no perder cobertura.
 
 let adminToken: string;
 
@@ -18,13 +21,24 @@ let adminToken: string;
 const futureDate = (daysFromNow: number) =>
   new Date(Date.now() + daysFromNow * 86400000).toISOString().slice(0, 10);
 
-const guestAppointment = (overrides: Partial<Record<string, unknown>> = {}) =>
-  request(app).post("/api/auth/guest-appointment").send({
-    tipoDocumento: "CC", documento: "88880003", nombre: "Test Appointment Guards",
-    correo: "appointmentguards@test.com", telefono: "3007778833",
-    fecha: futureDate(10), hora: "13:00", acceptTerms: true,
-    ...overrides,
+let clientCounter = 0;
+const registerAndLogin = async (): Promise<string> => {
+  clientCounter += 1;
+  const correo = `appt.guard.${clientCounter}@test.com`;
+  await request(app).post("/api/auth/register").send({
+    tipoDocumento: "CC", documento: `8888${String(clientCounter).padStart(4, "0")}`,
+    nombre: "Test Appointment Guards", correo, clave: "Cliente1234!",
+    telefono: "3007778833", acceptTerms: true,
   });
+  const login = await request(app).post("/api/auth/login").send({ correo, clave: "Cliente1234!" });
+  return login.body.token as string;
+};
+
+const crearCita = (token: string, overrides: Partial<Record<string, unknown>> = {}) =>
+  request(app)
+    .post("/api/account/citas")
+    .set("Authorization", `Bearer ${token}`)
+    .send({ fecha: futureDate(10), hora: "13:00", ...overrides });
 
 beforeAll(async () => {
   adminToken = (
@@ -33,32 +47,35 @@ beforeAll(async () => {
 }, 30000);
 
 describe("existeCitaEnHorario — no se puede doblar-reservar la misma fecha+hora", () => {
-  it("409 al intentar agendar (sin cuenta) el mismo horario ya ocupado", async () => {
-    const first = await guestAppointment({ fecha: futureDate(11), hora: "14:00" });
+  it("409 al intentar agendar (cliente) el mismo horario ya ocupado", async () => {
+    const tokenA = await registerAndLogin();
+    const tokenB = await registerAndLogin();
+
+    const first = await crearCita(tokenA, { fecha: futureDate(11), hora: "14:00" });
     expect(first.status).toBe(201);
 
-    const second = await guestAppointment({
-      documento: "88880004", correo: "otro.cliente@test.com", fecha: futureDate(11), hora: "14:00",
-    });
+    const second = await crearCita(tokenB, { fecha: futureDate(11), hora: "14:00" });
     expect(second.status).toBe(409);
   });
 
   it("cancelar la cita libera el slot para volver a agendarlo", async () => {
-    const first = await guestAppointment({ fecha: futureDate(12), hora: "15:00" });
+    const tokenA = await registerAndLogin();
+    const tokenB = await registerAndLogin();
+
+    const first = await crearCita(tokenA, { fecha: futureDate(12), hora: "15:00" });
     expect(first.status).toBe(201);
     const id_cita = first.body.data.id_cita;
 
     const cancelada = (await AppDataSource.getRepository(AppointmentStatus).findOneBy({ nombre: "Cancelada" }))!;
     await AppDataSource.getRepository(Appointment).update({ id_cita }, { appointmentStatus: cancelada });
 
-    const second = await guestAppointment({
-      documento: "88880005", correo: "otro.cliente2@test.com", fecha: futureDate(12), hora: "15:00",
-    });
+    const second = await crearCita(tokenB, { fecha: futureDate(12), hora: "15:00" });
     expect(second.status).toBe(201);
   });
 
   it("el panel admin respeta el mismo guard (POST /api/appointments)", async () => {
-    const guest = await guestAppointment({ fecha: futureDate(13), hora: "16:00" });
+    const tokenA = await registerAndLogin();
+    const guest = await crearCita(tokenA, { fecha: futureDate(13), hora: "16:00" });
     expect(guest.status).toBe(201);
 
     const res = await request(app)
@@ -70,91 +87,18 @@ describe("existeCitaEnHorario — no se puede doblar-reservar la misma fecha+hor
   });
 });
 
-describe("guestAppointment — constancia de habeas data (ADR-007)", () => {
-  it("returns 422 when acceptTerms is missing, and creates nothing", async () => {
-    const correo = "sinaceptar.cita@test.com";
-    const res = await guestAppointment({
-      documento: "88880007", correo, fecha: futureDate(30), hora: "13:00", acceptTerms: undefined,
-    });
-    expect(res.status).toBe(422);
-
-    const cliente = await AppDataSource.query(`SELECT 1 FROM cliente WHERE correo = $1`, [correo]);
-    expect(cliente).toHaveLength(0);
-  });
-
-  it("registers the acceptance of both legal documents atomically when the Client is new", async () => {
-    const correo = "aceptacion.cita@test.com";
-    const res = await guestAppointment({ documento: "88880008", correo, fecha: futureDate(31), hora: "13:00" });
-    expect(res.status).toBe(201);
-
-    const filas = await AppDataSource.query(
-      `SELECT tipo_documento, evento, contexto FROM aceptacion_legal WHERE correo_titular = $1`,
-      [correo],
-    );
-    expect(filas).toHaveLength(2);
-    const tipos = filas.map((f: { tipo_documento: string }) => f.tipo_documento).sort();
-    expect(tipos).toEqual(["POLITICA_PRIVACIDAD", "TERMINOS_SERVICIO"]);
-    for (const fila of filas) {
-      expect(fila.evento).toBe("ACEPTACION");
-      expect(fila.contexto).toBe("CITA_INVITADO");
-    }
-  });
-
-  it("does not insert a duplicate acceptance when the same guest books a second appointment", async () => {
-    const doc = "88880009";
-    const correo = "aceptacion.repetida@test.com";
-
-    const first = await guestAppointment({ documento: doc, correo, fecha: futureDate(32), hora: "13:00" });
-    expect(first.status).toBe(201);
-
-    const second = await guestAppointment({ documento: doc, correo, fecha: futureDate(33), hora: "14:00" });
-    expect(second.status).toBe(201);
-
-    const filas = await AppDataSource.query(
-      `SELECT 1 FROM aceptacion_legal WHERE correo_titular = $1`,
-      [correo],
-    );
-    expect(filas).toHaveLength(2); // solo las de la primera cita, no 4
-  });
-});
-
-describe("guestAppointment — reutiliza el Cliente por documento aunque el correo cambie", () => {
-  it("no duplica el Cliente cuando el mismo documento agenda una segunda cita con otro correo", async () => {
-    const doc = "88880010";
-    const primerCorreo = "primer.correo.guard@test.com";
-    const segundoCorreo = "segundo.correo.guard@test.com";
-
-    const first = await guestAppointment({ documento: doc, correo: primerCorreo, fecha: futureDate(40), hora: "13:00" });
-    expect(first.status).toBe(201);
-
-    const second = await guestAppointment({ documento: doc, correo: segundoCorreo, fecha: futureDate(41), hora: "14:00" });
-    expect(second.status).toBe(201); // crea la cita igual, sin duplicar el Cliente
-
-    const clientes = await AppDataSource.query(`SELECT id_cliente, correo FROM cliente WHERE documento = $1`, [doc]);
-    expect(clientes).toHaveLength(1);
-    expect(clientes[0].correo).toBe(primerCorreo); // guestAppointment nunca reescribe el correo existente
-
-    const citas = await AppDataSource.query(
-      `SELECT id_cita FROM cita WHERE id_cliente = $1`,
-      [clientes[0].id_cliente],
-    );
-    expect(citas).toHaveLength(2);
-  });
-});
-
 describe("excedeLimiteCitasActivas — tope anti-DoS de citas activas por cliente", () => {
   it("permite hasta 3 citas activas y bloquea la 4ª con 409", async () => {
-    const doc = "88880006";
-    const correo = "limite.citas@test.com";
+    const token = await registerAndLogin();
 
-    const r1 = await guestAppointment({ documento: doc, correo, fecha: futureDate(20), hora: "13:00" });
+    const r1 = await crearCita(token, { fecha: futureDate(20), hora: "13:00" });
     expect(r1.status).toBe(201);
-    const r2 = await guestAppointment({ documento: doc, correo, fecha: futureDate(21), hora: "13:00" });
+    const r2 = await crearCita(token, { fecha: futureDate(21), hora: "13:00" });
     expect(r2.status).toBe(201);
-    const r3 = await guestAppointment({ documento: doc, correo, fecha: futureDate(22), hora: "13:00" });
+    const r3 = await crearCita(token, { fecha: futureDate(22), hora: "13:00" });
     expect(r3.status).toBe(201);
 
-    const r4 = await guestAppointment({ documento: doc, correo, fecha: futureDate(23), hora: "13:00" });
+    const r4 = await crearCita(token, { fecha: futureDate(23), hora: "13:00" });
     expect(r4.status).toBe(409);
   });
 });
