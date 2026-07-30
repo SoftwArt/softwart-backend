@@ -23,6 +23,7 @@ export const getAllSale = async (req: Request, res: Response): Promise<void> => 
       relations: ["appointment", "client", "payments", "payments.paymentStatus"],
       skip,
       take: limit,
+      order: { id_venta: "DESC" },
     });
 
     res.json({

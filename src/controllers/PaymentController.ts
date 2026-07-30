@@ -20,6 +20,7 @@ export const getAllPayment = async (req: Request, res: Response): Promise<void> 
       relations: ["sale", "paymentMethod", "paymentStatus"],
       skip,
       take: limit,
+      order: { id_pago: "DESC" },
     });
 
     res.json({

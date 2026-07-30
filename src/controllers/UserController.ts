@@ -24,6 +24,7 @@ export const getAllUser = async (req: Request, res: Response): Promise<void> => 
       relations: ["role"],
       skip,
       take: limit,
+      order: { id_usuario: "DESC" },
     });
 
     res.json({

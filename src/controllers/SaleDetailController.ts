@@ -28,6 +28,7 @@ export const getAllSaleDetail = async (req: Request, res: Response): Promise<voi
       relations: ["sale", "sale.client", "service", "serviceStatus", "frame"],
       skip,
       take: limit,
+      order: { id_detalle: "DESC" },
     });
 
     res.json({

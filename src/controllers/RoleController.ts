@@ -26,7 +26,7 @@ export const getAllRole = async (req: Request, res: Response): Promise<void> => 
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await rolRepo.findAndCount({ skip, take: limit });
+    const [items, total] = await rolRepo.findAndCount({ skip, take: limit, order: { id_rol: "DESC" } });
 
     res.json({
       success: true,

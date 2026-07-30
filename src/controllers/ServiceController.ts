@@ -16,7 +16,7 @@ export const getAllService = async (req: Request, res: Response): Promise<void> 
 
     const soloActivos = req.query.activos === 'true'
     const where = soloActivos ? { estado: true } : {}
-    const [items, total] = await servicioRepo.findAndCount({ where, skip, take: limit });
+    const [items, total] = await servicioRepo.findAndCount({ where, skip, take: limit, order: { id_servicio: "DESC" } });
 
     res.json({
       success: true,

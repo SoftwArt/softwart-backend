@@ -14,7 +14,7 @@ export const getAllFrame = async (req: Request, res: Response): Promise<void> =>
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await marcoRepo.findAndCount({ skip, take: limit });
+    const [items, total] = await marcoRepo.findAndCount({ skip, take: limit, order: { id_marco: "DESC" } });
 
     res.json({
       success: true,

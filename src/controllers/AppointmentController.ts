@@ -45,6 +45,7 @@ export const getAllAppointment = async (req: Request, res: Response): Promise<vo
       relations: ["appointmentStatus", "client", "sale"],
       skip,
       take: limit,
+      order: { id_cita: "DESC" },
     });
 
     res.json({
@@ -83,12 +84,17 @@ export const createAppointment = async (req: Request, res: Response): Promise<vo
     const obj = citaRepo.create();
     obj.fecha = req.body.fecha;
     obj.hora  = req.body.hora;
-    if (req.body.id_estado_cita !== undefined) {
-      const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus);
-      const rel = await estadoCitaRepo.findOneBy({ id_estado_cita: Number(req.body.id_estado_cita) });
-      if (!rel) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
-      obj.appointmentStatus = rel;
-    }
+    // appointmentStatus es NOT NULL en el modelo — si se deja sin resolver, la cita
+    // queda con id_estado_cita NULL y existeCitaEnHorario (INNER JOIN) la ignora
+    // por completo, permitiendo doble-reservar ese horario. Toda cita nueva sin
+    // estado explícito nace "Pendiente" por defecto.
+    const estadoCitaRepo = AppDataSource.getRepository(AppointmentStatus);
+    const idEstado = req.body.id_estado_cita !== undefined ? Number(req.body.id_estado_cita) : undefined;
+    const rel = idEstado !== undefined
+      ? await estadoCitaRepo.findOneBy({ id_estado_cita: idEstado })
+      : await estadoCitaRepo.findOneBy({ nombre: "Pendiente" });
+    if (!rel) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
+    obj.appointmentStatus = rel;
     if (req.body.id_cliente !== undefined) {
       const clienteRepo = AppDataSource.getRepository(Client);
       const rel = await clienteRepo.findOneBy({ id_cliente: Number(req.body.id_cliente) });
