@@ -2,6 +2,7 @@
 //  VentaController.ts
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
+import { In } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Sale } from "../models/Sale";
 import { Appointment } from "../models/Appointment";
@@ -11,6 +12,7 @@ import { coincideConCentavos, sumaServiciosVenta, msgTotalNoCoincide } from "../
 import { SaleDetail } from "../models/SaleDetail";
 
 const CASCADE_RELATIONS = ["saleDetails", "saleDetails.serviceStatus", "payments", "payments.paymentStatus"];
+const SALE_LIST_RELATIONS = ["appointment", "client", "payments", "payments.paymentStatus"];
 
 export const getAllSale = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -19,12 +21,46 @@ export const getAllSale = async (req: Request, res: Response): Promise<void> => 
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await ventaRepo.findAndCount({
-      relations: ["appointment", "client", "payments", "payments.paymentStatus"],
-      skip,
-      take: limit,
-      order: { id_venta: "DESC" },
-    });
+    // ?q= opcional (Combobox de selección de Venta en Pagos/Pedidos). Sale no
+    // tiene un campo de texto propio buscable — el match es contra id_venta
+    // (casteado) o el nombre/documento del Client relacionado, algo que el
+    // find-API de TypeORM no expresa con un solo where. Se resuelve en dos
+    // fases (ids primero, luego rehidratar por id con las relaciones
+    // completas) en vez de un getManyAndCount() con leftJoinAndSelect sobre
+    // "payments" (one-to-many): ese join puede fanear filas a nivel SQL y
+    // romper skip/take, y no hay un test de regresión que hoy lo cubriera si
+    // se rompiera silenciosamente.
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    const buildFilteredQb = () => {
+      const qb = ventaRepo.createQueryBuilder("venta").leftJoin("venta.client", "client");
+      if (q) {
+        qb.andWhere(
+          "CAST(venta.id_venta AS TEXT) ILIKE :q OR client.nombre ILIKE :q OR client.documento ILIKE :q",
+          { q: `%${q}%` }
+        );
+      }
+      return qb;
+    };
+
+    const idRows = await buildFilteredQb()
+      .select("venta.id_venta", "id_venta")
+      .orderBy("venta.id_venta", "DESC")
+      .skip(skip)
+      .take(limit)
+      .getRawMany<{ id_venta: number }>();
+    const ids = idRows.map((r) => r.id_venta);
+
+    const total = await buildFilteredQb().getCount();
+
+    // In() no preserva el orden del array — hay que re-ordenar explícito o el
+    // orden de paginación upstream (id_venta DESC) se pierde en la rehidratación.
+    const items = ids.length
+      ? await ventaRepo.find({
+          where: { id_venta: In(ids) },
+          relations: SALE_LIST_RELATIONS,
+          order: { id_venta: "DESC" },
+        })
+      : [];
 
     res.json({
       success: true,

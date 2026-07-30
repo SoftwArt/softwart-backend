@@ -2,6 +2,7 @@
 //  ClienteController.ts
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
+import { ILike } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Client } from "../models/Client";
 import { Appointment } from "../models/Appointment";
@@ -16,7 +17,15 @@ export const getAllClient = async (req: Request, res: Response): Promise<void> =
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await clienteRepo.findAndCount({ skip, take: limit, order: { id_cliente: "DESC" } });
+    // ?q= opcional (usado por el Combobox de selección de Cliente en Citas/Ventas
+    // para buscar más allá del top-100 por recencia) — OR-across-fields vía array
+    // de where, sin cambiar el comportamiento cuando no viene q.
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    const where = q
+      ? [{ nombre: ILike(`%${q}%`) }, { documento: ILike(`%${q}%`) }, { correo: ILike(`%${q}%`) }]
+      : {};
+
+    const [items, total] = await clienteRepo.findAndCount({ where, skip, take: limit, order: { id_cliente: "DESC" } });
 
     res.json({
       success: true,
