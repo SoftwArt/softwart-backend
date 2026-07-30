@@ -20,15 +20,20 @@ export const telefonoSchema = z
   .string({ error: "El teléfono es requerido" })
   .refine((v) => v === "" || /^\d{10,15}$/.test(v), TELEFONO_MENSAJE);
 
-// ── Nombre (mínimo 5 caracteres, sin dígitos) ─────────────────────────────────
+// ── Nombre (5-60 caracteres, sin dígitos) ─────────────────────────────────────
 // Mensajes custom para no dejar pasar el genérico de Zod ("String must
 // contain at least 5 character(s)") hasta el usuario final.
+// Máximo bajado de 100 a 60: un nombre real (incluso compuesto, con varios
+// apellidos) no se acerca a eso — 100 dejaba pasar cosas como el nombre
+// completo de Hubert Blaine Wolfeschlegelsteinhausenbergerdorff Sr. (~92
+// caracteres, un nombre-broma clásico de QA) sin que ninguna capa lo frenara.
 export const NOMBRE_MIN_MENSAJE     = "El nombre debe tener al menos 5 caracteres";
+export const NOMBRE_MAX_MENSAJE     = "El nombre no puede superar los 60 caracteres";
 export const NOMBRE_NUMEROS_MENSAJE = "El nombre no puede contener números";
 export const nombreSchema = z
   .string({ error: "El nombre es requerido" })
   .min(5, NOMBRE_MIN_MENSAJE)
-  .max(100, "El nombre no puede superar los 100 caracteres")
+  .max(60, NOMBRE_MAX_MENSAJE)
   .regex(/^[^0-9]*$/, NOMBRE_NUMEROS_MENSAJE);
 
 // ── Número de documento (regla depende del tipo) ──────────────────────────────
