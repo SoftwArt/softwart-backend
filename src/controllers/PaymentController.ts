@@ -8,6 +8,7 @@ import { Sale } from "../models/Sale";
 import { PaymentMethod } from "../models/PaymentMethod";
 import { PaymentStatus } from "../models/PaymentStatus";
 import { guardEstadoTerminal } from "../helpers/statusTransition.helper";
+import { assertFechaNoAntesDe } from "../helpers/dateCascade.helper";
 
 export const getAllPayment = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -66,6 +67,8 @@ export const createPayment = async (req: Request, res: Response): Promise<void> 
       relations: ["payments", "payments.paymentStatus"],
     });
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
+    const errorCascada = assertFechaNoAntesDe(obj.fecha, venta.fecha, "el pago", "la venta");
+    if (errorCascada) { res.status(400).json({ success: false, message: errorCascada }); return; }
     // Mismo criterio que registerInstallment (SaleInstallmentsController.ts)
     // — el CRUD genérico de Pago no puede ser una puerta de atrás para
     // registrar abonos en una venta anulada, ni más de los configurados.
@@ -114,6 +117,17 @@ export const updatePayment = async (req: Request, res: Response): Promise<void> 
       alternativa: "Un pago anulado no se reactiva — si fue un error, registra un abono nuevo.",
     });
     if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
+
+    if (req.body.fecha !== undefined || req.body.id_venta !== undefined) {
+      const ventaEfectiva = req.body.id_venta !== undefined
+        ? await AppDataSource.getRepository(Sale).findOneBy({ id_venta: Number(req.body.id_venta) })
+        : item.sale;
+      if (!ventaEfectiva) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
+      const fechaEfectiva = req.body.fecha !== undefined ? req.body.fecha : item.fecha;
+      const errorCascada = assertFechaNoAntesDe(fechaEfectiva, ventaEfectiva.fecha, "el pago", "la venta");
+      if (errorCascada) { res.status(400).json({ success: false, message: errorCascada }); return; }
+    }
+
     if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
     if (req.body.monto       !== undefined) item.monto       = req.body.monto;
     if (req.body.observacion !== undefined) item.observacion = req.body.observacion;

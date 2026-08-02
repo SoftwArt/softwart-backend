@@ -13,9 +13,14 @@ import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 import { guardEstadoTerminal, transicionUnicaPermitida } from "../helpers/statusTransition.helper";
 import { coincideConCentavos, sumaServiciosVenta, msgTotalNoCoincide } from "../helpers/saleTotal.helper";
 import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
+import { assertFechaDentroDeVentana } from "../helpers/dateCascade.helper";
 import { sendServicioFinalizadoEmail } from "../services/email.service";
 
 const SALE_RELATIONS = ["sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
+// Ventana permitida para la fecha de un Servicio respecto a su Venta —
+// no puede ser anterior (el servicio no ocurre antes de facturarse) ni
+// alejarse más de esto a futuro (evita fechas absurdas tipo "en 3 años").
+const VENTANA_SERVICIO_MESES = 3;
 
 export const getAllSaleDetail = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -70,6 +75,8 @@ export const createSaleDetail = async (req: Request, res: Response): Promise<voi
     // id_venta e id_servicio son obligatorios (createSaleDetailSchema).
     const ventaRel = await AppDataSource.getRepository(Sale).findOneBy({ id_venta: Number(req.body.id_venta) });
     if (!ventaRel) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
+    const errorCascada = assertFechaDentroDeVentana(obj.fecha, ventaRel.fecha, VENTANA_SERVICIO_MESES, "el servicio", "la venta");
+    if (errorCascada) { res.status(400).json({ success: false, message: errorCascada }); return; }
     obj.sale = ventaRel;
 
     const servicioRel = await AppDataSource.getRepository(Service).findOneBy({ id_servicio: Number(req.body.id_servicio) });
@@ -127,6 +134,19 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
         message: "No se puede modificar: este servicio ya está Finalizado. Se conserva por trazabilidad — solo puede cancelarse.",
       });
       return;
+    }
+
+    // Cascada contra la fecha de la Venta (efectiva: la nueva si viene en el
+    // body, si no la que ya tenía) — cubre tanto cambiar la fecha del
+    // servicio como reasignarlo a otra Venta con una fecha distinta.
+    if (req.body.fecha !== undefined || req.body.id_venta !== undefined) {
+      const ventaEfectiva = req.body.id_venta !== undefined
+        ? await AppDataSource.getRepository(Sale).findOneBy({ id_venta: Number(req.body.id_venta) })
+        : item.sale;
+      if (!ventaEfectiva) { res.status(404).json({ success: false, message: "Venta no encontrado" }); return; }
+      const fechaEfectiva = req.body.fecha !== undefined ? req.body.fecha : item.fecha;
+      const errorCascada = assertFechaDentroDeVentana(fechaEfectiva, ventaEfectiva.fecha, VENTANA_SERVICIO_MESES, "el servicio", "la venta");
+      if (errorCascada) { res.status(400).json({ success: false, message: errorCascada }); return; }
     }
 
     if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;

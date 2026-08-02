@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { telefonoSchema, nombreSchema, claveSchema } from "./auth.schemas";
+import { telefonoSchema, nombreSchema, claveSchema, correoSchema } from "./auth.schemas";
 import { fechaISO, horaHHMM, idPositivo } from "./common.schemas";
 
 // La política de contraseña es una sola en todo el sistema (registro, reset
@@ -10,7 +10,7 @@ import { fechaISO, horaHHMM, idPositivo } from "./common.schemas";
 export const editProfileSchema = z.object({
   nombre:       nombreSchema.optional(),
   telefono:     telefonoSchema.nullable().optional(),
-  correo:       z.string({ error: "El correo es requerido" }).email("Correo inválido").optional(),
+  correo:       correoSchema.optional(),
   clave_actual: z.string({ error: "La contraseña actual es requerida" }).optional(),
   clave:        claveSchema.optional(),
 }).refine(

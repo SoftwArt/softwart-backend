@@ -20,8 +20,25 @@ export const numeroPositivo = (etiqueta: string, femenino = false) =>
   z.number({ error: `${etiqueta} es ${requerido(femenino)}` })
     .positive(`${etiqueta} debe ser mayor a 0`);
 
+// Tope de 3 meses a futuro para cualquier fecha de un evento de negocio
+// (cita, venta, servicio, pago/abono) — antes no había ningún límite, se
+// podía agendar/registrar para dentro de décadas. El frontend ya aplica el
+// mismo tope en el DatePicker (bogotaMaxFuturoStr), esto es la barrera del
+// lado del servidor — el frontend nunca es la única defensa.
+const MESES_FUTURO_MAX = 3;
+function dentroDelLimiteFuturo(fecha: string): boolean {
+  const partes = fecha.split("-").map(Number);
+  if (partes.length !== 3 || partes.some(Number.isNaN)) return true; // el regex de abajo ya lo rechaza
+  const [y, m, d] = partes;
+  const limite = new Date();
+  limite.setMonth(limite.getMonth() + MESES_FUTURO_MAX);
+  return new Date(y, m - 1, d) <= limite;
+}
+
 export const fechaISO = (etiqueta: string) =>
-  z.string({ error: `${etiqueta} es requerida` }).regex(/^\d{4}-\d{2}-\d{2}$/, `${etiqueta} debe tener formato AAAA-MM-DD`);
+  z.string({ error: `${etiqueta} es requerida` })
+    .regex(/^\d{4}-\d{2}-\d{2}$/, `${etiqueta} debe tener formato AAAA-MM-DD`)
+    .refine(dentroDelLimiteFuturo, `${etiqueta} no puede ser más de ${MESES_FUTURO_MAX} meses en el futuro`);
 
 // Horario de atención de la marquetería: 13:00–17:59 (citas de 1h, la última
 // termina a las 18:00) — único uso de este helper en todo el proyecto es

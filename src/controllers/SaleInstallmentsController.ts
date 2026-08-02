@@ -7,6 +7,7 @@ import { Payment }              from "../models/Payment";
 import { PaymentStatus }        from "../models/PaymentStatus";
 import { PaymentMethod }        from "../models/PaymentMethod";
 import { calculateInstallments, nextInstallment } from "../helpers/installments.helper";
+import { assertFechaNoAntesDe } from "../helpers/dateCascade.helper";
 
 // ── GET /api/ventas/:id/estado-pagos ─────────────────────────────────────────
 // Devuelve el estado actual de abonos: cuántos hay, cuánto falta, qué sigue
@@ -83,6 +84,11 @@ export const registerInstallment = async (req: Request, res: Response): Promise<
       relations: ["payments", "payments.paymentStatus"],
     })
     if (!venta) { res.status(404).json({ success: false, message: "Venta no encontrada" }); return }
+
+    if (fecha) {
+      const errorCascada = assertFechaNoAntesDe(fecha, venta.fecha, "el abono", "la venta")
+      if (errorCascada) { res.status(400).json({ success: false, message: errorCascada }); return }
+    }
 
     // Una venta anulada (Activo→Inactivo, ver toggleSaleStatus) ya cascadeó
     // sus servicios/abonos pendientes — registrar un abono nuevo encima

@@ -12,13 +12,27 @@ export const claveSchema = z
   .regex(/[0-9]/,        "La contraseña debe incluir al menos un número")
   .regex(/[^A-Za-z0-9]/, "La contraseña debe incluir al menos un carácter especial");
 
-// ── Teléfono (mínimo 10 dígitos numéricos) ────────────────────────────────────
+// ── Teléfono (10 dígitos, celular colombiano) ─────────────────────────────────
 // Cadena vacía se trata como "no provisto" (el campo sigue siendo opcional en
-// los formularios que lo usan) — solo valida el formato cuando sí se escribe algo.
-export const TELEFONO_MENSAJE = "El teléfono debe tener al menos 10 dígitos numéricos";
+// los formularios que lo usan) — solo valida el formato cuando sí se escribe
+// algo. Exactamente 10 dígitos empezando en 3: el número se usa para contacto
+// directo/WhatsApp con el cliente, no para un fijo con indicativo.
+export const TELEFONO_MENSAJE = "El teléfono debe tener 10 dígitos y empezar en 3 (celular)";
 export const telefonoSchema = z
   .string({ error: "El teléfono es requerido" })
-  .refine((v) => v === "" || /^\d{10,15}$/.test(v), TELEFONO_MENSAJE);
+  .refine((v) => v === "" || /^3\d{9}$/.test(v), TELEFONO_MENSAJE);
+
+// ── Correo (regex de forma, no verifica que el dominio/TLD exista) ───────────
+// Zod's .email() tampoco verifica DNS/MX — solo formato. Se centraliza acá en
+// vez de repetir z.string().email("Correo inválido") en cada schema, y se
+// endurece la forma del TLD final (2-24 letras, sin dígitos/símbolos) para
+// atrapar typos obvios ("user@sitio.c", "user@sitio.123") — no detecta un TLD
+// inventado con forma válida ("user@sitio.zzz"): eso requeriría una consulta
+// DNS/MX real, con la latencia y los falsos rechazos que eso implica.
+export const CORREO_MENSAJE = "Correo inválido";
+export const correoSchema = z
+  .string({ error: "El correo es requerido" })
+  .regex(/^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,24}$/, CORREO_MENSAJE);
 
 // ── Nombre (5-60 caracteres, sin dígitos) ─────────────────────────────────────
 // Mensajes custom para no dejar pasar el genérico de Zod ("String must
@@ -81,7 +95,7 @@ export const registerSchema = conValidacionDeDocumento(z.object({
   tipoDocumento: textoRequerido("El tipo de documento"),
   documento:     textoRequerido("El número de documento"),
   nombre:        nombreSchema,
-  correo:        z.string({ error: "El correo es requerido" }).email("Correo inválido"),
+  correo:        correoSchema,
   clave:         claveSchema,
   telefono:      telefonoSchema.optional(),
   // El backend no confía en que el checkbox del frontend haya estado
@@ -91,12 +105,12 @@ export const registerSchema = conValidacionDeDocumento(z.object({
 }));
 
 export const loginSchema = z.object({
-  correo: z.string({ error: "El correo es requerido" }).email("Correo inválido"),
+  correo: correoSchema,
   clave:  z.string({ error: "La clave es requerida" }).min(1, "La clave es requerida"),
 });
 
 export const recoverSchema = z.object({
-  correo: z.string({ error: "El correo es requerido" }).email("Correo inválido"),
+  correo: correoSchema,
 });
 
 export const resetPasswordSchema = z.object({
@@ -105,7 +119,7 @@ export const resetPasswordSchema = z.object({
 });
 
 export const resendCodeSchema = z.object({
-  correo: z.string({ error: "El correo es requerido" }).email("Correo inválido"),
+  correo: correoSchema,
 });
 
 export const refreshTokenSchema = z.object({

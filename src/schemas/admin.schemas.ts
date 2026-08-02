@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { claveSchema, telefonoSchema, nombreSchema, validarDocumentoPorTipo } from "./auth.schemas";
-import { textoRequerido, idPositivo, numeroPositivo } from "./common.schemas";
+import { claveSchema, telefonoSchema, nombreSchema, correoSchema, validarDocumentoPorTipo } from "./auth.schemas";
+import { textoRequerido, idPositivo, numeroPositivo, fechaISO } from "./common.schemas";
 
 // ── Catálogos de nombre único ──────────────────────────────────────────────
 const nombreCatalogo = (etiqueta: string) => z.object({ nombre: textoRequerido(etiqueta) });
@@ -35,7 +35,7 @@ const clientShape = z.object({
   tipoDocumento: textoRequerido("El tipo de documento"),
   documento:     textoRequerido("El número de documento"),
   nombre:        nombreSchema,
-  correo:        z.string({ error: "El correo es requerido" }).email("Correo inválido"),
+  correo:        correoSchema,
   telefono:      telefonoSchema.optional(),
 });
 
@@ -79,7 +79,7 @@ export const rolePermissionSchema = z.object({
 // de negocio del controller (límite de num_abonos, venta anulada) — todos
 // están condicionados a `req.body.id_venta !== undefined`.
 export const createPaymentSchema = z.object({
-  fecha:          textoRequerido("La fecha", true),
+  fecha:          fechaISO("La fecha"),
   monto:          numeroPositivo("El monto"),
   observacion:    z.string().optional(),
   id_venta:       idPositivo("La venta", true),
@@ -90,7 +90,7 @@ export const updatePaymentSchema = createPaymentSchema.partial();
 
 // ── Sale ──────────────────────────────────────────────────────────────────
 export const createSaleSchema = z.object({
-  fecha:       textoRequerido("La fecha", true),
+  fecha:       fechaISO("La fecha"),
   total:       numeroPositivo("El total"),
   observacion: z.string().optional(),
   id_cita:     idPositivo("La cita", true).nullable().optional(),
@@ -105,7 +105,7 @@ export const updateSaleSchema = createSaleSchema.partial();
 // registros huérfanos que además se saltan sumaServiciosVenta (el guard de
 // total vs. suma de servicios asume que todo detalle pertenece a una Venta).
 export const createSaleDetailSchema = z.object({
-  fecha:       textoRequerido("La fecha", true),
+  fecha:       fechaISO("La fecha"),
   precio:      numeroPositivo("El precio"),
   observacion: z.string().optional(),
   id_venta:    idPositivo("La venta", true),
@@ -125,12 +125,12 @@ export const updateServiceSchema = createServiceSchema.partial();
 
 // ── User ──────────────────────────────────────────────────────────────────
 export const createUserSchema = z.object({
-  correo: z.string({ error: "El correo es requerido" }).email("Correo inválido"),
+  correo: correoSchema,
   clave:  claveSchema,
   id_rol: idPositivo("El rol").optional(),
 });
 export const updateUserSchema = z.object({
-  correo: z.string({ error: "El correo es requerido" }).email("Correo inválido").optional(),
+  correo: correoSchema.optional(),
   clave:  claveSchema.optional(),
   id_rol: idPositivo("El rol").optional(),
 });

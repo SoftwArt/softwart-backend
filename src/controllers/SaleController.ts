@@ -9,6 +9,7 @@ import { Appointment } from "../models/Appointment";
 import { Client } from "../models/Client";
 import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
 import { coincideConCentavos, sumaServiciosVenta, msgTotalNoCoincide } from "../helpers/saleTotal.helper";
+import { assertFechaNoAntesDe } from "../helpers/dateCascade.helper";
 import { SaleDetail } from "../models/SaleDetail";
 
 const CASCADE_RELATIONS = ["saleDetails", "saleDetails.serviceStatus", "payments", "payments.paymentStatus"];
@@ -100,6 +101,18 @@ export const createSale = async (req: Request, res: Response): Promise<void> => 
     if (req.body.id_cita != null) {
       const rel = await AppDataSource.getRepository(Appointment).findOneBy({ id_cita: Number(req.body.id_cita) });
       if (!rel) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
+      // Cita↔Venta es 1:1 a propósito (ver CLAUDE.md) — el flujo carrito
+      // (createSaleFromAppointment) ya rechaza esto con este mismo mensaje;
+      // el CRUD manual no lo validaba, así que un duplicado caía en el except
+      // genérico de abajo (o en la constraint UNIQUE cruda de la BD) con un
+      // "Error al crear Venta" sin explicar nada.
+      const ventaExistente = await ventaRepo.findOne({ where: { appointment: { id_cita: rel.id_cita } } });
+      if (ventaExistente) {
+        res.status(409).json({ success: false, message: "Esta cita ya tiene una venta registrada", data: { id_venta: ventaExistente.id_venta } });
+        return;
+      }
+      const errorCascada = assertFechaNoAntesDe(obj.fecha, rel.fecha, "la venta", "la cita");
+      if (errorCascada) { res.status(400).json({ success: false, message: errorCascada }); return; }
       obj.appointment = rel;
     }
     if (req.body.id_cliente !== undefined) {
@@ -135,14 +148,23 @@ export const updateSale = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
-    if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
     if (req.body.total       !== undefined) item.total       = req.body.total;
     if (req.body.observacion !== undefined) item.observacion = req.body.observacion;
     if (req.body.id_cita != null) {
       const rel = await AppDataSource.getRepository(Appointment).findOneBy({ id_cita: Number(req.body.id_cita) });
       if (!rel) { res.status(404).json({ success: false, message: "Cita no encontrado" }); return; }
+      if (rel.id_cita !== item.appointment?.id_cita) {
+        const ventaExistente = await ventaRepo.findOne({ where: { appointment: { id_cita: rel.id_cita } } });
+        if (ventaExistente) {
+          res.status(409).json({ success: false, message: "Esta cita ya tiene una venta registrada", data: { id_venta: ventaExistente.id_venta } });
+          return;
+        }
+      }
+      const errorCascada = assertFechaNoAntesDe(req.body.fecha ?? item.fecha, rel.fecha, "la venta", "la cita");
+      if (errorCascada) { res.status(400).json({ success: false, message: errorCascada }); return; }
       item.appointment = rel;
     }
+    if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
     if (req.body.id_cliente !== undefined) {
       const rel = await AppDataSource.getRepository(Client).findOneBy({ id_cliente: Number(req.body.id_cliente) });
       if (!rel) { res.status(404).json({ success: false, message: "Cliente no encontrado" }); return; }
