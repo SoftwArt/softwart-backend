@@ -81,3 +81,46 @@ export function nextInstallment(
     isLast:         next.number === num_abonos,
   }
 }
+
+export type PaymentWithStatus = {
+  monto: number | string
+  paymentStatus?: { nombre?: string }
+}
+
+export type PaymentPlanSummary = {
+  pagos_realizados: number
+  total_pagado: number
+  saldo_pendiente: number
+  completado: boolean
+  plan_abonos: ExpectedInstallment[]
+}
+
+const isPaymentCanceled = (paymentStatus?: { nombre?: string }): boolean => {
+  return paymentStatus?.nombre?.toLowerCase().includes("anulado") ?? false
+}
+
+export function getPaymentPlanSummary(
+  total: number,
+  num_abonos: number,
+  porcentaje_primer: number,
+  payments: PaymentWithStatus[]
+): PaymentPlanSummary {
+  const pagosActivos = payments.filter(
+    (p) => !isPaymentCanceled(p.paymentStatus),
+  )
+  const pagosRealizados = pagosActivos.length
+  const totalPagado = pagosActivos.reduce(
+    (sum, p) => sum + Number(p.monto),
+    0,
+  )
+  const saldo = Math.round((Number(total) - totalPagado) * 100) / 100
+  const abonos = calculateInstallments(Number(total), num_abonos, porcentaje_primer)
+
+  return {
+    pagos_realizados: pagosRealizados,
+    total_pagado: Math.round(totalPagado * 100) / 100,
+    saldo_pendiente: saldo,
+    completado: saldo <= 0,
+    plan_abonos: abonos,
+  }
+}

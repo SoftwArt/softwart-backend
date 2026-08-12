@@ -10,6 +10,7 @@ import { Client } from "../models/Client";
 import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
 import { coincideConCentavos, sumaServiciosVenta, msgTotalNoCoincide } from "../helpers/saleTotal.helper";
 import { assertFechaNoAntesDe } from "../helpers/dateCascade.helper";
+import { getPaymentPlanSummary } from "../helpers/installments.helper";
 import { SaleDetail } from "../models/SaleDetail";
 
 const CASCADE_RELATIONS = ["saleDetails", "saleDetails.serviceStatus", "payments", "payments.paymentStatus"];
@@ -63,9 +64,23 @@ export const getAllSale = async (req: Request, res: Response): Promise<void> => 
         })
       : [];
 
+    const data = items.map((item) => {
+      const paymentSummary = getPaymentPlanSummary(
+        Number(item.total),
+        item.num_abonos,
+        item.porcentaje_primer_abono,
+        item.payments ?? [],
+      )
+
+      return {
+        ...item,
+        completado: paymentSummary.completado,
+      }
+    })
+
     res.json({
       success: true,
-      data: items,
+      data,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
