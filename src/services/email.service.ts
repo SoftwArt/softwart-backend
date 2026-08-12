@@ -433,11 +433,7 @@ export const sendServicioFinalizadoEmail = async (
 
           <div style="background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px; padding: 20px 24px;">
             <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #888; font-size: 13px; width: 40%;">Venta</td>
-                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">#${data.id_venta}</td>
-              </tr>
-              <tr>
+
                 <td style="padding: 8px 0; color: #888; font-size: 13px;">Servicio</td>
                 <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">${data.servicio}</td>
               </tr>
