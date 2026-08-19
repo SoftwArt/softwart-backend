@@ -9,6 +9,7 @@ import { DOCUMENTOS_LEGALES } from "../legal";
 
 export interface InsertarAceptacionesParams {
   id_cliente:        number;
+  id_usuario_actor?: number | null;
   documento_titular:  string;
   correo_titular:     string;
   contexto:           ContextoAceptacion;
@@ -37,6 +38,9 @@ export async function insertarAceptacionesLegales(
 
     const fila = repo.create({
       client:             { id_cliente: params.id_cliente } as Client,
+      actor:              params.id_usuario_actor
+        ? { id_usuario: params.id_usuario_actor } as import("../models/User").User
+        : null,
       documento_titular:  params.documento_titular,
       correo_titular:     params.correo_titular,
       tipo_documento:     tipo,

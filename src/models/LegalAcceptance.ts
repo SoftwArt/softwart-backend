@@ -1,5 +1,6 @@
 import { Check, Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Client } from "./Client";
+import { User } from "./User";
 
 export enum TipoDocumentoLegal {
   TERMINOS_SERVICIO = "TERMINOS_SERVICIO",
@@ -17,6 +18,7 @@ export enum ContextoAceptacion {
   PORTAL = "PORTAL",
   // Landing pública, sin cuenta — guestAppointment (AuthController.ts).
   CITA_INVITADO = "CITA_INVITADO",
+  REGISTRO_ADMIN = "REGISTRO_ADMIN",
 }
 
 // Registro de EVENTOS append-only, no de estado — ver ADR-007 (docs/ADR/).
@@ -45,6 +47,10 @@ export class LegalAcceptance {
   @ManyToOne(() => Client, { onDelete: "SET NULL", nullable: true })
   @JoinColumn({ name: "id_cliente" })
   client!: Client | null;
+
+  @ManyToOne(() => User, { onDelete: "SET NULL", nullable: true })
+  @JoinColumn({ name: "id_usuario_actor" })
+  actor!: User | null;
 
   // Copia desnormalizada al momento del evento — deliberada (ADR-007 §3.4).
   // No "normalizar" quitando estas columnas.
