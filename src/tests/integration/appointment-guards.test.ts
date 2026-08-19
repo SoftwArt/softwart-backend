@@ -85,6 +85,22 @@ describe("existeCitaEnHorario — no se puede doblar-reservar la misma fecha+hor
 
     expect(res.status).toBe(409);
   });
+
+  it("crea la cita admin como Confirmada cuando no se envía estado", async () => {
+    await registerAndLogin();
+    const login = await request(app).post("/api/auth/login").send({
+      correo: `appt.guard.${clientCounter}@test.com`,
+      clave: "Cliente1234!",
+    });
+
+    const res = await request(app)
+      .post("/api/appointments")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ id_cliente: login.body.data.id_cliente, fecha: futureDate(14), hora: "17:00" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.appointmentStatus.nombre).toBe("Confirmada");
+  });
 });
 
 describe("excedeLimiteCitasActivas — tope anti-DoS de citas activas por cliente", () => {
