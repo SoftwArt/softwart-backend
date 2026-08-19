@@ -6,6 +6,7 @@ import { AppDataSource } from "../data-source";
 import { User } from "../models/User";
 import { Role } from "../models/Role";
 import bcrypt from "bcrypt";
+import { AccountEmailError, syncAccountEmail } from "../helpers/accountEmail.helper";
 
 // El administrador base es el usuario sembrado (id_usuario = 1) — cuenta protegida
 const SEED_ADMIN_ID = 1;
@@ -102,21 +103,42 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       }
     }
 
-    if (req.body.correo !== undefined && req.body.correo !== item.correo) {
-      const porCorreo = await usuarioRepo.findOne({ where: { correo: req.body.correo } });
-      if (porCorreo) { res.status(409).json({ success: false, message: "Ya existe un usuario registrado con ese correo" }); return; }
+    const correoCambio = req.body.correo !== undefined && req.body.correo !== item.correo;
+    const nuevoRol = req.body.id_rol !== undefined
+      ? await AppDataSource.getRepository(Role).findOneBy({ id_rol: Number(req.body.id_rol) })
+      : null;
+    if (req.body.id_rol !== undefined && !nuevoRol) {
+      res.status(404).json({ success: false, message: "Rol no encontrado" }); return;
     }
 
-    if (req.body.correo !== undefined) item.correo = req.body.correo;
-    if (req.body.clave  !== undefined) item.clave  = await bcrypt.hash(req.body.clave, 10);
-    if (req.body.id_rol !== undefined) {
-      const rel = await AppDataSource.getRepository(Role).findOneBy({ id_rol: Number(req.body.id_rol) });
-      if (!rel) { res.status(404).json({ success: false, message: "Rol no encontrado" }); return; }
-      item.role = rel;
+    if (correoCambio) {
+      await AppDataSource.transaction(async (manager) => {
+        const itemTx = await manager.getRepository(User).findOne({
+          where: { id_usuario: item.id_usuario },
+          relations: ["role"],
+        });
+        if (!itemTx) throw new AccountEmailError(404, "Usuario no encontrado");
+        if (req.body.clave !== undefined) itemTx.clave = await bcrypt.hash(req.body.clave, 10);
+        if (nuevoRol) itemTx.role = nuevoRol;
+        await syncAccountEmail(manager, { id_usuario: item.id_usuario, correo: req.body.correo });
+        itemTx.correo = req.body.correo;
+        await manager.getRepository(User).save(itemTx);
+      });
+    } else {
+      if (req.body.clave !== undefined) item.clave = await bcrypt.hash(req.body.clave, 10);
+      if (nuevoRol) item.role = nuevoRol;
+      await usuarioRepo.save(item);
     }
-    await usuarioRepo.save(item);
+
+    if (correoCambio) item.correo = req.body.correo;
+    if (req.body.clave !== undefined) item.clave = "";
+    if (nuevoRol) item.role = nuevoRol;
     res.json({ success: true, message: "Usuario actualizado", data: sinClave(item) });
   } catch (error) {
+    if (error instanceof AccountEmailError) {
+      res.status(error.statusCode).json({ success: false, message: error.message });
+      return;
+    }
     res.status(500).json({ success: false, message: "Error al actualizar Usuario", error });
   }
 };
