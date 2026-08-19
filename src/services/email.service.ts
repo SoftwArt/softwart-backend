@@ -100,6 +100,50 @@ export const sendRecoveryEmail = async (
   console.log("✅ Email de recuperación enviado:", data?.id);
 };
 
+// Correo de bienvenida para cuentas creadas desde el panel admin. El token
+// comparte el flujo /reset con recuperación, pero su expiración la decide el
+// caller (24 horas para la primera configuración de contraseña).
+export const sendWelcomePasswordSetupEmail = async (
+  correo: string,
+  nombre: string,
+  token: string,
+): Promise<void> => {
+  const resetUrl = `${FRONTEND_URL}/reset?token=${token}`;
+  const recoverUrl = `${FRONTEND_URL}/recover`;
+  const { data, error } = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: correo,
+    subject: "Bienvenido a Arte Café: configura tu contraseña",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
+        ${emailHeader("Bienvenido a Arte Café")}
+        <div style="background: #fff; padding: 32px; border: 1px solid #e5e5e5; border-top: none;">
+          <p style="margin: 0 0 16px; font-size: 15px;">Hola, <strong>${nombre}</strong> 👋</p>
+          <p style="margin: 0 0 24px; font-size: 15px; color: #444;">
+            Se creó tu cuenta de cliente en Arte Café. Para comenzar, configura tu contraseña:
+          </p>
+          <div style="text-align: center; margin: 0 0 24px;">
+            <a href="${resetUrl}" style="display: inline-block; background: #7c4a2d; color: #fff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 14px 32px; border-radius: 8px;">Crear mi contraseña</a>
+          </div>
+          <p style="margin: 0 0 16px; font-size: 14px; color: #555;">
+            Este enlace es válido durante <strong>24 horas</strong> y solo puede utilizarse una vez.
+          </p>
+          <p style="margin: 0 0 8px; font-size: 14px; color: #555;">
+            Si el enlace ya expiró, solicita uno nuevo desde la opción “¿Olvidaste tu contraseña?” en la pantalla de inicio de sesión:
+          </p>
+          <p style="margin: 0 0 24px; font-size: 13px;">
+            <a href="${recoverUrl}" style="color: #7c4a2d; text-decoration: none;">${recoverUrl}</a>
+          </p>
+          <p style="margin: 0; font-size: 13px; color: #999;">Si no esperabas este correo, puedes ignorarlo.</p>
+        </div>
+        ${emailFooter()}
+      </div>
+    `,
+  });
+  if (error) throw new Error(`Resend error (welcome): ${error.message}`);
+  console.log(`✅ Email de bienvenida enviado a ${correo}:`, data?.id);
+};
+
 // ── Confirmación de cita agendada ─────────────────────────────────────────────
 export type CitaConfirmacionData = {
   correo:       string

@@ -3,11 +3,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { Request, Response } from "express";
 import { ILike } from "typeorm";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 import { AppDataSource } from "../data-source";
 import { Client } from "../models/Client";
 import { Appointment } from "../models/Appointment";
 import { Sale } from "../models/Sale";
 import { User } from "../models/User";
+import { Role } from "../models/Role";
+import { generateToken } from "../helpers/inviteToken.helper";
+import { insertarAceptacionesLegales } from "../helpers/legalAcceptance.helper";
+import { ContextoAceptacion } from "../models/LegalAcceptance";
+import { sendWelcomePasswordSetupEmail } from "../services/email.service";
+import { logger } from "../config/logger";
+import { AccountEmailError, syncAccountEmail } from "../helpers/accountEmail.helper";
 import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
 
 export const getAllClient = async (req: Request, res: Response): Promise<void> => {
@@ -51,28 +60,69 @@ export const getClientById = async (req: Request, res: Response): Promise<void> 
 export const createClient = async (req: Request, res: Response): Promise<void> => {
   try {
     const clienteRepo = AppDataSource.getRepository(Client);
+    const usuarioRepo = AppDataSource.getRepository(User);
     const required = ["tipoDocumento", "documento", "nombre", "correo"];
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
 
     const { tipoDocumento, documento, nombre, correo, telefono } = req.body;
 
-    const [porDocumento, porCorreo] = await Promise.all([
+    const [porDocumento, porCorreo, usuarioPorCorreo] = await Promise.all([
       clienteRepo.findOne({ where: { documento } }),
       clienteRepo.findOne({ where: { correo } }),
+      usuarioRepo.findOne({ where: { correo } }),
     ]);
     if (porDocumento) { res.status(409).json({ success: false, message: "Ya existe un cliente registrado con ese número de documento" }); return; }
     if (porCorreo)    { res.status(409).json({ success: false, message: "Ya existe un cliente registrado con ese correo" }); return; }
+    if (usuarioPorCorreo) { res.status(409).json({ success: false, message: "Ya existe un usuario registrado con ese correo" }); return; }
 
-    const obj = clienteRepo.create();
-    obj.tipoDocumento = tipoDocumento;
-    obj.documento     = documento;
-    obj.nombre        = nombre;
-    obj.correo        = correo;
-    obj.telefono      = telefono;
-    obj.estado        = req.body.estado !== undefined ? req.body.estado : true;
-    await clienteRepo.save(obj);
-    res.status(201).json({ success: true, message: "Cliente creado exitosamente", data: obj });
+    const rolCliente = await AppDataSource.getRepository(Role).findOneBy({ id_rol: 2 });
+    if (!rolCliente) { res.status(500).json({ success: false, message: "Rol Cliente (id_rol=2) no configurado" }); return; }
+
+    const { token, tokenHash, expira } = generateToken(24);
+    const claveTemporal = crypto.randomBytes(32).toString("base64url");
+    let obj!: Client;
+
+    await AppDataSource.transaction(async (manager) => {
+      const clienteTx = manager.getRepository(Client);
+      const usuarioTx = manager.getRepository(User);
+
+      obj = clienteTx.create({
+        tipoDocumento,
+        documento,
+        nombre,
+        correo,
+        telefono: telefono ?? null,
+        estado: req.body.estado !== undefined ? req.body.estado : true,
+      });
+      await clienteTx.save(obj);
+
+      const usuario = usuarioTx.create({
+        correo,
+        clave: await bcrypt.hash(claveTemporal, 10),
+        estado: true,
+        role: rolCliente,
+        token_recuperacion: tokenHash,
+        token_expira: expira,
+      });
+      await usuarioTx.save(usuario);
+
+      await insertarAceptacionesLegales(manager, {
+        id_cliente: obj.id_cliente,
+        id_usuario_actor: req.user?.id_usuario ?? null,
+        documento_titular: obj.documento,
+        correo_titular: obj.correo,
+        contexto: ContextoAceptacion.REGISTRO_ADMIN,
+        ip: req.ip ?? null,
+        user_agent: req.headers["user-agent"] ?? null,
+      });
+    });
+
+    sendWelcomePasswordSetupEmail(correo, nombre, token).catch((error) => {
+      logger.error({ err: error, correo, id_cliente: obj.id_cliente }, "error al enviar bienvenida de cliente");
+    });
+
+    res.status(201).json({ success: true, message: "Cliente y usuario creados exitosamente", data: obj });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al crear Cliente", error });
   }
@@ -88,19 +138,34 @@ export const updateClient = async (req: Request, res: Response): Promise<void> =
       const porDocumento = await clienteRepo.findOne({ where: { documento: req.body.documento } });
       if (porDocumento) { res.status(409).json({ success: false, message: "Ya existe un cliente registrado con ese número de documento" }); return; }
     }
-    if (req.body.correo !== undefined && req.body.correo !== item.correo) {
-      const porCorreo = await clienteRepo.findOne({ where: { correo: req.body.correo } });
-      if (porCorreo) { res.status(409).json({ success: false, message: "Ya existe un cliente registrado con ese correo" }); return; }
+    const correoCambio = req.body.correo !== undefined && req.body.correo !== item.correo;
+    if (correoCambio) {
+      await AppDataSource.transaction(async (manager) => {
+        const itemTx = await manager.getRepository(Client).findOneBy({ id_cliente: item.id_cliente });
+        if (!itemTx) throw new AccountEmailError(404, "Cliente no encontrado");
+        if (req.body.tipoDocumento !== undefined) itemTx.tipoDocumento = req.body.tipoDocumento;
+        if (req.body.documento !== undefined) itemTx.documento = req.body.documento;
+        if (req.body.nombre !== undefined) itemTx.nombre = req.body.nombre;
+        if (req.body.telefono !== undefined) itemTx.telefono = req.body.telefono;
+        await syncAccountEmail(manager, { id_cliente: item.id_cliente, correo: req.body.correo });
+        itemTx.correo = req.body.correo;
+        await manager.getRepository(Client).save(itemTx);
+      });
+    } else {
+      if (req.body.tipoDocumento !== undefined) item.tipoDocumento = req.body.tipoDocumento;
+      if (req.body.documento !== undefined) item.documento = req.body.documento;
+      if (req.body.nombre !== undefined) item.nombre = req.body.nombre;
+      if (req.body.telefono !== undefined) item.telefono = req.body.telefono;
+      await clienteRepo.save(item);
     }
 
-    if (req.body.tipoDocumento !== undefined) item.tipoDocumento = req.body.tipoDocumento;
-    if (req.body.documento     !== undefined) item.documento     = req.body.documento;
-    if (req.body.nombre        !== undefined) item.nombre        = req.body.nombre;
-    if (req.body.correo        !== undefined) item.correo        = req.body.correo;
-    if (req.body.telefono      !== undefined) item.telefono      = req.body.telefono;
-    await clienteRepo.save(item);
+    if (correoCambio) item.correo = req.body.correo;
     res.json({ success: true, message: "Cliente actualizado", data: item });
   } catch (error) {
+    if (error instanceof AccountEmailError) {
+      res.status(error.statusCode).json({ success: false, message: error.message });
+      return;
+    }
     res.status(500).json({ success: false, message: "Error al actualizar Cliente", error });
   }
 };

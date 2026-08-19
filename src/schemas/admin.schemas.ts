@@ -39,7 +39,10 @@ const clientShape = z.object({
   telefono:      telefonoSchema.optional(),
 });
 
-export const createClientSchema = clientShape.superRefine((data, ctx) => {
+export const createClientSchema = clientShape.extend({
+  acceptToS:      z.literal(true, { error: "Debes aceptar los Términos de Servicio" }),
+  acceptPrivacy:  z.literal(true, { error: "Debes aceptar la Política de Privacidad" }),
+}).superRefine((data, ctx) => {
   const msg = validarDocumentoPorTipo(data.tipoDocumento, data.documento);
   if (msg) ctx.addIssue({ code: z.ZodIssueCode.custom, message: msg, path: ["documento"] });
 });
