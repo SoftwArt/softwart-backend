@@ -12,6 +12,7 @@ import bcrypt                from "bcrypt";
 import {
   sendCitaConfirmacionEmail,
   sendAdminNewAppointmentAlert,
+  sendAdminAppointmentCancelledAlert,
   CitaConfirmacionData,
 } from "../services/email.service";
 import { notifyNewAppointment, notifyAppointmentCancelled } from "../services/push.service";
@@ -270,6 +271,15 @@ export const cancelMyAppointment = async (req: Request, res: Response): Promise<
       hora:          cita.hora,
       id_cita:       cita.id_cita,
     }).catch(err => console.error("⚠️  Error enviando push de cancelación:", err));
+
+    // Correo al admin — mismo criterio que el push: el staff se entera sin
+    // tener que abrir el panel. Fire & forget, no bloquea la respuesta.
+    sendAdminAppointmentCancelledAlert({
+      nombreCliente: cita.client!.nombre,
+      fecha:         new Date(cita.fecha).toISOString().slice(0, 10),
+      hora:          cita.hora,
+      id_cita:       cita.id_cita,
+    }).catch(err => console.error("⚠️  Error enviando alerta admin de cancelación:", err));
 
     res.json({ success: true, message: 'Cita cancelada correctamente' })
   } catch (error) {
