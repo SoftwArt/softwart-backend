@@ -10,6 +10,7 @@
   "lint": "eslint src",
   "seed": "ts-node src/seeds/index.ts",
   "reset-data": "ts-node scripts/reset-data.ts",
+  "seed:demo": "ts-node scripts/seed-demo-data.ts",
   "test": "vitest run",
   "test:watch": "vitest",
   "test:coverage": "vitest run --coverage",
