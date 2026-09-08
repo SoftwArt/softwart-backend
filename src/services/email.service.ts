@@ -445,6 +445,72 @@ export const sendAdminNewAppointmentAlert = async (
   console.log(`✅ Alerta admin cita #${data.id_cita} enviada a: ${adminEmail}`);
 };
 
+// ── Alerta al admin de cancelación hecha por el cliente ───────────────────────
+// Mismo criterio que sendAdminNewAppointmentAlert — el push (topic "staff") ya
+// avisa a la app móvil, pero un correo llega también a quien no la tenga
+// instalada/abierta. Solo dispara en cancelMyAppointment (autocancelación del
+// cliente); si el staff cancela desde el panel no tiene sentido avisarse a sí
+// mismo (mismo criterio que notifyAppointmentCancelled).
+export type AdminCitaCanceladaAlertData = {
+  nombreCliente: string
+  fecha:         string
+  hora:          string
+  id_cita:       number
+}
+
+export const sendAdminAppointmentCancelledAlert = async (
+  data: AdminCitaCanceladaAlertData
+): Promise<void> => {
+  const adminEmail = process.env.ADMIN_EMAIL
+  if (!adminEmail) return
+
+  const { error } = await resend.emails.send({
+    from:    EMAIL_FROM,
+    to:      adminEmail,
+    subject: `Cita #${data.id_cita} cancelada por el cliente — ${data.nombreCliente}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 520px; margin: auto; color: #1a1a1a;">
+
+        ${emailHeader("Cancelación de cliente")}
+
+        <div style="background: #fff; padding: 32px; border: 1px solid #e5e5e5; border-top: none;">
+          <p style="margin: 0 0 20px; font-size: 15px; color: #444;">
+            Un cliente canceló su cita desde el portal.
+          </p>
+
+          <div style="background: #fdf8f5; border: 1px solid #e8d5c4; border-radius: 8px; padding: 20px 24px;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Cliente</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">${data.nombreCliente}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Fecha</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600; text-transform: capitalize;">
+                  ${formatFecha(data.fecha)}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #888; font-size: 13px;">Hora</td>
+                <td style="padding: 8px 0; font-size: 13px; font-weight: 600;">${to12h(data.hora)}</td>
+              </tr>
+            </table>
+          </div>
+
+          <p style="margin: 24px 0 0; font-size: 13px; color: #999;">
+            Ese horario ya quedó disponible para agendar de nuevo.
+          </p>
+        </div>
+
+        ${emailFooter()}
+
+      </div>
+    `,
+  });
+  if (error) throw new Error(`Resend error (alerta admin cancelación cita #${data.id_cita}): ${error.message}`);
+  console.log(`✅ Alerta admin de cancelación cita #${data.id_cita} enviada a: ${adminEmail}`);
+};
+
 // ── Servicio finalizado ───────────────────────────────────────────────────────
 export type ServicioFinalizadoData = {
   correo:        string
