@@ -31,12 +31,14 @@ const PERMISOS_BASE = [
   { nombre: "CITAS.ELIMINAR",           descripcion: "Eliminar citas" },
   { nombre: "CITAS.CAMBIAR_ESTADO",     descripcion: "Cambiar estado de citas" },
 
-  // ── Ventas ────────────────────────────────────────────────────────────────
-  { nombre: "VENTAS.VER",               descripcion: "Listar y ver ventas" },
-  { nombre: "VENTAS.CREAR",             descripcion: "Crear ventas" },
-  { nombre: "VENTAS.EDITAR",            descripcion: "Editar ventas" },
-  { nombre: "VENTAS.ELIMINAR",          descripcion: "Eliminar ventas" },
-  { nombre: "VENTAS.CAMBIAR_ESTADO",    descripcion: "Activar/inactivar ventas" },
+  // ── Ventas (entidad Sale) — el código sigue siendo VENTAS.* mientras el
+  // panel muestra esta página como "Pedidos" (swap de texto visible, no de
+  // permisos/rutas: ver AdminSidebar.tsx). La descripción sí sigue al label.
+  { nombre: "VENTAS.VER",               descripcion: "Listar y ver pedidos" },
+  { nombre: "VENTAS.CREAR",             descripcion: "Crear pedidos" },
+  { nombre: "VENTAS.EDITAR",            descripcion: "Editar pedidos" },
+  { nombre: "VENTAS.ELIMINAR",          descripcion: "Eliminar pedidos" },
+  { nombre: "VENTAS.CAMBIAR_ESTADO",    descripcion: "Activar/inactivar pedidos" },
 
   // ── Pedidos (DetalleVenta) ────────────────────────────────────────────────
   { nombre: "PEDIDOS.VER",              descripcion: "Listar y ver pedidos" },
@@ -45,13 +47,14 @@ const PERMISOS_BASE = [
   { nombre: "PEDIDOS.ELIMINAR",         descripcion: "Eliminar pedidos" },
   { nombre: "PEDIDOS.CAMBIAR_ESTADO",   descripcion: "Cambiar estado de pedidos" },
 
-  // ── Pagos ─────────────────────────────────────────────────────────────────
-  { nombre: "PAGOS.VER",                descripcion: "Listar y ver pagos" },
-  { nombre: "PAGOS.CREAR",              descripcion: "Crear pagos" },
-  { nombre: "PAGOS.EDITAR",             descripcion: "Editar pagos" },
-  { nombre: "PAGOS.ELIMINAR",           descripcion: "Eliminar pagos" },
-  { nombre: "PAGOS.CAMBIAR_ESTADO",     descripcion: "Cambiar estado de pagos" },
-  { nombre: "PAGOS.CAMBIAR_METODO",     descripcion: "Cambiar método de pago" },
+  // ── Pagos (entidad Payment) — el código sigue siendo PAGOS.* mientras el
+  // panel muestra esta página como "Ventas" (mismo swap que arriba).
+  { nombre: "PAGOS.VER",                descripcion: "Listar y ver ventas" },
+  { nombre: "PAGOS.CREAR",              descripcion: "Crear ventas" },
+  { nombre: "PAGOS.EDITAR",             descripcion: "Editar ventas" },
+  { nombre: "PAGOS.ELIMINAR",           descripcion: "Eliminar ventas" },
+  { nombre: "PAGOS.CAMBIAR_ESTADO",     descripcion: "Cambiar estado de ventas" },
+  { nombre: "PAGOS.CAMBIAR_METODO",     descripcion: "Cambiar método de venta" },
 
   // ── Marcos / Calculadora ──────────────────────────────────────────────────
   { nombre: "MARCOS.VER",               descripcion: "Listar y ver marcos" },
