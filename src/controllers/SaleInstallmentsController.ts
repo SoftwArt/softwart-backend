@@ -197,7 +197,7 @@ export const registerInstallment = async (req: Request, res: Response): Promise<
 export const configureInstallments = async (req: Request, res: Response): Promise<void> => {
   try {
     const id_venta = Number(req.params.id)
-    const { num_abonos, porcentaje_primer_abono } = req.body
+    const { num_abonos, porcentaje_primer_abono, monto_primer_abono } = req.body
 
     const ventaRepo = AppDataSource.getRepository(Sale)
     const venta     = await ventaRepo.findOne({
@@ -226,6 +226,28 @@ export const configureInstallments = async (req: Request, res: Response): Promis
       const p = Number(porcentaje_primer_abono)
       if (p < 1 || p > 99) {
         res.status(400).json({ success: false, message: "porcentaje_primer_abono debe estar entre 1 y 99" }); return
+      }
+      venta.porcentaje_primer_abono = p
+    }
+
+    // Vía alterna: el cliente da el monto en pesos del primer abono en vez del
+    // porcentaje — se convierte acá y se persiste igual en porcentaje_primer_abono
+    // (única columna real, ver Sale.ts). El schema (configureInstallmentsSchema)
+    // ya garantiza que no llegan ambos campos a la vez.
+    if (monto_primer_abono !== undefined) {
+      const monto = Number(monto_primer_abono)
+      if (monto <= 0 || monto >= Number(venta.total)) {
+        res.status(400).json({
+          success: false,
+          message: `El monto del primer abono debe ser mayor a $0 y menor al total de la venta (${venta.total})`,
+        }); return
+      }
+      const p = Math.round((monto / Number(venta.total)) * 100)
+      if (p < 1 || p > 99) {
+        res.status(400).json({
+          success: false,
+          message: `Ese monto equivale a ${p}% del total, fuera del rango permitido (1%-99%). Ajusta el valor.`,
+        }); return
       }
       venta.porcentaje_primer_abono = p
     }

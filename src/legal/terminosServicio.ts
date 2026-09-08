@@ -1,17 +1,7 @@
 /**
  * Términos de Servicio — SoftwArt / Arte Café
  *
- * ESTADO: BORRADOR. NO PUBLICAR.
- *
- * Este documento contiene marcadores [[PENDIENTE]] correspondientes a decisiones
- * de negocio que deben consultarse con Silvana antes de su publicación. El listado
- * completo está en PENDIENTES_TOS al final del archivo.
- *
- * Al resolver todos los pendientes:
- *   1. Reemplazar el texto de cada marcador.
- *   2. Cambiar TERMINOS_SERVICIO_VERSION a '1.0'.
- *   3. Fijar TERMINOS_SERVICIO_FECHA.
- *   4. Recalcular el hash canónico (ADR-007, regla 6).
+ * ESTADO: v1.0 — contenido cerrado con Silvana, lista para publicar.
  *
  * Marco normativo de referencia:
  *  - Ley 1480 de 2011 (Estatuto del Consumidor), en particular arts. 7, 8, 18, 42 y 43
@@ -19,15 +9,15 @@
  *  - Ley 1581 de 2012 (remisión a la política de tratamiento de datos)
  */
 
-export const TERMINOS_SERVICIO_VERSION = '1.0-BORRADOR';
-export const TERMINOS_SERVICIO_FECHA = '__DD_DE_MES_DE_AAAA__';
+export const TERMINOS_SERVICIO_VERSION = '1.0';
+export const TERMINOS_SERVICIO_FECHA = '7 de septiembre de 2026';
 
 /** Reutilizados desde la política de privacidad para mantener una sola fuente. */
-export const CONTACTO_ARTECAFE = '__CORREO_DEFINIDO_POR_SILVANA__';
-export const RESPONSABLE_TELEFONO_TOS = '__TELEFONO_DE_CONTACTO__';
+export const CONTACTO_ARTECAFE = 'silvanahd@gmail.com';
+export const RESPONSABLE_TELEFONO_TOS = '3005414130';
 
 /** Ventana mínima de cancelación de citas, en horas. Debe coincidir con el guard del backend. */
-export const HORAS_MINIMAS_CANCELACION = 6;
+export const HORAS_MINIMAS_CANCELACION = 24;
 
 export const TERMINOS_SERVICIO_SECCIONES = [
   {
@@ -106,10 +96,10 @@ export const TERMINOS_SERVICIO_SECCIONES = [
       'cita cuando circunstancias operativas lo requieran, informándote por los medios de contacto ' +
       'registrados.',
 
-      '[[PENDIENTE: inasistencia. Definir si existe tolerancia de espera y de cuánto tiempo; qué ocurre ' +
-      'con el cupo si el cliente no se presenta; si la inasistencia reiterada tiene alguna consecuencia. ' +
-      'La propuesta técnica es que el cupo se libere y quede disponible para otro cliente, con una ' +
-      'tolerancia equivalente al espacio entre citas.]]',
+      'Si no asistes a una cita sin haberla cancelado dentro del plazo permitido, el cupo se libera y ' +
+      'queda disponible para otro cliente. Esto no genera ninguna sanción sobre tu cuenta, pero te ' +
+      'pedimos cancelar con la anticipación indicada apenas sepas que no podrás asistir, para no ' +
+      'restarle disponibilidad a otros clientes.',
     ],
   },
   {
@@ -123,10 +113,11 @@ export const TERMINOS_SERVICIO_SECCIONES = [
       'adquiere los materiales por pedido, específicamente para tu trabajo, por lo que la cotización ' +
       'contempla los costos desde el momento en que se acuerda.',
 
-      '[[PENDIENTE: imprevistos. Definir qué ocurre si durante la ejecución se detecta una condición no ' +
-      'visible al momento de cotizar —por ejemplo, deterioro interno de una obra en restauración— que ' +
-      'modifique el alcance o el costo. Alternativas: suspender e informar antes de continuar; margen ' +
-      'de variación tolerado sin nueva aprobación; requerir aprobación escrita para cualquier cambio.]]',
+      'Si durante la ejecución se detecta una condición que no era visible al momento de cotizar —por ' +
+      'ejemplo, un deterioro interno de la obra que solo se revela al iniciar una restauración— Arte ' +
+      'Café suspende el trabajo en ese punto y te informa la situación antes de continuar. Cualquier ' +
+      'cambio en el alcance o el costo requiere tu aprobación expresa y por escrito; sin ella, el ' +
+      'trabajo no avanza más allá de lo ya cotizado.',
     ],
   },
   {
@@ -141,10 +132,9 @@ export const TERMINOS_SERVICIO_SECCIONES = [
       'complejidad real de la intervención pueden afectar la duración. Arte Café se compromete a ' +
       'informarte oportunamente si el trabajo tomará más de lo estimado.',
 
-      '[[PENDIENTE: demoras. Definir qué ocurre ante una demora significativa atribuible al taller. ' +
-      'Alternativas: aviso con nueva fecha estimada; posibilidad de que el cliente desista con ' +
-      'devolución del abono no ejecutado; compensación. Tener presente que una demora imputable a Arte ' +
-      'Café no puede quedar sin consecuencia alguna para el prestador.]]',
+      'Si la demora es atribuible a Arte Café, te lo comunicaremos junto con la nueva fecha estimada de ' +
+      'entrega. Esto no limita en modo alguno los derechos que la ley te reconoce como consumidor ante ' +
+      'un incumplimiento en la prestación del servicio.',
     ],
   },
   {
@@ -153,6 +143,9 @@ export const TERMINOS_SERVICIO_SECCIONES = [
       'El esquema habitual de pago es un abono del setenta por ciento (70%) para iniciar el trabajo y el ' +
       'treinta por ciento (30%) restante al finalizar. Estos porcentajes pueden ajustarse de común ' +
       'acuerdo en cada caso, según la naturaleza del trabajo.',
+
+      'El saldo restante se paga en el momento del retiro de la obra, conforme al procedimiento descrito ' +
+      'en la sección 9.',
 
       'Los medios de pago aceptados son: efectivo, transferencia bancaria y tarjeta a través de datáfono. ' +
       'Todos los pagos se realizan de forma presencial o por transferencia directa; como se indica en la ' +
@@ -168,10 +161,6 @@ export const TERMINOS_SERVICIO_SECCIONES = [
       'atribuible a Arte Café. Si el trabajo no se ejecuta, presenta defectos imputables al taller o la ' +
       'obra sufre daño bajo su custodia, se aplican la garantía legal y las responsabilidades previstas ' +
       'en la Ley 1480 de 2011, que son irrenunciables.',
-
-      '[[PENDIENTE: plazo de pago del saldo. Definir cuánto tiempo tiene el cliente para pagar el 30% ' +
-      'restante una vez notificada la finalización del trabajo, y si ese plazo se relaciona con el de ' +
-      'retiro de la obra (sección 9).]]',
     ],
   },
   {
@@ -180,18 +169,20 @@ export const TERMINOS_SERVICIO_SECCIONES = [
       'Para prestar sus servicios, Arte Café recibe obras y objetos de tu propiedad y los conserva ' +
       'durante el tiempo que dure la intervención, aplicando el cuidado propio de su oficio.',
 
-      '[[PENDIENTE — SECCIÓN COMPLETA. Es el bloque de mayor exposición del documento y requiere ' +
-      'definición cuidadosa. Preguntas a resolver: ¿Arte Café cuenta con seguro sobre las obras en ' +
-      'custodia? ¿Se solicita al cliente declarar el valor de obras de alto valor antes de recibirlas? ' +
-      '¿Se deja constancia escrita o fotográfica del estado en que se recibe la obra? ¿Qué límite de ' +
-      'responsabilidad se declara ante daño o pérdida? En restauración específicamente: ¿se advierte por ' +
-      'escrito, antes de iniciar, que el procedimiento conlleva riesgos inherentes y que el resultado ' +
-      'no siempre es enteramente predecible?',
-      'ADVERTENCIA NORMATIVA: una exoneración total de responsabilidad por daño o pérdida constituiría ' +
-      'una cláusula abusiva bajo los arts. 42 y 43 de la Ley 1480 de 2011 y sería ineficaz de pleno ' +
-      'derecho. La redacción viable es un límite razonable acompañado de un procedimiento de constancia ' +
-      'del estado de la obra, no una exclusión de responsabilidad. Se recomienda revisión por abogado ' +
-      'para esta sección.]]',
+      'Arte Café no cuenta con una póliza de seguro que cubra las obras en custodia. Por eso, antes de ' +
+      'iniciar cualquier procedimiento que implique un riesgo inherente para la obra o sus materiales ' +
+      '—de manera especial en trabajos de restauración, donde puede presentarse un deterioro o daño ' +
+      'irreparable ajeno a cualquier error del taller— te lo advertimos por escrito y te pedimos firmar ' +
+      'una constancia de que recibiste esa advertencia.',
+
+      'Esa constancia documenta que fuiste informado del riesgo propio del procedimiento antes de ' +
+      'autorizarlo; no exonera a Arte Café de responsabilidad cuando el daño o la pérdida se deban a ' +
+      'negligencia o error atribuible al taller, responsabilidad que sigue rigiéndose por las normas ' +
+      'generales aplicables.',
+
+      'En cada caso, Arte Café te presenta las alternativas disponibles para darle a tu obra el mejor ' +
+      'manejo posible, de modo que puedas decidir con la información completa antes de autorizar el ' +
+      'procedimiento.',
     ],
   },
   {
@@ -202,24 +193,29 @@ export const TERMINOS_SERVICIO_SECCIONES = [
       'retiro de la obra y el pago del saldo pendiente.',
 
       'Te pedimos retirar tu obra dentro del plazo indicado más abajo. El taller de Arte Café es un ' +
-      'espacio de trabajo, no un depósito: no cuenta con condiciones de almacenamiento prolongado, y ' +
-      'una obra terminada que permanece a la espera de ser retirada queda expuesta a un riesgo que ' +
-      'aumenta con el tiempo. Retirarla oportunamente es la mejor forma de protegerla.',
+      'espacio de trabajo, no un depósito: no cuenta con condiciones para almacenar de forma prolongada ' +
+      'un volumen alto de trabajos terminados a la vez, y una obra que permanece a la espera de ser ' +
+      'retirada queda expuesta a un riesgo que aumenta con el tiempo. Retirarla oportunamente es la ' +
+      'mejor forma de protegerla.',
 
-      '[[PENDIENTE — SECCIÓN COMPLETA. Preguntas a resolver: ¿Durante cuánto tiempo puede conservarse ' +
-      'realmente una obra terminada, considerando el espacio físico disponible? ¿Cuántos avisos se ' +
-      'envían antes de considerarla no reclamada, y por qué medios? ¿Qué procedimiento se sigue después ' +
-      'de ese punto?',
-      'NOTA DE ALCANCE: se descarta el cobro de bodegaje. Arte Café no dispone de un espacio de ' +
+      'El plazo para retirar tu obra es de un (1) mes desde que te notificamos la finalización del ' +
+      'trabajo. Pasado ese plazo, Arte Café no responde por daños materiales ni por deterioro atribuible ' +
+      'al paso del tiempo.',
+
+      'Si la obra era tuya desde antes de contratar el servicio —por ejemplo, en restauración o ' +
+      'texturizado—, sigue siendo de tu propiedad en todo momento y nunca se vende: Arte Café continúa ' +
+      'resguardándola a la espera de que la retires, aunque sin garantizar ya sus condiciones de ' +
+      'conservación.',
+
+      'Si la obra fue fabricada por Arte Café desde cero —por ejemplo, un marco nuevo— y no la retiras ' +
+      'dentro del mes, Arte Café puede ofrecerla en venta a otro cliente. Si regresas después de eso, te ' +
+      'fabricamos una pieza nueva, con el mismo plazo mínimo de un (1) mes de elaboración.',
+
+      'No se cobra bodegaje bajo ninguna circunstancia: Arte Café no dispone de un espacio de ' +
       'almacenamiento adecuado, y cobrar por la guarda reforzaría una obligación de custodia que no ' +
-      'puede cumplirse materialmente, agravando la exposición en lugar de reducirla. La vía correcta es ' +
-      'un plazo corto, avisado con claridad, más la declaración expresa de que las condiciones de ' +
-      'conservación son limitadas.',
-      'ADVERTENCIA NORMATIVA: no es válido estipular que, transcurrido cierto plazo, la obra pasa a ser ' +
-      'propiedad de Arte Café. La propiedad no se transfiere por una cláusula unilateral. Lo que sí puede ' +
-      'establecerse es un procedimiento documentado de avisos y constancia. El art. 18 de la Ley 1480 de ' +
-      '2011 regula específicamente los bienes entregados para la prestación de un servicio y debe ' +
-      'consultarse íntegramente antes de redactar esta sección.]]',
+      'podría cumplir materialmente. Tampoco la obra pasa a ser propiedad de Arte Café por el simple ' +
+      'transcurso del tiempo; lo que rige, en el caso de obras fabricadas desde cero, es la posibilidad ' +
+      'de reventa descrita arriba, que aceptas al contratar el servicio en estos términos.',
     ],
   },
   {
@@ -228,25 +224,33 @@ export const TERMINOS_SERVICIO_SECCIONES = [
       'Los servicios prestados por Arte Café cuentan con la garantía legal establecida en los artículos ' +
       '7 y 8 de la Ley 1480 de 2011, que es irrenunciable y opera con independencia de lo pactado.',
 
-      '[[PENDIENTE: alcance de la garantía comercial. Preguntas a resolver: ¿Arte Café ofrece una ' +
-      'garantía adicional a la legal y por cuánto tiempo? ¿Qué cubre exactamente —por ejemplo, ' +
-      'desprendimiento de un marco, defectos de acabado— y qué queda excluido —daño por manipulación ' +
-      'del cliente, humedad, golpes, exposición inadecuada—? ¿Cuál es el procedimiento para hacerla ' +
-      'efectiva?]]',
+      'Además de la garantía legal, Arte Café ofrece una garantía comercial sobre defectos de ' +
+      'manufacturación: doce (12) meses para obras fabricadas por Arte Café desde cero, y seis (6) meses ' +
+      'para obras que traes para restauración, texturizado u otra intervención sobre un bien ' +
+      'preexistente.',
+
+      'Esta garantía cubre exclusivamente fallas atribuibles al proceso de manufactura —por ejemplo, el ' +
+      'desprendimiento de un marco o un defecto de acabado—. No cubre el daño causado por manipulación ' +
+      'indebida, humedad, golpes o exposición inadecuada por tu parte. Para hacerla efectiva, Arte Café ' +
+      'revisa la pieza para confirmar que el defecto corresponde a un problema de manufactura antes de ' +
+      'proceder con la corrección.',
     ],
   },
   {
     titulo: '11. Uso de imágenes de los trabajos',
     parrafos: [
-      '[[PENDIENTE — SECCIÓN COMPLETA. Contexto conocido: Arte Café no mantiene redes sociales y las ' +
-      'fotografías que se toman se envían directamente al cliente como registro del avance o del ' +
-      'resultado. Preguntas a resolver: ¿existe interés en usar fotografías de los trabajos como ' +
-      'portafolio, hoy o a futuro? Si es así, debe incorporarse una autorización específica, separada y ' +
-      'opcional, que el cliente pueda negar sin que ello afecte la prestación del servicio.',
-      'Si la fotografía permite identificar al cliente o se asocia a su nombre, la autorización cruza ' +
-      'además con la Política de Tratamiento de Datos Personales y constituye una finalidad distinta a ' +
-      'las allí declaradas. Si se decide no usar imágenes con fines de difusión, basta declararlo ' +
-      'expresamente y esta sección se resuelve en un párrafo.]]',
+      'Arte Café toma fotografías de algunos trabajos, en distintas etapas del proceso o del resultado ' +
+      'final, y te las envía como registro; no mantiene redes sociales ni un portafolio público de forma ' +
+      'habitual.',
+
+      'Si en algún momento Arte Café desea usar alguna de esas fotografías con fines de difusión pública ' +
+      '—por ejemplo, como portafolio o en redes sociales—, te solicitará una autorización expresa y ' +
+      'específica para ese uso, independiente de la aceptación de estos términos. Puedes negarla ' +
+      'libremente, sin que ello afecte en nada la prestación del servicio.',
+
+      'Si la fotografía te identifica o se asocia a tu nombre, esa autorización se solicita en el marco ' +
+      'de la Política de Tratamiento de Datos Personales, como una finalidad adicional a las allí ' +
+      'declaradas.',
     ],
   },
   {
@@ -323,16 +327,8 @@ export const TERMINOS_SERVICIO_SECCIONES = [
 ];
 
 /**
- * Checklist de pendientes. Debe quedar vacío antes de publicar la v1.0.
- * Ordenado por prioridad: los tres primeros son los de mayor exposición.
+ * Checklist de pendientes. Vacío: los 8 puntos se resolvieron con Silvana
+ * antes de publicar la v1.0 (ver historial de git para el detalle de cada
+ * decisión).
  */
-export const PENDIENTES_TOS = [
-  { seccion: 8,  tema: 'Custodia de obras: seguro, declaración de valor, constancia de estado, límite de responsabilidad, advertencia de riesgo en restauración', prioridad: 'ALTA' },
-  { seccion: 9,  tema: 'Obras no retiradas: plazo realista según espacio disponible, avisos (automáticos vs. directos), procedimiento posterior. Bodegaje descartado.', prioridad: 'ALTA' },
-  { seccion: 10, tema: 'Garantía comercial: duración, cobertura, exclusiones, procedimiento', prioridad: 'ALTA' },
-  { seccion: 6,  tema: 'Demoras atribuibles al taller: consecuencias', prioridad: 'MEDIA' },
-  { seccion: 7,  tema: 'Plazo para el pago del saldo tras la finalización', prioridad: 'MEDIA' },
-  { seccion: 5,  tema: 'Imprevistos durante la ejecución: re-cotización o margen tolerado', prioridad: 'MEDIA' },
-  { seccion: 4,  tema: 'Inasistencia a citas: tolerancia y liberación del cupo', prioridad: 'BAJA' },
-  { seccion: 11, tema: 'Uso de imágenes de los trabajos: definir si aplica', prioridad: 'BAJA' },
-];
+export const PENDIENTES_TOS: { seccion: number; tema: string; prioridad: string }[] = [];

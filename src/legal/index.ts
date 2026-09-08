@@ -35,13 +35,12 @@ const politicaPrivacidad: DocumentoLegal = {
   secciones: POLITICA_PRIVACIDAD_SECCIONES,
 };
 
-// ⚠️ terminosServicio.ts sigue en ESTADO: BORRADOR (varios [[PENDIENTE]] sin
-// resolver con Silvana — ver PENDIENTES_TOS en ese archivo). Se conecta igual
-// por decisión explícita para poder avanzar el wiring de aceptación; el hash
-// que queda registrado en cada fila de aceptacion_legal seguirá siendo válido
-// como prueba de "qué texto exacto se mostró", pero ese texto cambiará en
-// cuanto se resuelvan los pendientes — la versión pasará de '1.0-BORRADOR' a
-// '1.0' y se forzará re-aceptación (ADR-007, regla de versionado).
+// terminosServicio.ts pasó de '1.0-BORRADOR' a '1.0': los 8 pendientes de
+// PENDIENTES_TOS se resolvieron con Silvana (ver historial de git del
+// archivo para el detalle de cada decisión). El cambio de versión + el
+// cambio de texto hacen que el hash canónico también cambie, lo que fuerza
+// re-aceptación de todo cliente que ya hubiera aceptado la versión anterior
+// (ADR-007, regla de versionado) — es el comportamiento esperado, no un bug.
 const terminosServicio: DocumentoLegal = {
   tipo:      TipoDocumentoLegal.TERMINOS_SERVICIO,
   version:   TERMINOS_SERVICIO_VERSION,

@@ -43,7 +43,7 @@ beforeAll(async () => {
   const completada = await statusRepo.findOneBy({ id_estado_cita: 2 });
 
   // Fechas relativas a "ahora" (no hardcoded): cancelMyAppointment bloquea con
-  // 400 si faltan <6h para la cita, así que el fixture debe quedar siempre en
+  // 400 si faltan <24h para la cita, así que el fixture debe quedar siempre en
   // el futuro sin importar cuándo corra la suite.
   const enDias = (d: number) => new Date(Date.now() + d * 24 * 60 * 60 * 1000);
 
