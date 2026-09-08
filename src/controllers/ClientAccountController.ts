@@ -235,19 +235,20 @@ export const cancelMyAppointment = async (req: Request, res: Response): Promise<
       }); return
     }
 
-    // Ventana mínima de 6h antes de la hora de la cita — evita que se libere
-    // un horario (ej. 17:00, la última del día) tan tarde que nadie más
-    // alcance a agendarlo antes de que empiece la atención (13:00).
+    // Ventana mínima de 24h antes de la hora de la cita (Términos de Servicio
+    // §4) — evita que se libere un horario tan tarde que nadie más alcance a
+    // agendarlo antes de que empiece la atención. Antes era de 6h; se amplió a
+    // 24h por decisión de negocio (ver src/legal/terminosServicio.ts).
     // fecha/hora son naive-Bogotá — NOW() debe convertirse a la misma zona
     // antes de comparar, o el guard queda desfasado ~5h (ver bogotaTime.helper.ts).
     const [{ muy_tarde }] = await AppDataSource.query(
-      `SELECT (fecha + hora) <= ((NOW() AT TIME ZONE 'America/Bogota') + INTERVAL '6 hours') AS muy_tarde FROM cita WHERE id_cita = $1`,
+      `SELECT (fecha + hora) <= ((NOW() AT TIME ZONE 'America/Bogota') + INTERVAL '24 hours') AS muy_tarde FROM cita WHERE id_cita = $1`,
       [id_cita]
     )
     if (muy_tarde) {
       res.status(400).json({
         success: false,
-        message: 'No se puede cancelar: faltan menos de 6 horas para la cita. Contáctanos directamente si necesitas cancelarla.',
+        message: 'No se puede cancelar: faltan menos de 24 horas para la cita. Contáctanos directamente si necesitas cancelarla.',
       }); return
     }
 

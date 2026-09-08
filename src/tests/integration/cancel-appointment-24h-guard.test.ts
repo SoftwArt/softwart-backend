@@ -9,11 +9,13 @@ import { AppointmentStatus } from "../../models/AppointmentStatus";
 import { bogotaNowMs } from "../../helpers/bogotaTime.helper";
 
 // cancelMyAppointment (ClientAccountController) bloquea cancelar si faltan
-// <6h para la cita — pero comparaba fecha+hora (naive-Bogotá) contra
-// NOW() crudo de Postgres (UTC en Render), un desfase de ~5h que dejaba el
-// guard efectivamente mal calibrado. Ningún test anterior probaba la
-// PRECISIÓN horaria del guard (solo el estado terminal/IDOR), así que el bug
-// pasó desapercibido — este archivo cierra ese hueco.
+// <24h para la cita (Términos de Servicio §4; antes era una ventana de 6h,
+// ampliada a 24h por decisión de negocio) — pero comparaba fecha+hora
+// (naive-Bogotá) contra NOW() crudo de Postgres (UTC en Render), un desfase
+// de ~5h que dejaba el guard efectivamente mal calibrado. Ningún test
+// anterior probaba la PRECISIÓN horaria del guard (solo el estado
+// terminal/IDOR), así que el bug pasó desapercibido — este archivo cierra
+// ese hueco.
 
 let clientToken: string;
 let client: Client;
@@ -70,21 +72,21 @@ beforeAll(async () => {
   cancelada  = (await statusRepo.findOneBy({ nombre: "Cancelada" }))!;
 });
 
-describe("PATCH /api/account/citas/:id/cancelar — precisión del guard de 6h", () => {
-  it("returns 400 when the appointment is 4h away (inside the 6h window) and does not cancel it", async () => {
-    const id_cita = await seedAppointment(4);
+describe("PATCH /api/account/citas/:id/cancelar — precisión del guard de 24h", () => {
+  it("returns 400 when the appointment is 12h away (inside the 24h window) and does not cancel it", async () => {
+    const id_cita = await seedAppointment(12);
 
     const res = await request(app)
       .patch(`/api/account/citas/${id_cita}/cancelar`)
       .set("Authorization", `Bearer ${clientToken}`);
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toContain("menos de 6 horas");
+    expect(res.body.message).toContain("menos de 24 horas");
     expect(await statusOf(id_cita)).toBe(1); // sigue Pendiente
   });
 
-  it("allows cancelling when the appointment is 8h away (outside the 6h window)", async () => {
-    const id_cita = await seedAppointment(8);
+  it("allows cancelling when the appointment is 30h away (outside the 24h window)", async () => {
+    const id_cita = await seedAppointment(30);
 
     const res = await request(app)
       .patch(`/api/account/citas/${id_cita}/cancelar`)
@@ -96,8 +98,8 @@ describe("PATCH /api/account/citas/:id/cancelar — precisión del guard de 6h",
 });
 
 describe("PATCH /api/account/citas/:id/cancelar — Confirmada también es cancelable", () => {
-  it("allows cancelling a Confirmada appointment outside the 6h window", async () => {
-    const id_cita = await seedAppointment(8, confirmada);
+  it("allows cancelling a Confirmada appointment outside the 24h window", async () => {
+    const id_cita = await seedAppointment(30, confirmada);
 
     const res = await request(app)
       .patch(`/api/account/citas/${id_cita}/cancelar`)
@@ -107,20 +109,20 @@ describe("PATCH /api/account/citas/:id/cancelar — Confirmada también es cance
     expect(await statusOf(id_cita)).toBe(cancelada.id_estado_cita);
   });
 
-  it("returns 400 when the Confirmada appointment is 4h away (inside the 6h window) and does not cancel it", async () => {
-    const id_cita = await seedAppointment(4, confirmada);
+  it("returns 400 when the Confirmada appointment is 12h away (inside the 24h window) and does not cancel it", async () => {
+    const id_cita = await seedAppointment(12, confirmada);
 
     const res = await request(app)
       .patch(`/api/account/citas/${id_cita}/cancelar`)
       .set("Authorization", `Bearer ${clientToken}`);
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toContain("menos de 6 horas");
+    expect(res.body.message).toContain("menos de 24 horas");
     expect(await statusOf(id_cita)).toBe(confirmada.id_estado_cita); // sigue Confirmada
   });
 
   it("still blocks cancelling a Completada appointment (not Pendiente/Confirmada)", async () => {
-    const id_cita = await seedAppointment(8, completada);
+    const id_cita = await seedAppointment(30, completada);
 
     const res = await request(app)
       .patch(`/api/account/citas/${id_cita}/cancelar`)
