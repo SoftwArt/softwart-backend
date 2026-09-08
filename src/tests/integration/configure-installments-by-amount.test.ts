@@ -112,4 +112,47 @@ describe("PATCH /api/sales/:id/configure-installments — monto_primer_abono", (
     expect(res.status).toBe(422);
     expect(res.body.success).toBe(false);
   });
+
+  // ── Pago único: num_abonos=1 -> porcentaje_primer_abono=100 ─────────────────
+  // Antes rechazado (max 99, tanto en el schema como en el guard manual del
+  // controller) — 100% ahora es válido siempre que venga junto a
+  // num_abonos=1 en el mismo body.
+  it("allows setting a single full payment (num_abonos=1, porcentaje_primer_abono=100)", async () => {
+    const id_venta = await crearVenta(150000);
+
+    const res = await request(app)
+      .patch(`/api/sales/${id_venta}/configure-installments`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ num_abonos: 1, porcentaje_primer_abono: 100 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.num_abonos).toBe(1);
+    expect(res.body.data.porcentaje_primer_abono).toBe(100);
+    expect(res.body.data.plan_abonos).toEqual([
+      expect.objectContaining({ number: 1, amount: 150000 }),
+    ]);
+  });
+
+  it("allows a single full payment via monto_primer_abono equal to the total's rounding edge", async () => {
+    const id_venta = await crearVenta(100000);
+
+    const res = await request(app)
+      .patch(`/api/sales/${id_venta}/configure-installments`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ num_abonos: 1, monto_primer_abono: 99999 }); // 99.999% -> redondea a 100%
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.porcentaje_primer_abono).toBe(100);
+  });
+
+  it("rejects porcentaje_primer_abono=100 when num_abonos is not 1", async () => {
+    const id_venta = await crearVenta(100000);
+
+    const res = await request(app)
+      .patch(`/api/sales/${id_venta}/configure-installments`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ num_abonos: 2, porcentaje_primer_abono: 100 });
+
+    expect(res.status).toBe(422);
+  });
 });

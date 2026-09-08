@@ -252,6 +252,10 @@ import { SaleDetail }    from "../models/SaleDetail";
 import { Service }       from "../models/Service";
 import { Frame }         from "../models/Frame";
 import { ServiceStatus } from "../models/ServiceStatus";
+import { Payment }       from "../models/Payment";
+import { PaymentMethod } from "../models/PaymentMethod";
+import { PaymentStatus } from "../models/PaymentStatus";
+import { calculateInstallments } from "../helpers/installments.helper";
 
 export const createSaleFromAppointment = async (req: Request, res: Response): Promise<void> => {
   const queryRunner = AppDataSource.createQueryRunner();
@@ -260,9 +264,18 @@ export const createSaleFromAppointment = async (req: Request, res: Response): Pr
 
   try {
     const id_cita = Number(req.params.id);
-    const { servicios, observacion } = req.body as {
+    const { servicios, observacion, plan_abonos } = req.body as {
       servicios: { id_servicio: number; id_marco?: number | null; precio: number; observacion?: string }[]
       observacion?: string
+      // Opcional — configura el plan de abonos y registra el primer abono
+      // en la misma transacción (el schema ya garantiza que no llegan
+      // porcentaje_primer_abono y monto_primer_abono a la vez).
+      plan_abonos?: {
+        num_abonos?: number
+        porcentaje_primer_abono?: number
+        monto_primer_abono?: number
+        id_metodo_pago: number
+      }
     };
 
     if (!servicios?.length) {
@@ -308,6 +321,33 @@ export const createSaleFromAppointment = async (req: Request, res: Response): Pr
     venta.estado       = true;
     venta.client      = cita.client;
     venta.appointment  = cita;
+
+    // Plan de abonos — mismos defaults/validaciones que configureInstallments
+    // (SaleInstallmentsController), aplicados acá antes del primer save para
+    // no necesitar un update() aparte. Al ser una venta nueva no hay pagos
+    // previos que proteger, así que no hace falta el guard de "ya hay pagos".
+    if (plan_abonos?.num_abonos !== undefined) venta.num_abonos = plan_abonos.num_abonos
+    if (plan_abonos?.porcentaje_primer_abono !== undefined) venta.porcentaje_primer_abono = plan_abonos.porcentaje_primer_abono
+    if (plan_abonos?.monto_primer_abono !== undefined) {
+      const monto = Number(plan_abonos.monto_primer_abono)
+      if (monto <= 0 || monto >= total) {
+        await queryRunner.rollbackTransaction();
+        res.status(400).json({
+          success: false,
+          message: `El monto del primer abono debe ser mayor a $0 y menor al total de la venta (${total})`,
+        }); return;
+      }
+      const p = Math.round((monto / total) * 100)
+      if (p < 1 || p > 99) {
+        await queryRunner.rollbackTransaction();
+        res.status(400).json({
+          success: false,
+          message: `Ese monto equivale a ${p}% del total, fuera del rango permitido (1%-99%). Ajusta el valor.`,
+        }); return;
+      }
+      venta.porcentaje_primer_abono = p
+    }
+
     await queryRunner.manager.save(venta);
 
     // Crear DetalleVenta por cada servicio
@@ -341,12 +381,44 @@ export const createSaleFromAppointment = async (req: Request, res: Response): Pr
     const estadoCompletada = await queryRunner.manager.findOneBy(AppointmentStatus, { id_estado_cita: 2 });
     if (estadoCompletada) { cita.appointmentStatus = estadoCompletada; await queryRunner.manager.save(cita); }
 
+    // Primer abono — el monto NUNCA lo teclea el usuario, se deriva de
+    // calculateInstallments(total, num_abonos, porcentaje_primer_abono),
+    // la misma fuente de verdad que registerInstallment. Si num_abonos es 1
+    // esto ya paga la venta completa en el mismo paso.
+    let abonoCreado: { id_pago: number; monto: number; numero: number } | null = null;
+    if (plan_abonos) {
+      const metodo = await queryRunner.manager.findOneBy(PaymentMethod, { id_metodo_pago: plan_abonos.id_metodo_pago });
+      if (!metodo) {
+        await queryRunner.rollbackTransaction();
+        res.status(404).json({ success: false, message: "Método de pago no encontrado" }); return;
+      }
+
+      const estadoValidado = await queryRunner.manager
+        .createQueryBuilder(PaymentStatus, "ep")
+        .where("LOWER(ep.nombre) LIKE :n", { n: "%validado%" })
+        .getOne();
+
+      const primerAbono = calculateInstallments(total, venta.num_abonos, venta.porcentaje_primer_abono)[0];
+
+      const pago        = queryRunner.manager.create(Payment);
+      pago.sale         = venta;
+      pago.monto        = primerAbono.amount;
+      pago.fecha        = venta.fecha;
+      pago.paymentMethod = metodo;
+      if (estadoValidado) pago.paymentStatus = estadoValidado;
+      await queryRunner.manager.save(pago);
+
+      abonoCreado = { id_pago: pago.id_pago, monto: primerAbono.amount, numero: primerAbono.number };
+    }
+
     await queryRunner.commitTransaction();
 
     res.status(201).json({
       success: true,
-      message: "Venta creada exitosamente",
-      data: { id_venta: venta.id_venta, total },
+      message: abonoCreado
+        ? `Venta creada exitosamente. Primer abono de $${abonoCreado.monto.toLocaleString("es-CO")} registrado.`
+        : "Venta creada exitosamente",
+      data: { id_venta: venta.id_venta, total, abono: abonoCreado },
     });
   } catch (error) {
     await queryRunner.rollbackTransaction();

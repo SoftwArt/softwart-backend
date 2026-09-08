@@ -222,10 +222,18 @@ export const configureInstallments = async (req: Request, res: Response): Promis
       venta.num_abonos = n
     }
 
+    // 100% es válido — pero solo como pago único (num_abonos = 1, ya
+    // aplicado arriba si vino en el mismo body). Con 2+ abonos, 100% en el
+    // primero dejaría los demás en $0, así que sigue bloqueado ahí.
     if (porcentaje_primer_abono !== undefined) {
       const p = Number(porcentaje_primer_abono)
-      if (p < 1 || p > 99) {
-        res.status(400).json({ success: false, message: "porcentaje_primer_abono debe estar entre 1 y 99" }); return
+      if (p < 1 || p > 100 || (p === 100 && venta.num_abonos !== 1)) {
+        res.status(400).json({
+          success: false,
+          message: p === 100
+            ? "100% del primer abono solo es válido con num_abonos = 1 (pago único)"
+            : "porcentaje_primer_abono debe estar entre 1 y 100",
+        }); return
       }
       venta.porcentaje_primer_abono = p
     }
@@ -243,10 +251,10 @@ export const configureInstallments = async (req: Request, res: Response): Promis
         }); return
       }
       const p = Math.round((monto / Number(venta.total)) * 100)
-      if (p < 1 || p > 99) {
+      if (p < 1 || p > 100 || (p === 100 && venta.num_abonos !== 1)) {
         res.status(400).json({
           success: false,
-          message: `Ese monto equivale a ${p}% del total, fuera del rango permitido (1%-99%). Ajusta el valor.`,
+          message: `Ese monto equivale a ${p}% del total, fuera del rango permitido (1%-99%, o 100% solo con num_abonos = 1). Ajusta el valor.`,
         }); return
       }
       venta.porcentaje_primer_abono = p
