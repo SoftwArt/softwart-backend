@@ -19,6 +19,7 @@ import { notifyNewAppointment, notifyAppointmentCancelled } from "../services/pu
 import { excedeLimiteCitasActivas, MSG_LIMITE_CITAS_ACTIVAS } from "../helpers/appointmentLimit.helper";
 import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
 import { bogotaToday } from "../helpers/bogotaTime.helper";
+import { calculateInstallments, nextInstallment } from "../helpers/installments.helper";
 
 // ── GET /api/cuenta/perfil ────────────────────────────────────────────────────
 export const viewProfile = async (req: Request, res: Response): Promise<void> => {
@@ -303,10 +304,71 @@ export const myServices = async (req: Request, res: Response): Promise<void> => 
       estado:       d.serviceStatus?.nombre ?? "—",
       precio:       d.precio,
       observacion:  d.observacion ?? null,
+      id_venta:     d.sale?.id_venta ?? null,
     }));
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener servicios", error });
+  }
+};
+
+// ── GET /api/cuenta/abonos ─────────────────────────────────────────────────────
+// Plan de pagos de cada Venta activa del cliente autenticado — solo lectura,
+// el cliente no registra abonos desde acá (eso sigue siendo de staff, ver
+// SaleInstallmentsController.ts). Reusa exactamente el mismo cálculo que el
+// endpoint admin GET /api/sales/:id/payment-plan (calculateInstallments/
+// nextInstallment), solo que filtrado por id_cliente en la query en vez de
+// un guard post-fetch, y para todas las ventas del cliente de una.
+export const myAbonos = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const ventas = await AppDataSource.getRepository(Sale).find({
+      where: { client: { id_cliente: req.user!.id_cliente! }, estado: true },
+      relations: ["payments", "payments.paymentStatus", "saleDetails", "saleDetails.service"],
+    });
+
+    const data = ventas.map(venta => {
+      const { total, num_abonos, porcentaje_primer_abono } = venta;
+      const todosOrdenados  = [...venta.payments].sort((a, b) => a.id_pago - b.id_pago);
+      const pagosActivos    = todosOrdenados.filter(p => !p.paymentStatus?.nombre?.toLowerCase().includes("anulado"));
+      const pagosRealizados = pagosActivos.length;
+      const totalPagado     = pagosActivos.reduce((s, p) => s + Number(p.monto), 0);
+      const saldo           = Math.round((Number(total) - totalPagado) * 100) / 100;
+
+      return {
+        id_venta:                venta.id_venta,
+        fecha:                   venta.fecha,
+        total:                   Number(total),
+        num_abonos,
+        porcentaje_primer_abono,
+        pagos_realizados:        pagosRealizados,
+        total_pagado:            Math.round(totalPagado * 100) / 100,
+        saldo_pendiente:         saldo,
+        completado:              saldo <= 0,
+        plan_abonos:             calculateInstallments(Number(total), num_abonos, porcentaje_primer_abono),
+        siguiente_abono:         nextInstallment(Number(total), num_abonos, porcentaje_primer_abono, pagosRealizados),
+        historial_pagos:         pagosActivos.map(p => ({
+          id_pago: p.id_pago,
+          monto:   Number(p.monto),
+          fecha:   p.fecha,
+          estado:  p.paymentStatus?.nombre ?? "—",
+        })),
+        servicios: (venta.saleDetails ?? []).map(sd => ({
+          id_detalle: sd.id_detalle,
+          nombre:     sd.service?.nombre ?? "—",
+        })),
+      };
+    });
+
+    // Las que aún deben plata primero; entre esas y entre las ya pagadas,
+    // de la más reciente a la más vieja — mismo criterio que "Tus citas".
+    data.sort((a, b) => {
+      if (a.completado !== b.completado) return a.completado ? 1 : -1;
+      return String(b.fecha).localeCompare(String(a.fecha));
+    });
+
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al obtener abonos", error });
   }
 };
 

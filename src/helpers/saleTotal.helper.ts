@@ -30,3 +30,14 @@ export async function sumaServiciosVenta(
 
 export const msgTotalNoCoincide = (id_venta: number, total: number, suma: number) =>
   `El total de la Venta #${id_venta} (${total.toFixed(2)}) no coincidiría con la suma de sus servicios (${suma.toFixed(2)})`;
+
+// Para crear un Servicio nuevo no se exige que la suma cuadre YA exacto con
+// el total (se puede ir completando la Venta con varios servicios) — solo
+// que no se pase. coincideConCentavos ya cubre el caso "igual"; esto cubre
+// "mayor", con el mismo redondeo a centavos para no fallar por punto flotante.
+export function excedeCentavos(a: number, b: number): boolean {
+  return Math.round(a * 100) > Math.round(b * 100);
+}
+
+export const msgTotalExcedido = (id_venta: number, total: number, suma: number, restante: number) =>
+  `El precio supera lo disponible en la Venta #${id_venta}: total ${total.toFixed(2)}, ya asignado ${suma.toFixed(2)}, restante ${restante.toFixed(2)}`;

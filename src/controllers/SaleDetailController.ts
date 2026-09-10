@@ -11,7 +11,7 @@ import { ServiceStatus } from "../models/ServiceStatus";
 import { Frame } from "../models/Frame";
 import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 import { guardEstadoTerminal, transicionUnicaPermitida } from "../helpers/statusTransition.helper";
-import { coincideConCentavos, sumaServiciosVenta, msgTotalNoCoincide } from "../helpers/saleTotal.helper";
+import { coincideConCentavos, excedeCentavos, sumaServiciosVenta, msgTotalNoCoincide, msgTotalExcedido } from "../helpers/saleTotal.helper";
 import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
 import { assertFechaDentroDeVentana } from "../helpers/dateCascade.helper";
 import { sendServicioFinalizadoEmail } from "../services/email.service";
@@ -78,6 +78,20 @@ export const createSaleDetail = async (req: Request, res: Response): Promise<voi
     const errorCascada = assertFechaDentroDeVentana(obj.fecha, ventaRel.fecha, VENTANA_SERVICIO_MESES, "el servicio", "la venta");
     if (errorCascada) { res.status(400).json({ success: false, message: errorCascada }); return; }
     obj.sale = ventaRel;
+
+    // No se exige que la suma cuadre YA exacto con el total (una Venta se
+    // puede ir completando con varios servicios) — solo que este precio no
+    // deje la suma por encima de lo que la Venta factura en total. El cuadre
+    // exacto sí lo exige updateSaleDetail más abajo, para el ajuste final.
+    const sumaExistente = await sumaServiciosVenta(detalleVentaRepo, ventaRel.id_venta);
+    const sumaConEstePrecio = sumaExistente + Number(obj.precio);
+    if (excedeCentavos(sumaConEstePrecio, Number(ventaRel.total))) {
+      res.status(409).json({
+        success: false,
+        message: msgTotalExcedido(ventaRel.id_venta, Number(ventaRel.total), sumaExistente, Number(ventaRel.total) - sumaExistente),
+      });
+      return;
+    }
 
     const servicioRel = await AppDataSource.getRepository(Service).findOneBy({ id_servicio: Number(req.body.id_servicio) });
     if (!servicioRel) { res.status(404).json({ success: false, message: "Servicio no encontrado" }); return; }
@@ -225,9 +239,11 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
         item.frame = rel;
       }
     }
-    // Solo se re-valida si el precio (o la venta a la que pertenece) cambió —
-    // crear un DetalleVenta nunca dispara esto: su precio ya viene forzado
-    // 1:1 con Venta.total desde el frontend (ver OrdersPage.tsx).
+    // Solo se re-valida si el precio (o la venta a la que pertenece) cambió.
+    // A diferencia de createSaleDetail (que solo exige no exceder el total,
+    // porque la Venta se puede ir completando con varios servicios), acá sí
+    // se exige el cuadre exacto — este es el ajuste que debe dejar la Venta
+    // balanceada.
     if ((req.body.precio !== undefined || req.body.id_venta !== undefined) && item.sale) {
       const suma = await sumaServiciosVenta(detalleVentaRepo, item.sale.id_venta, item.id_detalle);
       const sumaConEstePrecio = suma + Number(item.precio);
