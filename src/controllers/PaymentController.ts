@@ -9,6 +9,7 @@ import { PaymentMethod } from "../models/PaymentMethod";
 import { PaymentStatus } from "../models/PaymentStatus";
 import { guardEstadoTerminal } from "../helpers/statusTransition.helper";
 import { assertFechaNoAntesDe } from "../helpers/dateCascade.helper";
+import { fechaSearchExpr, montoSearchExpr, montoSearchDigits, stripAccentsEs, pareceFecha } from "../helpers/searchExpr.helper";
 
 export const getAllPayment = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -28,13 +29,28 @@ export const getAllPayment = async (req: Request, res: Response): Promise<void> 
     const qb = pagoRepo
       .createQueryBuilder("pago")
       .leftJoinAndSelect("pago.sale", "sale")
+      .leftJoin("sale.client", "client")
       .leftJoinAndSelect("pago.paymentMethod", "paymentMethod")
       .leftJoinAndSelect("pago.paymentStatus", "paymentStatus");
     if (q) {
-      qb.andWhere(
-        "(CAST(sale.id_venta AS TEXT) ILIKE :q OR CAST(pago.monto AS TEXT) ILIKE :q OR CAST(pago.fecha AS TEXT) ILIKE :q)",
-        { q: `%${q}%` },
-      );
+      // client.nombre/documento (faltaba del todo) y fecha en lenguaje
+      // natural + monto con separadores — ver searchExpr.helper.ts.
+      const orParts = [
+        "CAST(sale.id_venta AS TEXT) ILIKE :q",
+        "client.nombre ILIKE :q",
+        "client.documento ILIKE :q",
+      ];
+      const params: Record<string, string> = { q: `%${q}%` };
+      if (pareceFecha(q)) {
+        orParts.push(fechaSearchExpr("pago.fecha"));
+        params.qFecha = `%${stripAccentsEs(q).toLowerCase()}%`;
+      }
+      const qMontoDigits = montoSearchDigits(q);
+      if (qMontoDigits) {
+        orParts.push(montoSearchExpr("pago.monto"));
+        params.qMonto = `%${qMontoDigits}%`;
+      }
+      qb.andWhere(`(${orParts.join(" OR ")})`, params);
     }
     if (idMetodoFiltro !== undefined) qb.andWhere("paymentMethod.id_metodo_pago = :idMetodo", { idMetodo: idMetodoFiltro });
     if (idEstadoFiltro !== undefined) qb.andWhere("paymentStatus.id_estado_pago = :idEstado", { idEstado: idEstadoFiltro });

@@ -12,6 +12,7 @@ import { coincideConCentavos, sumaServiciosVenta, msgTotalNoCoincide } from "../
 import { assertFechaNoAntesDe } from "../helpers/dateCascade.helper";
 import { getPaymentPlanSummary } from "../helpers/installments.helper";
 import { SaleDetail } from "../models/SaleDetail";
+import { fechaSearchExpr, montoSearchExpr, montoSearchDigits, stripAccentsEs, pareceFecha } from "../helpers/searchExpr.helper";
 
 const CASCADE_RELATIONS = ["saleDetails", "saleDetails.serviceStatus", "payments", "payments.paymentStatus"];
 const SALE_LIST_RELATIONS = ["appointment", "client", "payments", "payments.paymentStatus"];
@@ -37,10 +38,26 @@ export const getAllSale = async (req: Request, res: Response): Promise<void> => 
     const buildFilteredQb = () => {
       const qb = ventaRepo.createQueryBuilder("venta").leftJoin("venta.client", "client");
       if (q) {
-        qb.andWhere(
-          "(CAST(venta.id_venta AS TEXT) ILIKE :q OR client.nombre ILIKE :q OR client.documento ILIKE :q)",
-          { q: `%${q}%` }
-        );
+        // fecha en lenguaje natural y total (con o sin separadores de miles)
+        // — antes solo matcheaba id_venta/nombre/documento, sin cubrir lo que
+        // el buscador de Pedidos sí resolvía client-side antes del refactor
+        // a paginación server-side (ver searchExpr.helper.ts).
+        const orParts = [
+          "CAST(venta.id_venta AS TEXT) ILIKE :q",
+          "client.nombre ILIKE :q",
+          "client.documento ILIKE :q",
+        ];
+        const params: Record<string, string> = { q: `%${q}%` };
+        if (pareceFecha(q)) {
+          orParts.push(fechaSearchExpr("venta.fecha"));
+          params.qFecha = `%${stripAccentsEs(q).toLowerCase()}%`;
+        }
+        const qMontoDigits = montoSearchDigits(q);
+        if (qMontoDigits) {
+          orParts.push(montoSearchExpr("venta.total"));
+          params.qMonto = `%${qMontoDigits}%`;
+        }
+        qb.andWhere(`(${orParts.join(" OR ")})`, params);
       }
       if (estadoFiltro !== undefined) qb.andWhere("venta.estado = :estado", { estado: estadoFiltro });
       return qb;

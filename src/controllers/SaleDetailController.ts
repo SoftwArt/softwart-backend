@@ -15,6 +15,7 @@ import { coincideConCentavos, excedeCentavos, sumaServiciosVenta, msgTotalNoCoin
 import { saleHasValidatedPayments, voidSaleCascade, isLastActiveDetail } from "../helpers/saleCascade.helper";
 import { assertFechaDentroDeVentana } from "../helpers/dateCascade.helper";
 import { sendServicioFinalizadoEmail } from "../services/email.service";
+import { fechaSearchExpr, montoSearchExpr, montoSearchDigits, stripAccentsEs, pareceFecha } from "../helpers/searchExpr.helper";
 
 const SALE_RELATIONS = ["sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 // Ventana permitida para la fecha de un Servicio respecto a su Venta —
@@ -45,10 +46,30 @@ export const getAllSaleDetail = async (req: Request, res: Response): Promise<voi
       .leftJoinAndSelect("detalle.serviceStatus", "serviceStatus")
       .leftJoinAndSelect("detalle.frame", "frame");
     if (q) {
-      qb.andWhere(
-        "(CAST(sale.id_venta AS TEXT) ILIKE :q OR service.nombre ILIKE :q OR frame.codigo ILIKE :q OR CAST(detalle.fecha AS TEXT) ILIKE :q)",
-        { q: `%${q}%` },
-      );
+      // client.nombre/documento y fecha en lenguaje natural (antes solo se
+      // comparaba contra el ISO crudo, "2 de septiembre" nunca coincidía) —
+      // mismo criterio que ya tenían Citas/Pedidos, ver searchExpr.helper.ts.
+      const orParts = [
+        "CAST(sale.id_venta AS TEXT) ILIKE :q",
+        "service.nombre ILIKE :q",
+        "frame.codigo ILIKE :q",
+        "client.nombre ILIKE :q",
+        "client.documento ILIKE :q",
+      ];
+      const params: Record<string, string> = { q: `%${q}%` };
+      // pareceFecha(): evita el EXTRACT/CASE/concat de fechaSearchExpr por
+      // fila cuando la query obviamente no puede ser una fecha (la mayoría
+      // de las búsquedas, ej. un nombre) — ver searchExpr.helper.ts.
+      if (pareceFecha(q)) {
+        orParts.push(fechaSearchExpr("detalle.fecha"));
+        params.qFecha = `%${stripAccentsEs(q).toLowerCase()}%`;
+      }
+      const qMontoDigits = montoSearchDigits(q);
+      if (qMontoDigits) {
+        orParts.push(montoSearchExpr("detalle.precio"));
+        params.qMonto = `%${qMontoDigits}%`;
+      }
+      qb.andWhere(`(${orParts.join(" OR ")})`, params);
     }
     if (idEstadoFiltro !== undefined) qb.andWhere("serviceStatus.id_estado = :idEstado", { idEstado: idEstadoFiltro });
     if (idServicioFiltro !== undefined) qb.andWhere("service.id_servicio = :idServicio", { idServicio: idServicioFiltro });
@@ -152,15 +173,19 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
       relations: ["sale", "sale.client", "service", "serviceStatus", "frame", ...SALE_RELATIONS],
     });
     if (!item) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
-    // Estado terminal: un servicio cancelado no puede modificarse.
+    // Estados terminales: un servicio cancelado o ya entregado no puede modificarse.
     const bloqueoTerminal = guardEstadoTerminal({
       estadoActualNombre: item.serviceStatus?.nombre ?? "",
       claveTerminal: "cancelado", etiquetaEntidad: "servicio", genero: "m", etiquetaEstado: "Cancelado",
       alternativa: "Se conserva por trazabilidad del servicio prestado — un servicio cancelado no se reactiva.",
+    }) ?? guardEstadoTerminal({
+      estadoActualNombre: item.serviceStatus?.nombre ?? "",
+      claveTerminal: "entregado", etiquetaEntidad: "servicio", genero: "m", etiquetaEstado: "Entregado",
+      alternativa: "El cliente ya se lo llevó — un servicio entregado no se reabre.",
     });
     if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
 
-    // Un servicio Finalizado ya se entregó — sus datos (fecha, precio,
+    // Un servicio Finalizado ya está listo (pero aún no entregado) — sus datos (fecha, precio,
     // observación, venta/servicio/marco) tampoco se editan, igual que uno
     // Cancelado. El único cambio válido es el de estado hacia Cancelado
     // (ver transicionUnicaPermitida más abajo), así que este guard solo
@@ -206,14 +231,16 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
     if (req.body.id_estado !== undefined && Number(req.body.id_estado) !== item.serviceStatus?.id_estado) {
       nuevoEstado = await AppDataSource.getRepository(ServiceStatus).findOneBy({ id_estado: Number(req.body.id_estado) });
       if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
-      // Un servicio Finalizado ya se entregó — el único cambio de estado
-      // válido a partir de acá es cancelarlo (mismo guard que changeSaleDetailStatus).
+      // Un servicio Finalizado está listo en el taller pero aún no se
+      // entregó — desde ahí solo puede avanzar a Entregado (el cliente se
+      // lo llevó) o cancelarse, nunca retroceder a Sin empezar/En
+      // preparación (mismo guard que changeSaleDetailStatus).
       const bloqueoTransicion = transicionUnicaPermitida({
         estadoActualNombre: item.serviceStatus?.nombre ?? "",
         estadoNuevoNombre:  nuevoEstado.nombre,
         claveEstadoActual:    "finalizado",
-        claveEstadoPermitido: "cancelado",
-        etiquetaEstadoPermitido: "Cancelado",
+        claveEstadoPermitido: ["cancelado", "entregado"],
+        etiquetaEstadoPermitido: ["Cancelado", "Entregado"],
       });
       if (bloqueoTransicion) { res.status(409).json({ success: false, message: bloqueoTransicion }); return; }
       item.serviceStatus = nuevoEstado;
@@ -331,6 +358,10 @@ export const deleteSaleDetail = async (req: Request, res: Response): Promise<voi
       res.status(409).json({ success: false, message: "No se puede eliminar: este servicio ya está Finalizado. Se conserva por trazabilidad." });
       return;
     }
+    if (estadoActual.includes("entregado")) {
+      res.status(409).json({ success: false, message: "No se puede eliminar: este servicio ya fue Entregado. Se conserva por trazabilidad." });
+      return;
+    }
 
     await detalleVentaRepo.remove(item);
     res.json({ success: true, message: "Servicio eliminado correctamente" });
@@ -351,6 +382,10 @@ export const toggleSaleDetailStatus = async (req: Request, res: Response): Promi
       estadoActualNombre: item.serviceStatus?.nombre ?? "",
       claveTerminal: "cancelado", etiquetaEntidad: "servicio", genero: "m", etiquetaEstado: "Cancelado",
       alternativa: "Se conserva por trazabilidad del servicio prestado — un servicio cancelado no se reactiva.",
+    }) ?? guardEstadoTerminal({
+      estadoActualNombre: item.serviceStatus?.nombre ?? "",
+      claveTerminal: "entregado", etiquetaEntidad: "servicio", genero: "m", etiquetaEstado: "Entregado",
+      alternativa: "El cliente ya se lo llevó — un servicio entregado no se reabre.",
     });
     if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     item.estado = !item.estado;

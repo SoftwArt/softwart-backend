@@ -13,9 +13,22 @@ import { sendServicioFinalizadoEmail } from "../services/email.service";
 
 const SALE_RELATIONS = ["sale", "sale.client", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
+// Orden del flujo de negocio (Sin empezar → En preparación → Finalizado →
+// Entregado → Cancelado al final) — no se puede confiar en el id/orden de
+// inserción en BD: "Entregado" se agregó después de que "Cancelado" ya
+// existía en bases de datos sembradas antes, así que por id quedaría
+// "Cancelado" antes que "Entregado". Cualquier estado nuevo que no esté acá
+// cae al final, después de los conocidos.
+const ORDEN_ESTADO_SERVICIO = ["sin empezar", "en preparación", "finalizado", "entregado", "cancelado"];
+function ordenEstadoServicio(nombre: string): number {
+  const idx = ORDEN_ESTADO_SERVICIO.indexOf(nombre.trim().toLowerCase());
+  return idx === -1 ? ORDEN_ESTADO_SERVICIO.length : idx;
+}
+
 export const getAllServiceStatus = async (_req: Request, res: Response): Promise<void> => {
   try {
     const items = await AppDataSource.getRepository(ServiceStatus).find();
+    items.sort((a, b) => ordenEstadoServicio(a.nombre) - ordenEstadoServicio(b.nombre));
     res.json({ success: true, data: items });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener EstadoServicio", error });
@@ -88,25 +101,30 @@ export const changeSaleDetailStatus = async (req: Request, res: Response): Promi
       relations: ["serviceStatus", "service", ...SALE_RELATIONS],
     });
     if (!target) { res.status(404).json({ success: false, message: "DetalleVenta no encontrado" }); return; }
-    // Estado terminal: un servicio cancelado no puede cambiar de estado.
+    // Estados terminales: un servicio cancelado o ya entregado no puede cambiar de estado.
     const bloqueoTerminal = guardEstadoTerminal({
       estadoActualNombre: target.serviceStatus?.nombre ?? "",
       claveTerminal: "cancelado", etiquetaEntidad: "servicio", genero: "m", etiquetaEstado: "Cancelado",
       alternativa: "Se conserva por trazabilidad del servicio prestado — un servicio cancelado no se reactiva.",
+    }) ?? guardEstadoTerminal({
+      estadoActualNombre: target.serviceStatus?.nombre ?? "",
+      claveTerminal: "entregado", etiquetaEntidad: "servicio", genero: "m", etiquetaEstado: "Entregado",
+      alternativa: "El cliente ya se lo llevó — un servicio entregado no se reabre.",
     });
     if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     const nuevoEstado = await estadoServicioRepo.findOneBy({ id_estado: Number(req.body.id_estado) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoServicio no encontrado" }); return; }
 
-    // Un servicio Finalizado ya se entregó — el único cambio de estado válido
-    // a partir de acá es cancelarlo, no "retroceder" a Sin empezar/En preparación.
+    // Un servicio Finalizado está listo en el taller pero aún no se entregó
+    // — desde ahí solo puede avanzar a Entregado o cancelarse, no
+    // "retroceder" a Sin empezar/En preparación.
     if (nuevoEstado.id_estado !== target.serviceStatus?.id_estado) {
       const bloqueo = transicionUnicaPermitida({
         estadoActualNombre: target.serviceStatus?.nombre ?? "",
         estadoNuevoNombre:  nuevoEstado.nombre,
         claveEstadoActual:    "finalizado",
-        claveEstadoPermitido: "cancelado",
-        etiquetaEstadoPermitido: "Cancelado",
+        claveEstadoPermitido: ["cancelado", "entregado"],
+        etiquetaEstadoPermitido: ["Cancelado", "Entregado"],
       });
       if (bloqueo) { res.status(409).json({ success: false, message: bloqueo }); return; }
     }

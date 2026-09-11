@@ -6,6 +6,7 @@ import { AppDataSource } from "../data-source";
 import { Frame } from "../models/Frame";
 import { SaleDetail } from "../models/SaleDetail";
 import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
+import { montoSearchExpr, montoSearchDigits } from "../helpers/searchExpr.helper";
 
 export const getAllFrame = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -17,7 +18,18 @@ export const getAllFrame = async (req: Request, res: Response): Promise<void> =>
     const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
     const estadoFiltro = req.query.estado === "activo" ? true : req.query.estado === "inactivo" ? false : undefined;
     const qb = marcoRepo.createQueryBuilder("marco");
-    if (q) qb.andWhere("marco.codigo ILIKE :q", { q: `%${q}%` });
+    if (q) {
+      // colilla (mm, dígitos) y precio_ensamblado (con o sin separadores) —
+      // antes solo buscaba por código (ver searchExpr.helper.ts).
+      const orParts = ["marco.codigo ILIKE :q", "CAST(marco.colilla AS TEXT) ILIKE :q"];
+      const params: Record<string, string> = { q: `%${q}%` };
+      const qMontoDigits = montoSearchDigits(q);
+      if (qMontoDigits) {
+        orParts.push(montoSearchExpr("marco.precio_ensamblado"));
+        params.qMonto = `%${qMontoDigits}%`;
+      }
+      qb.andWhere(`(${orParts.join(" OR ")})`, params);
+    }
     if (estadoFiltro !== undefined) qb.andWhere("marco.estado = :estado", { estado: estadoFiltro });
 
     const [items, total] = await qb

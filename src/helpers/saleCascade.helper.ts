@@ -18,16 +18,16 @@ export type VoidSaleCascadeResult = {
 };
 
 // true si, excluyendo excludeDetailId, ningún otro SaleDetail de la venta queda
-// "activo" (todos están Finalizado o Cancelado). Se usa para decidir si cancelar
-// este servicio debe cascadear hacia arriba y anular también la Venta — cubre
-// tanto el caso 1:1 (la venta solo tuvo este servicio) como el caso de varios
-// servicios donde los demás ya estaban Finalizado/Cancelado.
+// "activo" (todos están Finalizado, Entregado o Cancelado). Se usa para decidir
+// si cancelar este servicio debe cascadear hacia arriba y anular también la
+// Venta — cubre tanto el caso 1:1 (la venta solo tuvo este servicio) como el
+// caso de varios servicios donde los demás ya estaban Finalizado/Entregado/Cancelado.
 // Requiere sale.saleDetails + serviceStatus cargados.
 export function isLastActiveDetail(sale: Sale, excludeDetailId: number): boolean {
   return (sale.saleDetails ?? []).every((d) => {
     if (d.id_detalle === excludeDetailId) return true;
     const nombre = d.serviceStatus?.nombre?.toLowerCase() ?? "";
-    return nombre.includes("finaliz") || nombre.includes("cancel");
+    return nombre.includes("finaliz") || nombre.includes("entreg") || nombre.includes("cancel");
   });
 }
 
@@ -51,7 +51,7 @@ export async function voidSaleCascade(
   if (estadoCancelado) {
     for (const d of sale.saleDetails ?? []) {
       const nombre = d.serviceStatus?.nombre?.toLowerCase() ?? "";
-      if (!nombre.includes("finaliz") && !nombre.includes("cancel")) {
+      if (!nombre.includes("finaliz") && !nombre.includes("entreg") && !nombre.includes("cancel")) {
         d.serviceStatus = estadoCancelado;
         await manager.save(d);
         await logServiceStatusChange(manager, d, estadoCancelado);

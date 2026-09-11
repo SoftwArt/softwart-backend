@@ -7,15 +7,17 @@
 export function transicionUnicaPermitida(opts: {
   estadoActualNombre:      string;
   estadoNuevoNombre:       string;
-  claveEstadoActual:       string; // ej. "completada" — minúsculas, para .includes()
-  claveEstadoPermitido:    string; // ej. "cancelada"
-  etiquetaEstadoPermitido: string; // ej. "Cancelada" — para el mensaje al usuario
+  claveEstadoActual:       string;   // ej. "completada" — minúsculas, para .includes()
+  claveEstadoPermitido:    string | string[]; // ej. "cancelada", o ["cancelado", "entregado"] si hay más de un destino válido
+  etiquetaEstadoPermitido: string | string[]; // ej. "Cancelada" — para el mensaje al usuario (mismo orden que claveEstadoPermitido)
 }): string | null {
   const { estadoActualNombre, estadoNuevoNombre, claveEstadoActual, claveEstadoPermitido, etiquetaEstadoPermitido } = opts;
   const actual = estadoActualNombre.toLowerCase();
   const nuevo  = estadoNuevoNombre.toLowerCase();
-  if (actual.includes(claveEstadoActual) && !nuevo.includes(claveEstadoPermitido)) {
-    return `${estadoActualNombre} solo puede cambiar a ${etiquetaEstadoPermitido}, no a otro estado`;
+  const claves    = Array.isArray(claveEstadoPermitido)    ? claveEstadoPermitido    : [claveEstadoPermitido];
+  const etiquetas = Array.isArray(etiquetaEstadoPermitido) ? etiquetaEstadoPermitido : [etiquetaEstadoPermitido];
+  if (actual.includes(claveEstadoActual) && !claves.some((c) => nuevo.includes(c))) {
+    return `${estadoActualNombre} solo puede cambiar a ${etiquetas.join(" o ")}, no a otro estado`;
   }
   return null;
 }

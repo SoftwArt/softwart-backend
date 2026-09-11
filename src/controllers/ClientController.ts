@@ -33,8 +33,16 @@ export const getAllClient = async (req: Request, res: Response): Promise<void> =
     // ?estado=activo|inactivo — filtro del CRUD (chips), AND con el ?q= de
     // arriba (si ambos vienen, aplica a cada rama del OR de texto).
     const estadoFiltro = req.query.estado === "activo" ? true : req.query.estado === "inactivo" ? false : undefined;
+    // telefono/tipoDocumento (sigla) faltaban — el buscador client-side de
+    // antes del refactor a paginación server-side sí los cubría.
     const baseWhere = q
-      ? [{ nombre: ILike(`%${q}%`) }, { documento: ILike(`%${q}%`) }, { correo: ILike(`%${q}%`) }]
+      ? [
+          { nombre: ILike(`%${q}%`) },
+          { documento: ILike(`%${q}%`) },
+          { correo: ILike(`%${q}%`) },
+          { telefono: ILike(`%${q}%`) },
+          { tipoDocumento: ILike(`%${q}%`) },
+        ]
       : {};
     const where = estadoFiltro === undefined
       ? baseWhere

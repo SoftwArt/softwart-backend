@@ -20,7 +20,7 @@ import { excedeLimiteCitasActivas, MSG_LIMITE_CITAS_ACTIVAS } from "../helpers/a
 import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
 import { markNoShowIfOverdue } from "./AppointmentController";
 import { bogotaToday } from "../helpers/bogotaTime.helper";
-import { calculateInstallments, nextInstallment } from "../helpers/installments.helper";
+import { calculateInstallments, nextInstallment, getPaymentPlanSummary } from "../helpers/installments.helper";
 
 // ── GET /api/cuenta/perfil ────────────────────────────────────────────────────
 export const viewProfile = async (req: Request, res: Response): Promise<void> => {
@@ -297,19 +297,41 @@ export const myServices = async (req: Request, res: Response): Promise<void> => 
   try {
     const detalles = await AppDataSource.getRepository(SaleDetail).find({
       where:     { sale: { client: { id_cliente: req.user!.id_cliente! } } },
-      relations: ["service", "serviceStatus", "sale"],
+      relations: ["service", "serviceStatus", "sale", "sale.payments", "sale.payments.paymentStatus"],
       order:     { fecha: "DESC" },
     });
-    const data = detalles.map(d => ({
-      id_detalle:      d.id_detalle,
-      fecha:           d.fecha,
-      fecha_estimada:  d.fecha_estimada ?? null,
-      servicio:        d.service?.nombre ?? "—",
-      estado:          d.serviceStatus?.nombre ?? "—",
-      precio:          d.precio,
-      observacion:     d.observacion ?? null,
-      id_venta:        d.sale?.id_venta ?? null,
-    }));
+
+    // El saldo pendiente es del Pedido (Venta), no de cada Servicio suelto —
+    // se calcula una vez por venta (mismo helper que usa myAbonos/SaleController)
+    // y se repite en cada detalle de esa venta para que el frontend lo tenga
+    // sin tener que pedir /api/cuenta/abonos aparte (ver PedidoServiciosCard.tsx).
+    const saldoPorVenta = new Map<number, number>();
+    const data = detalles.map(d => {
+      let saldo_pendiente: number | null = null;
+      if (d.sale) {
+        if (!saldoPorVenta.has(d.sale.id_venta)) {
+          const summary = getPaymentPlanSummary(
+            Number(d.sale.total),
+            d.sale.num_abonos,
+            d.sale.porcentaje_primer_abono,
+            d.sale.payments ?? [],
+          );
+          saldoPorVenta.set(d.sale.id_venta, summary.saldo_pendiente);
+        }
+        saldo_pendiente = saldoPorVenta.get(d.sale.id_venta)!;
+      }
+      return {
+        id_detalle:      d.id_detalle,
+        fecha:           d.fecha,
+        fecha_estimada:  d.fecha_estimada ?? null,
+        servicio:        d.service?.nombre ?? "—",
+        estado:          d.serviceStatus?.nombre ?? "—",
+        precio:          d.precio,
+        observacion:     d.observacion ?? null,
+        id_venta:        d.sale?.id_venta ?? null,
+        saldo_pendiente,
+      };
+    });
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error al obtener servicios", error });

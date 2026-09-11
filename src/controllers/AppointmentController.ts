@@ -12,6 +12,7 @@ import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/status
 import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
 import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 import { notifyAppointmentStatusChange } from "../helpers/appointmentNotification.helper";
+import { fechaSearchExpr, stripAccentsEs, pareceFecha } from "../helpers/searchExpr.helper";
 
 const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
@@ -76,9 +77,14 @@ export const getAllAppointment = async (req: Request, res: Response): Promise<vo
         "estado_prioridad",
       );
     if (q) {
+      // fecha en lenguaje natural en vez de solo el ISO crudo — ver
+      // searchExpr.helper.ts (mismo criterio que Pedidos/Servicios/Pagos).
+      // pareceFecha(): se salta el EXTRACT/CASE/concat por fila cuando la
+      // query obviamente no puede ser una fecha (ej. un nombre).
+      const fechaOr = pareceFecha(q) ? ` OR ${fechaSearchExpr("cita.fecha")}` : "";
       qb.andWhere(
-        "(CAST(cita.id_cita AS TEXT) ILIKE :q OR CAST(cita.fecha AS TEXT) ILIKE :q OR CAST(cita.hora AS TEXT) ILIKE :q OR client.nombre ILIKE :q OR client.documento ILIKE :q)",
-        { q: `%${q}%` },
+        `(CAST(cita.id_cita AS TEXT) ILIKE :q${fechaOr} OR CAST(cita.hora AS TEXT) ILIKE :q OR client.nombre ILIKE :q OR client.documento ILIKE :q)`,
+        { q: `%${q}%`, qFecha: `%${stripAccentsEs(q).toLowerCase()}%` },
       );
     }
     if (idEstadoFiltro !== undefined) qb.andWhere("cita.id_estado_cita = :idEstado", { idEstado: idEstadoFiltro });
