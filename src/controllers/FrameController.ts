@@ -14,7 +14,17 @@ export const getAllFrame = async (req: Request, res: Response): Promise<void> =>
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await marcoRepo.findAndCount({ skip, take: limit, order: { id_marco: "DESC" } });
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    const estadoFiltro = req.query.estado === "activo" ? true : req.query.estado === "inactivo" ? false : undefined;
+    const qb = marcoRepo.createQueryBuilder("marco");
+    if (q) qb.andWhere("marco.codigo ILIKE :q", { q: `%${q}%` });
+    if (estadoFiltro !== undefined) qb.andWhere("marco.estado = :estado", { estado: estadoFiltro });
+
+    const [items, total] = await qb
+      .orderBy("marco.id_marco", "DESC")
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
     res.json({
       success: true,

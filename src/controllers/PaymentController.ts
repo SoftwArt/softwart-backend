@@ -17,12 +17,34 @@ export const getAllPayment = async (req: Request, res: Response): Promise<void> 
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await pagoRepo.findAndCount({
-      relations: ["sale", "paymentMethod", "paymentStatus"],
-      skip,
-      take: limit,
-      order: { id_pago: "DESC" },
-    });
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    const idMetodoFiltro = req.query.metodo ? Number(req.query.metodo) : undefined;
+    const idEstadoFiltro = req.query.estado ? Number(req.query.estado) : undefined;
+    // ?venta= — usado por usePaymentForm (frontend) para calcular saldo
+    // pendiente/próximo abono de una Venta puntual sin depender de tener
+    // cargada la lista completa (paginada) de pagos.
+    const idVentaFiltro = req.query.venta ? Number(req.query.venta) : undefined;
+
+    const qb = pagoRepo
+      .createQueryBuilder("pago")
+      .leftJoinAndSelect("pago.sale", "sale")
+      .leftJoinAndSelect("pago.paymentMethod", "paymentMethod")
+      .leftJoinAndSelect("pago.paymentStatus", "paymentStatus");
+    if (q) {
+      qb.andWhere(
+        "(CAST(sale.id_venta AS TEXT) ILIKE :q OR CAST(pago.monto AS TEXT) ILIKE :q OR CAST(pago.fecha AS TEXT) ILIKE :q)",
+        { q: `%${q}%` },
+      );
+    }
+    if (idMetodoFiltro !== undefined) qb.andWhere("paymentMethod.id_metodo_pago = :idMetodo", { idMetodo: idMetodoFiltro });
+    if (idEstadoFiltro !== undefined) qb.andWhere("paymentStatus.id_estado_pago = :idEstado", { idEstado: idEstadoFiltro });
+    if (idVentaFiltro !== undefined) qb.andWhere("sale.id_venta = :idVenta", { idVenta: idVentaFiltro });
+
+    const [items, total] = await qb
+      .orderBy("pago.id_pago", "DESC")
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
     res.json({
       success: true,

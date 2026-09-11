@@ -15,15 +15,21 @@ import { notifyAppointmentStatusChange } from "../helpers/appointmentNotificatio
 
 const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
 
-// Marca como "No Asistió" (id 3) las citas Pendientes cuyo horario + 3h ya pasó.
-// Se ejecuta antes de devolver el listado para mantener estados coherentes sin cron.
-async function markNoShowIfOverdue(): Promise<void> {
+// Marca como "No Asistió" (id 3) las citas cuyo horario + 3h ya pasó sin
+// haber llegado a "Completada" — tanto las que se quedaron en "Pendiente"
+// (id 1, nunca se confirmaron) como las "Confirmada" (id 5, se confirmaron
+// pero el cliente no llegó y nadie las pasó a Completada). Antes solo
+// cubría Pendiente, así que una cita Confirmada podía quedarse así para
+// siempre si no se atendía manualmente.
+// Se ejecuta antes de devolver el listado (acá y en ClientAccountController.
+// myAppointments) para mantener estados coherentes sin cron.
+export async function markNoShowIfOverdue(): Promise<void> {
   // fecha/hora son naive-Bogotá — NOW() debe convertirse a la misma zona
   // antes de comparar, o el umbral queda desfasado ~5h (ver bogotaTime.helper.ts).
   await AppDataSource.query(`
     UPDATE cita
     SET id_estado_cita = 3
-    WHERE id_estado_cita = 1
+    WHERE id_estado_cita IN (1, 5)
       AND (fecha + hora + INTERVAL '3 hours') < (NOW() AT TIME ZONE 'America/Bogota')
   `);
 }
@@ -41,12 +47,50 @@ export const getAllAppointment = async (req: Request, res: Response): Promise<vo
     // pedir nada extra, qué citas ya completaron el flujo de venta —
     // id_estado_cita=Completada no es un proxy confiable (se puede marcar
     // manualmente sin pasar por create-sale), así que se expone la Venta real.
-    const [items, total] = await citaRepo.findAndCount({
-      relations: ["appointmentStatus", "client", "sale"],
-      skip,
-      take: limit,
-      order: { id_cita: "DESC" },
-    });
+    //
+    // Orden: mismo criterio de prioridad que "Tus citas" del portal cliente
+    // (ver estadoCitaPriority en frontend/features/account/utils.ts) —
+    // Pendiente > Confirmada > Completada > Cancelada > No Asistió, y dentro
+    // de cada estado, de la fecha más nueva a la más vieja. IDs fijos del
+    // seed (seedAppointmentStatus.ts): 1=Pendiente, 5=Confirmada,
+    // 2=Completada, 4=Cancelada, 3=No Asistió — el paginado es server-side,
+    // así que esto tiene que ir en la query (un sort en el frontend solo
+    // ordenaría la página actual, no el listado completo).
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    const idEstadoFiltro = req.query.estado ? Number(req.query.estado) : undefined;
+    // ?fecha= — usado por useAppointmentForm (frontend) para calcular los
+    // horarios ya ocupados de un día puntual sin depender de tener cargada
+    // la lista completa (paginada) de citas.
+    const fechaFiltro = typeof req.query.fecha === "string" ? req.query.fecha : undefined;
+
+    const qb = citaRepo
+      .createQueryBuilder("cita")
+      .leftJoinAndSelect("cita.appointmentStatus", "appointmentStatus")
+      .leftJoinAndSelect("cita.client", "client")
+      .leftJoinAndSelect("cita.sale", "sale")
+      // Expresión computada seleccionada + orderBy por su alias — pasar el
+      // CASE directo a .orderBy() como fragmento crudo rompía el query
+      // (TypeORM lo trataba como nombre de columna, no como expresión).
+      .addSelect(
+        `CASE cita.id_estado_cita WHEN 1 THEN 0 WHEN 5 THEN 1 WHEN 2 THEN 2 WHEN 4 THEN 3 WHEN 3 THEN 4 ELSE 99 END`,
+        "estado_prioridad",
+      );
+    if (q) {
+      qb.andWhere(
+        "(CAST(cita.id_cita AS TEXT) ILIKE :q OR CAST(cita.fecha AS TEXT) ILIKE :q OR CAST(cita.hora AS TEXT) ILIKE :q OR client.nombre ILIKE :q OR client.documento ILIKE :q)",
+        { q: `%${q}%` },
+      );
+    }
+    if (idEstadoFiltro !== undefined) qb.andWhere("cita.id_estado_cita = :idEstado", { idEstado: idEstadoFiltro });
+    if (fechaFiltro !== undefined) qb.andWhere("cita.fecha = :fecha", { fecha: fechaFiltro });
+
+    const [items, total] = await qb
+      .orderBy("estado_prioridad", "ASC")
+      .addOrderBy("cita.fecha", "DESC")
+      .addOrderBy("cita.id_cita", "DESC")
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
     res.json({
       success: true,
@@ -265,7 +309,7 @@ export const createSaleFromAppointment = async (req: Request, res: Response): Pr
   try {
     const id_cita = Number(req.params.id);
     const { servicios, observacion, plan_abonos } = req.body as {
-      servicios: { id_servicio: number; id_marco?: number | null; precio: number; observacion?: string }[]
+      servicios: { id_servicio: number; id_marco?: number | null; precio: number; fecha_estimada?: string | null; observacion?: string }[]
       observacion?: string
       // Opcional — configura el plan de abonos y registra el primer abono
       // en la misma transacción (el schema ya garantiza que no llegan
@@ -359,12 +403,13 @@ export const createSaleFromAppointment = async (req: Request, res: Response): Pr
         return;
       }
 
-      const detalle         = queryRunner.manager.create(SaleDetail);
-      detalle.sale         = venta;
-      detalle.service      = servicio;
-      detalle.precio        = s.precio;
-      detalle.fecha         = venta.fecha;
-      detalle.estado        = false;          // pendiente de iniciar
+      const detalle          = queryRunner.manager.create(SaleDetail);
+      detalle.sale           = venta;
+      detalle.service        = servicio;
+      detalle.precio         = s.precio;
+      detalle.fecha          = venta.fecha;
+      detalle.fecha_estimada = s.fecha_estimada ? new Date(s.fecha_estimada) : null;
+      detalle.estado         = false;          // pendiente de iniciar
       if (estadoInicial) detalle.serviceStatus = estadoInicial;
       if (s.observacion) (detalle as any).observacion = s.observacion;
 

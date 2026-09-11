@@ -21,6 +21,7 @@ const servicioLineSchema = z.object({
   id_servicio:  idPositivo("El servicio"),
   id_marco:     idPositivo("El marco").nullable().optional(),
   precio:       numeroPositivo("El precio"),
+  fecha_estimada: fechaISO("La fecha estimada").nullable().optional(),
   observacion:  z.string().optional(),
 });
 

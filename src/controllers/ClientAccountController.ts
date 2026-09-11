@@ -18,6 +18,7 @@ import {
 import { notifyNewAppointment, notifyAppointmentCancelled } from "../services/push.service";
 import { excedeLimiteCitasActivas, MSG_LIMITE_CITAS_ACTIVAS } from "../helpers/appointmentLimit.helper";
 import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
+import { markNoShowIfOverdue } from "./AppointmentController";
 import { bogotaToday } from "../helpers/bogotaTime.helper";
 import { calculateInstallments, nextInstallment } from "../helpers/installments.helper";
 
@@ -84,6 +85,8 @@ export const editProfile = async (req: Request, res: Response): Promise<void> =>
 // ── GET /api/cuenta/citas ─────────────────────────────────────────────────────
 export const myAppointments = async (req: Request, res: Response): Promise<void> => {
   try {
+    await markNoShowIfOverdue();
+
     const citas = await AppDataSource.getRepository(Appointment).find({
       where:     { client: { id_cliente: req.user!.id_cliente! } },
       relations: ["appointmentStatus"],
@@ -298,13 +301,14 @@ export const myServices = async (req: Request, res: Response): Promise<void> => 
       order:     { fecha: "DESC" },
     });
     const data = detalles.map(d => ({
-      id_detalle:   d.id_detalle,
-      fecha:        d.fecha,
-      servicio:     d.service?.nombre ?? "—",
-      estado:       d.serviceStatus?.nombre ?? "—",
-      precio:       d.precio,
-      observacion:  d.observacion ?? null,
-      id_venta:     d.sale?.id_venta ?? null,
+      id_detalle:      d.id_detalle,
+      fecha:           d.fecha,
+      fecha_estimada:  d.fecha_estimada ?? null,
+      servicio:        d.service?.nombre ?? "—",
+      estado:          d.serviceStatus?.nombre ?? "—",
+      precio:          d.precio,
+      observacion:     d.observacion ?? null,
+      id_venta:        d.sale?.id_venta ?? null,
     }));
     res.json({ success: true, data });
   } catch (error) {
@@ -334,9 +338,21 @@ export const myAbonos = async (req: Request, res: Response): Promise<void> => {
       const totalPagado     = pagosActivos.reduce((s, p) => s + Number(p.monto), 0);
       const saldo           = Math.round((Number(total) - totalPagado) * 100) / 100;
 
+      // Fecha estimada "del pedido" = la más lejana entre sus servicios (si
+      // hay varios, el pedido completo no está listo hasta que lo esté el
+      // último) — referencia para indicarle al cliente cuándo se esperaría
+      // el abono final, no una fecha de vencimiento formal.
+      const fechasEstimadas = (venta.saleDetails ?? [])
+        .map(sd => sd.fecha_estimada)
+        .filter((f): f is Date => !!f);
+      const fechaEstimada = fechasEstimadas.length
+        ? fechasEstimadas.reduce((max, f) => (f > max ? f : max))
+        : null;
+
       return {
         id_venta:                venta.id_venta,
         fecha:                   venta.fecha,
+        fecha_estimada:          fechaEstimada,
         total:                   Number(total),
         num_abonos,
         porcentaje_primer_abono,

@@ -14,9 +14,24 @@ export const getAllService = async (req: Request, res: Response): Promise<void> 
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    // ?activos=true sigue siendo el atajo usado por useServicesOptions (solo
+    // servicios activos, sin paginar la lista completa); ?estado=activo|inactivo
+    // es el filtro del CRUD — si ambos llegan, ?estado manda.
     const soloActivos = req.query.activos === 'true'
-    const where = soloActivos ? { estado: true } : {}
-    const [items, total] = await servicioRepo.findAndCount({ where, skip, take: limit, order: { id_servicio: "DESC" } });
+    const estadoFiltro = req.query.estado === "activo" ? true
+      : req.query.estado === "inactivo" ? false
+      : soloActivos ? true : undefined;
+
+    const qb = servicioRepo.createQueryBuilder("servicio");
+    if (q) qb.andWhere("(servicio.nombre ILIKE :q OR servicio.descripcion ILIKE :q)", { q: `%${q}%` });
+    if (estadoFiltro !== undefined) qb.andWhere("servicio.estado = :estado", { estado: estadoFiltro });
+
+    const [items, total] = await qb
+      .orderBy("servicio.id_servicio", "DESC")
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
     res.json({
       success: true,

@@ -26,7 +26,17 @@ export const getAllRole = async (req: Request, res: Response): Promise<void> => 
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await rolRepo.findAndCount({ skip, take: limit, order: { id_rol: "DESC" } });
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    const estadoFiltro = req.query.estado === "activo" ? true : req.query.estado === "inactivo" ? false : undefined;
+    const qb = rolRepo.createQueryBuilder("rol");
+    if (q) qb.andWhere("(rol.nombre ILIKE :q OR rol.descripcion ILIKE :q)", { q: `%${q}%` });
+    if (estadoFiltro !== undefined) qb.andWhere("rol.estado = :estado", { estado: estadoFiltro });
+
+    const [items, total] = await qb
+      .orderBy("rol.id_rol", "DESC")
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
     res.json({
       success: true,

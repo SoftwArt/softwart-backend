@@ -13,6 +13,12 @@ export class SaleDetail {
   @Column({ type: "date" })
   fecha!: Date;
 
+  // Sugerida en el frontend como fecha + Service.duracion (días), pero
+  // editable para plazos mayores. Nullable: los detalles ya existentes antes
+  // de este campo no tienen valor, y sigue siendo opcional al crear/editar.
+  @Column({ type: "date", nullable: true })
+  fecha_estimada?: Date | null;
+
   @Column({ nullable: true })
   observacion?: string;
 

@@ -29,12 +29,36 @@ export const getAllSaleDetail = async (req: Request, res: Response): Promise<voi
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await detalleVentaRepo.findAndCount({
-      relations: ["sale", "sale.client", "service", "serviceStatus", "frame"],
-      skip,
-      take: limit,
-      order: { id_detalle: "DESC" },
-    });
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    const idEstadoFiltro = req.query.estado ? Number(req.query.estado) : undefined;
+    const idServicioFiltro = req.query.servicio ? Number(req.query.servicio) : undefined;
+    // ?venta= — usado por useOrderForm (frontend) para calcular cuánto le
+    // queda disponible a una Venta para nuevos servicios, sin depender de
+    // tener cargada la lista completa (paginada) de servicios.
+    const idVentaFiltro = req.query.venta ? Number(req.query.venta) : undefined;
+
+    const qb = detalleVentaRepo
+      .createQueryBuilder("detalle")
+      .leftJoinAndSelect("detalle.sale", "sale")
+      .leftJoinAndSelect("sale.client", "client")
+      .leftJoinAndSelect("detalle.service", "service")
+      .leftJoinAndSelect("detalle.serviceStatus", "serviceStatus")
+      .leftJoinAndSelect("detalle.frame", "frame");
+    if (q) {
+      qb.andWhere(
+        "(CAST(sale.id_venta AS TEXT) ILIKE :q OR service.nombre ILIKE :q OR frame.codigo ILIKE :q OR CAST(detalle.fecha AS TEXT) ILIKE :q)",
+        { q: `%${q}%` },
+      );
+    }
+    if (idEstadoFiltro !== undefined) qb.andWhere("serviceStatus.id_estado = :idEstado", { idEstado: idEstadoFiltro });
+    if (idServicioFiltro !== undefined) qb.andWhere("service.id_servicio = :idServicio", { idServicio: idServicioFiltro });
+    if (idVentaFiltro !== undefined) qb.andWhere("sale.id_venta = :idVenta", { idVenta: idVentaFiltro });
+
+    const [items, total] = await qb
+      .orderBy("detalle.id_detalle", "DESC")
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
     res.json({
       success: true,
@@ -67,10 +91,11 @@ export const createSaleDetail = async (req: Request, res: Response): Promise<voi
     const missing = required.filter(k => req.body[k] === undefined);
     if (missing.length) { res.status(400).json({ success: false, message: `Campos requeridos: ${missing.join(", ")}` }); return; }
     const obj = detalleVentaRepo.create();
-    obj.fecha       = req.body.fecha;
-    obj.observacion = req.body.observacion;
-    obj.precio      = req.body.precio;
-    obj.estado      = req.body.estado !== undefined ? req.body.estado : true;
+    obj.fecha           = req.body.fecha;
+    obj.fecha_estimada  = req.body.fecha_estimada ?? null;
+    obj.observacion     = req.body.observacion;
+    obj.precio          = req.body.precio;
+    obj.estado          = req.body.estado !== undefined ? req.body.estado : true;
 
     // id_venta e id_servicio son obligatorios (createSaleDetailSchema).
     const ventaRel = await AppDataSource.getRepository(Sale).findOneBy({ id_venta: Number(req.body.id_venta) });
@@ -140,7 +165,7 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
     // Cancelado. El único cambio válido es el de estado hacia Cancelado
     // (ver transicionUnicaPermitida más abajo), así que este guard solo
     // bloquea si el body toca algún otro campo.
-    const tocaOtroCampo = ["fecha", "observacion", "precio", "id_venta", "id_servicio", "id_marco"]
+    const tocaOtroCampo = ["fecha", "fecha_estimada", "observacion", "precio", "id_venta", "id_servicio", "id_marco"]
       .some((campo) => req.body[campo] !== undefined);
     if (tocaOtroCampo && (item.serviceStatus?.nombre ?? "").toLowerCase().includes("finalizado")) {
       res.status(409).json({
@@ -163,7 +188,8 @@ export const updateSaleDetail = async (req: Request, res: Response): Promise<voi
       if (errorCascada) { res.status(400).json({ success: false, message: errorCascada }); return; }
     }
 
-    if (req.body.fecha       !== undefined) item.fecha       = req.body.fecha;
+    if (req.body.fecha           !== undefined) item.fecha           = req.body.fecha;
+    if (req.body.fecha_estimada  !== undefined) item.fecha_estimada  = req.body.fecha_estimada;
     if (req.body.observacion !== undefined) item.observacion = req.body.observacion;
     if (req.body.precio      !== undefined) item.precio      = req.body.precio;
     if (req.body.id_venta !== undefined) {

@@ -33,22 +33,32 @@ export const getAllSale = async (req: Request, res: Response): Promise<void> => 
     // romper skip/take, y no hay un test de regresión que hoy lo cubriera si
     // se rompiera silenciosamente.
     const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    const estadoFiltro = req.query.estado === "activo" ? true : req.query.estado === "inactivo" ? false : undefined;
     const buildFilteredQb = () => {
       const qb = ventaRepo.createQueryBuilder("venta").leftJoin("venta.client", "client");
       if (q) {
         qb.andWhere(
-          "CAST(venta.id_venta AS TEXT) ILIKE :q OR client.nombre ILIKE :q OR client.documento ILIKE :q",
+          "(CAST(venta.id_venta AS TEXT) ILIKE :q OR client.nombre ILIKE :q OR client.documento ILIKE :q)",
           { q: `%${q}%` }
         );
       }
+      if (estadoFiltro !== undefined) qb.andWhere("venta.estado = :estado", { estado: estadoFiltro });
       return qb;
     };
 
+    // .offset()/.limit() en vez de .skip()/.take(): con un SELECT de una sola
+    // columna (id_venta) + JOIN + getRawMany(), TypeORM omitía el LIMIT/OFFSET
+    // por completo del SQL generado (su modo "paginación inteligente" de
+    // .skip()/.take() para queries con join no cubre este caso de
+    // select-parcial + raw), devolviendo TODAS las filas sin paginar — bug
+    // que rompía el paginador de "Pedidos" (esta pantalla es la única que usa
+    // este patrón de dos fases; las demás listas usan getManyAndCount() con
+    // leftJoinAndSelect, que sí respeta skip/take normalmente).
     const idRows = await buildFilteredQb()
       .select("venta.id_venta", "id_venta")
       .orderBy("venta.id_venta", "DESC")
-      .skip(skip)
-      .take(limit)
+      .offset(skip)
+      .limit(limit)
       .getRawMany<{ id_venta: number }>();
     const ids = idRows.map((r) => r.id_venta);
 

@@ -108,7 +108,10 @@ export const updateSaleSchema = createSaleSchema.partial();
 // registros huérfanos que además se saltan sumaServiciosVenta (el guard de
 // total vs. suma de servicios asume que todo detalle pertenece a una Venta).
 export const createSaleDetailSchema = z.object({
-  fecha:       fechaISO("La fecha"),
+  fecha:           fechaISO("La fecha"),
+  // Sugerida en el frontend (fecha + duración del servicio), editable para
+  // plazos mayores — por eso opcional/nullable, no todo detalle la trae.
+  fecha_estimada:  fechaISO("La fecha estimada").nullable().optional(),
   precio:      numeroPositivo("El precio"),
   observacion: z.string().optional(),
   id_venta:    idPositivo("La venta", true),

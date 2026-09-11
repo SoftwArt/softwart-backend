@@ -21,12 +21,20 @@ export const getAllUser = async (req: Request, res: Response): Promise<void> => 
     const limit = Math.min(100, Number(req.query.limit) || 10);
     const skip  = (page - 1) * limit;
 
-    const [items, total] = await usuarioRepo.findAndCount({
-      relations: ["role"],
-      skip,
-      take: limit,
-      order: { id_usuario: "DESC" },
-    });
+    const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
+    const idRolFiltro = req.query.rol ? Number(req.query.rol) : undefined;
+    const estadoFiltro = req.query.estado === "activo" ? true : req.query.estado === "inactivo" ? false : undefined;
+
+    const qb = usuarioRepo.createQueryBuilder("usuario").leftJoinAndSelect("usuario.role", "role");
+    if (q) qb.andWhere("(usuario.correo ILIKE :q OR role.nombre ILIKE :q)", { q: `%${q}%` });
+    if (idRolFiltro !== undefined) qb.andWhere("usuario.id_rol = :idRol", { idRol: idRolFiltro });
+    if (estadoFiltro !== undefined) qb.andWhere("usuario.estado = :estado", { estado: estadoFiltro });
+
+    const [items, total] = await qb
+      .orderBy("usuario.id_usuario", "DESC")
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
     res.json({
       success: true,

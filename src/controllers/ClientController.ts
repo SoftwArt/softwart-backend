@@ -30,9 +30,17 @@ export const getAllClient = async (req: Request, res: Response): Promise<void> =
     // para buscar más allá del top-100 por recencia) — OR-across-fields vía array
     // de where, sin cambiar el comportamiento cuando no viene q.
     const q = typeof req.query.q === "string" ? req.query.q.trim().slice(0, 100) : "";
-    const where = q
+    // ?estado=activo|inactivo — filtro del CRUD (chips), AND con el ?q= de
+    // arriba (si ambos vienen, aplica a cada rama del OR de texto).
+    const estadoFiltro = req.query.estado === "activo" ? true : req.query.estado === "inactivo" ? false : undefined;
+    const baseWhere = q
       ? [{ nombre: ILike(`%${q}%`) }, { documento: ILike(`%${q}%`) }, { correo: ILike(`%${q}%`) }]
       : {};
+    const where = estadoFiltro === undefined
+      ? baseWhere
+      : Array.isArray(baseWhere)
+        ? baseWhere.map(w => ({ ...w, estado: estadoFiltro }))
+        : { estado: estadoFiltro };
 
     const [items, total] = await clienteRepo.findAndCount({ where, skip, take: limit, order: { id_cliente: "DESC" } });
 
