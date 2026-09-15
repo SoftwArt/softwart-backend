@@ -57,6 +57,10 @@ export const editProfile = async (req: Request, res: Response): Promise<void> =>
       const claveValida = await bcrypt.compare(clave_actual, usuario.clave);
       if (!claveValida) { res.status(401).json({ success: false, message: "La contraseña actual es incorrecta" }); return; }
       usuario.clave = await bcrypt.hash(clave, 10);
+      // Revoca el refresh token vigente (mismo efecto que logout) — cierra la
+      // sesión en cualquier otro dispositivo en cuanto intente refrescar.
+      usuario.refresh_token_hash   = null;
+      usuario.refresh_token_expira = null;
       await usuarioRepo.save(usuario);
       res.json({ success: true, message: "Contraseña actualizada correctamente" });
       return;

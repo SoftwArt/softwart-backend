@@ -126,14 +126,24 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
           relations: ["role"],
         });
         if (!itemTx) throw new AccountEmailError(404, "Usuario no encontrado");
-        if (req.body.clave !== undefined) itemTx.clave = await bcrypt.hash(req.body.clave, 10);
+        if (req.body.clave !== undefined) {
+          itemTx.clave = await bcrypt.hash(req.body.clave, 10);
+          // Un admin rotando la clave de otro usuario debe cerrarle la sesión
+          // en todos sus dispositivos, igual que un cambio de clave propio.
+          itemTx.refresh_token_hash   = null;
+          itemTx.refresh_token_expira = null;
+        }
         if (nuevoRol) itemTx.role = nuevoRol;
         await syncAccountEmail(manager, { id_usuario: item.id_usuario, correo: req.body.correo });
         itemTx.correo = req.body.correo;
         await manager.getRepository(User).save(itemTx);
       });
     } else {
-      if (req.body.clave !== undefined) item.clave = await bcrypt.hash(req.body.clave, 10);
+      if (req.body.clave !== undefined) {
+        item.clave = await bcrypt.hash(req.body.clave, 10);
+        item.refresh_token_hash   = null;
+        item.refresh_token_expira = null;
+      }
       if (nuevoRol) item.role = nuevoRol;
       await usuarioRepo.save(item);
     }

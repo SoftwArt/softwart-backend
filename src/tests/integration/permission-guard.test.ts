@@ -52,9 +52,15 @@ beforeAll(async () => {
 }, 30000);
 
 describe("requirePermission — control de acceso real por permiso (no por nombre de rol)", () => {
-  it("403 en un módulo sin permiso asignado (CLIENTES.VER)", async () => {
+  it("403 en un módulo sin permiso asignado (CLIENTES.VER), con mensaje en lenguaje natural", async () => {
     const res = await request(app).get("/api/clients").set("Authorization", `Bearer ${testerToken}`);
     expect(res.status).toBe(403);
+    // Antes: { error: "Forbidden: permiso requerido" } — el frontend no podía
+    // leerlo (apiClient.ts busca body.message) y mostraba el fallback "Error 403".
+    expect(res.body.success).toBe(false);
+    expect(typeof res.body.message).toBe("string");
+    expect(res.body.message).not.toMatch(/^Forbidden/i);
+    expect(res.body.message.length).toBeGreaterThan(10);
   });
 
   it("403 en el panel (PANEL.ACCESO) mientras no se lo asignen", async () => {

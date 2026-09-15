@@ -49,10 +49,13 @@ const PERMISOS_BASE = [
 
   // ── Pagos (entidad Payment) — el código sigue siendo PAGOS.* mientras el
   // panel muestra esta página como "Ventas" (mismo swap que arriba).
+  // PAGOS.ELIMINAR no existe a propósito: un Pago nunca se borra duro (solo se
+  // anula) — deletePayment y su ruta DELETE fueron retirados por trazabilidad
+  // fiscal (ver CLAUDE.md). Tenerlo en el catálogo de Permisos sin ningún
+  // controller/ruta/botón real detrás confundía al armar la matriz rol×permiso.
   { nombre: "PAGOS.VER",                descripcion: "Listar y ver ventas" },
   { nombre: "PAGOS.CREAR",              descripcion: "Crear ventas" },
   { nombre: "PAGOS.EDITAR",             descripcion: "Editar ventas" },
-  { nombre: "PAGOS.ELIMINAR",           descripcion: "Eliminar ventas" },
   { nombre: "PAGOS.CAMBIAR_ESTADO",     descripcion: "Cambiar estado de ventas" },
   { nombre: "PAGOS.CAMBIAR_METODO",     descripcion: "Cambiar método de venta" },
 

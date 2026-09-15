@@ -474,6 +474,11 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
     usuario.clave              = await bcrypt.hash(nueva_clave, 10);
     usuario.token_recuperacion = null;
     usuario.token_expira       = null;
+    // Revoca el refresh token vigente (mismo efecto que logout) — sin esto,
+    // cualquier dispositivo con sesión abierta antes del cambio de clave podía
+    // seguir renovando su access token indefinidamente vía /api/auth/refresh.
+    usuario.refresh_token_hash   = null;
+    usuario.refresh_token_expira = null;
     await usuarioRepo.save(usuario);
 
     res.json({
