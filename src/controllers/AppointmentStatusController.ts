@@ -7,7 +7,7 @@ import { AppointmentStatus } from "../models/AppointmentStatus";
 import { Appointment } from "../models/Appointment";
 import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
 import { enviarNoEliminarAsociados } from "../helpers/deleteGuard.helper";
-import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/statusTransition.helper";
+import { transicionUnicaPermitida, guardEstadoTerminal, assertNoAsistioSoloSiYaOcurrio } from "../helpers/statusTransition.helper";
 import { notifyAppointmentStatusChange } from "../helpers/appointmentNotification.helper";
 
 const SALE_RELATIONS = ["sale", "sale.saleDetails", "sale.saleDetails.serviceStatus", "sale.payments", "sale.payments.paymentStatus"];
@@ -95,6 +95,11 @@ export const changeAppointmentStatus = async (req: Request, res: Response): Prom
     if (bloqueoTerminal) { res.status(409).json({ success: false, message: bloqueoTerminal }); return; }
     const nuevoEstado = await estadoCitaRepo.findOneBy({ id_estado_cita: Number(req.body.id_estado_cita) });
     if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
+
+    const bloqueoNoAsistio = assertNoAsistioSoloSiYaOcurrio({
+      estadoNuevoNombre: nuevoEstado.nombre, fecha: target.fecha, hora: target.hora,
+    });
+    if (bloqueoNoAsistio) { res.status(409).json({ success: false, message: bloqueoNoAsistio }); return; }
 
     // Una cita Completada ya ocurrió (y pudo generar una Venta) — el único
     // cambio de estado válido a partir de acá es anularla, no "retroceder"

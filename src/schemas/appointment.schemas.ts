@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { fechaISO, horaHHMM, idPositivo, numeroPositivo } from "./common.schemas";
 
+// Domingo NO se bloquea acá — este schema es del panel Admin, donde el staff
+// (ej. Silvana) a veces sí atiende domingo y agenda una cita telefónica para
+// un cliente. El bloqueo de domingo es exclusivo del portal cliente
+// (account.schemas.ts → createMyAppointmentSchema, vía fechaCitaISO).
 export const createAppointmentSchema = z.object({
   fecha:          fechaISO("La fecha"),
   hora:           horaHHMM("La hora"),

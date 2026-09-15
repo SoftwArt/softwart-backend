@@ -40,6 +40,24 @@ export const fechaISO = (etiqueta: string) =>
     .regex(/^\d{4}-\d{2}-\d{2}$/, `${etiqueta} debe tener formato AAAA-MM-DD`)
     .refine(dentroDelLimiteFuturo, `${etiqueta} no puede ser más de ${MESES_FUTURO_MAX} meses en el futuro`);
 
+// El horario declarado (footer/landing: Lun-Vie y Sábado) no incluye domingo,
+// pero el staff sí puede atender ese día ocasionalmente (ej. Silvana agenda
+// por teléfono) — por eso este bloqueo es EXCLUSIVO del portal cliente
+// (account.schemas.ts → createMyAppointmentSchema), nunca del panel Admin
+// (appointment.schemas.ts usa fechaISO sin este refine). El frontend refleja
+// lo mismo: excludeSundays solo en NewAppointmentModal (cliente), no en
+// AppointmentFormDialog (admin). Tampoco aplica a fecha_estimada de un
+// servicio (esa es una fecha de entrega, no de atención al público).
+function noEsDomingo(fecha: string): boolean {
+  const partes = fecha.split("-").map(Number);
+  if (partes.length !== 3 || partes.some(Number.isNaN)) return true; // el regex ya lo rechaza
+  const [y, m, d] = partes;
+  return new Date(y, m - 1, d).getDay() !== 0;
+}
+
+export const fechaCitaISO = (etiqueta: string) =>
+  fechaISO(etiqueta).refine(noEsDomingo, `${etiqueta} no puede ser domingo — el taller está cerrado`);
+
 // Horario de atención de la marquetería: 13:00–17:59 (citas de 1h, la última
 // termina a las 18:00) — único uso de este helper en todo el proyecto es
 // hora de Cita, así que el rango de negocio va aquí y no en cada controller

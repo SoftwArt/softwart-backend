@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { telefonoSchema, nombreSchema, claveSchema, correoSchema } from "./auth.schemas";
-import { fechaISO, horaHHMM, idPositivo } from "./common.schemas";
+import { fechaCitaISO, horaHHMM, idPositivo } from "./common.schemas";
 
 // La política de contraseña es una sola en todo el sistema (registro, reset
 // y cambio desde la cuenta): min 8, mayúscula, minúscula, número, especial —
@@ -25,7 +25,7 @@ export const cancelMyAppointmentSchema = z.object({
 });
 
 export const createMyAppointmentSchema = z.object({
-  fecha:          fechaISO("La fecha"),
+  fecha:          fechaCitaISO("La fecha"),
   hora:           horaHHMM("La hora"),
   observacion:    z.string().optional(),
   id_estado_cita: idPositivo("El estado de la cita").optional(),

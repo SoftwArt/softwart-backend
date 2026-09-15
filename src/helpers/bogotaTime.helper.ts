@@ -37,3 +37,13 @@ export function bogotaNowMs(): number {
   // La hora de pared de Bogotá + 5h = el instante UTC equivalente.
   return Date.UTC(y, mo - 1, d, h + 5, mi, s);
 }
+
+// Epoch ms de una fecha+hora de cita (ambas naive-Bogotá) — misma conversión
+// que bogotaNowMs, para comparar en la misma base. Espejo de
+// frontend/src/shared/lib/bogotaTime.ts (bogotaCitaMs) — mantener ambas en
+// sync si cambia el criterio de zona horaria.
+export function bogotaCitaMs(fecha: string, hora: string): number {
+  const [y, mo, d] = fecha.split("-").map(Number);
+  const [h, mi, s] = hora.split(":").map(Number);
+  return Date.UTC(y, mo - 1, d, h + 5, mi ?? 0, s ?? 0);
+}

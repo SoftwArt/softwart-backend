@@ -18,8 +18,14 @@ let adminToken: string;
 
 // Fechas relativas a "hoy" (nunca hardcodeadas) — el guard rechaza fechas
 // pasadas, y un valor fijo del pasado se volvería inválido con el tiempo.
-const futureDate = (daysFromNow: number) =>
-  new Date(Date.now() + daysFromNow * 86400000).toISOString().slice(0, 10);
+// Domingo también se rechaza (el taller no atiende ese día) — se corre 1 día
+// más si el offset cae justo en domingo, para no volver el test frágil según
+// la fecha en que se ejecute.
+const futureDate = (daysFromNow: number) => {
+  const d = new Date(Date.now() + daysFromNow * 86400000);
+  if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
 
 let clientCounter = 0;
 const registerAndLogin = async (): Promise<string> => {

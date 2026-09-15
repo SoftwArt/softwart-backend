@@ -8,7 +8,7 @@ import { Sale } from "../models/Sale";
 import { AppointmentStatus } from "../models/AppointmentStatus";
 import { Client } from "../models/Client";
 import { saleHasValidatedPayments, voidSaleCascade } from "../helpers/saleCascade.helper";
-import { transicionUnicaPermitida, guardEstadoTerminal } from "../helpers/statusTransition.helper";
+import { transicionUnicaPermitida, guardEstadoTerminal, assertNoAsistioSoloSiYaOcurrio } from "../helpers/statusTransition.helper";
 import { existeCitaEnHorario, MSG_HORARIO_OCUPADO } from "../helpers/appointmentSlot.helper";
 import { logServiceStatusChange } from "../helpers/serviceStatusHistory.helper";
 import { notifyAppointmentStatusChange } from "../helpers/appointmentNotification.helper";
@@ -191,6 +191,12 @@ export const updateAppointment = async (req: Request, res: Response): Promise<vo
     if (req.body.id_estado_cita !== undefined) {
       nuevoEstado = await AppDataSource.getRepository(AppointmentStatus).findOneBy({ id_estado_cita: Number(req.body.id_estado_cita) });
       if (!nuevoEstado) { res.status(404).json({ success: false, message: "EstadoCita no encontrado" }); return; }
+      const bloqueoNoAsistio = assertNoAsistioSoloSiYaOcurrio({
+        estadoNuevoNombre: nuevoEstado.nombre,
+        fecha: req.body.fecha ?? item.fecha,
+        hora:  req.body.hora  ?? item.hora,
+      });
+      if (bloqueoNoAsistio) { res.status(409).json({ success: false, message: bloqueoNoAsistio }); return; }
       if (nuevoEstado.id_estado_cita !== item.appointmentStatus?.id_estado_cita) {
         const bloqueo = transicionUnicaPermitida({
           estadoActualNombre: item.appointmentStatus?.nombre ?? "",

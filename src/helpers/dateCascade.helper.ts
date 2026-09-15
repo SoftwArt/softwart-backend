@@ -8,7 +8,7 @@
 // Las columnas `fecha` son `@Column({ type: "date" })`: TypeORM/pg las
 // entrega en runtime como string "YYYY-MM-DD" a pesar de que el tipo TS dice
 // `Date" — toFechaStr normaliza cualquiera de los dos casos.
-function toFechaStr(fecha: Date | string): string {
+export function toFechaStr(fecha: Date | string): string {
   return typeof fecha === "string" ? fecha.slice(0, 10) : fecha.toISOString().slice(0, 10);
 }
 
