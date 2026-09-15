@@ -12,7 +12,6 @@ import { PaymentMethod } from "../../models/PaymentMethod";
 let adminToken: string;
 let client: Client;
 let paymentMethod: PaymentMethod;
-let pendienteStatus: PaymentStatus;
 let validadoStatus: PaymentStatus;
 let saleIncompleteId: number;
 let saleCompleteId: number;
@@ -39,7 +38,6 @@ beforeAll(async () => {
   paymentMethod = (await paymentMethodRepo.findOne({ where: {} }))!;
 
   const paymentStatusRepo = AppDataSource.getRepository(PaymentStatus);
-  pendienteStatus = (await paymentStatusRepo.findOneBy({ nombre: "Pendiente" }))!;
   validadoStatus = (await paymentStatusRepo.findOneBy({ nombre: "Validado" }))!;
 
   const saleRepo = AppDataSource.getRepository(Sale);

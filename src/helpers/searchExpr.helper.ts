@@ -68,23 +68,38 @@ const PALABRAS_FECHA = [
   "domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado",
 ];
 
-// true si la query podría describir una fecha (tiene un dígito, o contiene
-// — o está contenida en, para cubrir mientras se sigue tipeando, ej. "septi"
+// true si la query podría describir una fecha (2+ dígitos, o contiene — o
+// está contenida en, para cubrir mientras se sigue tipeando, ej. "septi"
 // antes de terminar "septiembre" — alguna palabra de mes/día). Úsalo para
 // agregar fechaSearchExpr() al OR solo cuando puede aportar algo, igual que
 // ya se hace con montoSearchDigits() para la rama de monto.
+//
+// Un solo dígito queda afuera a propósito: el haystack de fechaSearchExpr()
+// concatena año/mes/día en varios formatos, y CUALQUIER fila termina
+// conteniendo casi cualquier dígito suelto en algún punto de esa cadena
+// (ej. el año 2026 ya aporta los dígitos 2, 0 y 6) — un ?q= de un solo
+// dígito activaba esta rama y hacía match con prácticamente toda la tabla,
+// inflando meta.total con filas que no tenían nada que ver con lo buscado
+// (detectado por list-search.test.ts: buscar el id de una venta de un solo
+// dígito devolvía también otra venta distinta, solo por compartir año).
+// A partir de 2 dígitos el riesgo de colisión así de amplia baja mucho y
+// sigue cubriendo cualquier fecha real que alguien escriba (DD, DD/MM, año).
 export function pareceFecha(q: string): boolean {
-  if (/\d/.test(q)) return true;
+  const digits = q.replace(/\D/g, "");
+  if (digits.length >= 2) return true;
   const norm = stripAccentsEs(q).toLowerCase();
   return PALABRAS_FECHA.some((p) => norm.includes(p) || p.includes(norm));
 }
 
-// Dígitos puros de la query (misma lógica que matchesMonto del frontend) —
-// null si la query no tiene ningún dígito, para no agregar una rama que
-// nunca podría aportar sin arriesgar falsos positivos.
+// Dígitos puros de la query (misma lógica que matchesMonto del frontend),
+// exigiendo 2+ para activar la rama — mismo criterio y misma razón que
+// pareceFecha(): un solo dígito hace ILIKE '%d%' contra ROUND(total)::text,
+// que con cualquier monto de varias cifras casi siempre contiene ese dígito
+// en algún lado. null si no hay suficientes dígitos, para no agregar una
+// rama que aportaría puro falso positivo.
 export function montoSearchDigits(q: string): string | null {
   const digits = q.replace(/\D/g, "");
-  return digits || null;
+  return digits.length >= 2 ? digits : null;
 }
 
 // Compara una columna numeric/decimal (monto, precio, total) contra los
