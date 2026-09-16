@@ -22,7 +22,10 @@ if (!JWT_SECRET) throw new Error("JWT_SECRET no definida — el servidor no pued
 // verifyToken) + refresh token opaco de vida más larga que se rota en cada
 // uso — mientras el usuario esté activo, /api/auth/refresh lo va extendiendo
 // otras REFRESH_TTL_MS sin que la sesión visible expire nunca.
-const ACCESS_TOKEN_TTL = "15m";
+// 10 min (antes 15) — acorta la ventana en la que un access token ya emitido
+// sigue vivo tras revocarse el refresh token (ej. al cambiar la contraseña),
+// sin el costo de agregar token_version + consulta a BD en cada request.
+const ACCESS_TOKEN_TTL = "10m";
 const REFRESH_TTL_MS   = 8 * 60 * 60 * 1000; // 8h de inactividad
 
 // Firma el access token + genera y persiste un refresh token nuevo (rota el
